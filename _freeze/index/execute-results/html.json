@@ -1,0 +1,15 @@
+{
+  "hash": "4fad3269e707d6966c0b9188821f3277",
+  "result": {
+    "engine": "knitr",
+    "markdown": "# Introduction\n\nThis book supports the NWCASC-funded project evaluating the value of migratory life histories to cold-water fish population dynamics. Our work is framed around the concept of \"growthscapes\", whereby migratory fish that couple complementary thermal habitat (i.e., growth potential) can attain larger body sizes compared to resident fish (Armstrong et al. 2021). This project seeks to understand the population-level outcomes of these individual migratory behaviors. This project is a collaboration between Oregon State University, Trout Unlimited, Montana State University, and University of Georgia.\n\nAuthor: Jeff Baldock, <baldockj@oregonstate.edu>\n\nCollaborators: Jonny Armstrong, Tim Cline, Helen Neville, Dan Dauwalter, Emma Lundberg, and Seth Wenger.\n\n***  \n\n<button class=\"accordion-button\" type=\"button\" data-bs-toggle=\"collapse\" data-bs-target=\"#collapseOne\" >Session Information</button><div id=\"collapseOne\" class=\"accordion-collapse collapse\"><div>\n\n\n::: {.cell}\n\n```{.r .cell-code}\nsessionInfo()\n```\n\n::: {.cell-output .cell-output-stdout}\n\n```\nR version 4.5.2 (2025-10-31)\nPlatform: aarch64-apple-darwin20\nRunning under: macOS Tahoe 26.2\n\nMatrix products: default\nBLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib \nLAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1\n\nlocale:\n[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8\n\ntime zone: America/Denver\ntzcode source: internal\n\nattached base packages:\n[1] stats     graphics  grDevices utils     datasets  methods   base     \n\nloaded via a namespace (and not attached):\n [1] compiler_4.5.2    fastmap_1.2.0     cli_3.6.5         tools_4.5.2      \n [5] htmltools_0.5.9   rstudioapi_0.17.1 rmarkdown_2.30    knitr_1.51       \n [9] jsonlite_2.0.0    xfun_0.55         digest_0.6.39     rlang_1.1.7      \n[13] evaluate_1.0.5   \n```\n\n\n:::\n:::\n\n\n</div></div>  \n\n",
+    "supporting": [],
+    "filters": [
+      "rmarkdown/pagebreak.lua"
+    ],
+    "includes": {},
+    "engineDependencies": {},
+    "preserve": {},
+    "postProcess": true
+  }
+}

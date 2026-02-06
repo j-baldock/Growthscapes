@@ -18,6 +18,7 @@ book:
   date: today
   chapters:
     - index.qmd
+    - SimpleIBM.qmd
 
 format:
   html:

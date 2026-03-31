@@ -1,0 +1,738 @@
+---
+title: "IBM Simulation"
+---
+
+```{r, include = FALSE}
+library(tidyverse)
+library(ggpubr)
+library(egg)
+```
+
+**Purpose:** construct an individual based model to simulate how fish move to track temperature-based growth opportunities across a habitat network, the resulting effects on growth, and the implications for long-term population dynamics.
+
+
+***Configuration options***
+
+* **Stochasticity in movement** is accounted for by one of three alternative mechanisms:
+  + *No stochastic movement/entirely deterministic:* all movers do the same thing...they all can perfectly sense and compare growth opportunities
+  + *Probabilistic (softmax) rule:* the softmax function assigns probabilities to each patch based on the growth difference, with higher probabilities for patches offering greater growth benefits.
+  + *Individual-level movement threshold:* each fish has a unique threshold for movement, representing individual variation in boldness/dispersal propensity
+* **Density-dependent food availaility:** after fish have selected patches, calculate food availability based on patch density and baseline ration levels. Two alternative approaches:
+  + *Modified Fullerton approach:* ration size decreases linearly with fish density, up to some (*a priori* defined) threshold above which there is no effect of there is no effect of density of ration size.
+  + *Hyperbolic reduction:* describes a non-linear decrease in ration size with increasing fish density, where the rate of decrease slows as density increases.
+
+
+***Senstive parameters:***
+
+* General
+  + Habitat variables (temperature regimes and food availability in each patch) 
+  + Number of fish per strategy/total number of starting fish
+* Density-dependence
+  + Fullerton upper density threshold
+  + Hyperbolic half saturation density
+* Movement stochasticity
+  + Probabilistic/softmax tau (sensitivity to growth difference)
+  + Individual-level movement threshold, SD in individual boldness
+  
+  
+***Notes:***
+
+* No penalty for movement. Could implement a simple movement cost penalty (subtract constant), or scaled by fish size. Fullerton scales by travel distance, but this is not relevant for spatially implicit movement. 
+* Currently, we just look-up growth from the precalculated growth array, but this is going to be less accurate for the IBM b/c precalculated growth rates are calculated over 1g mass increments, whereas growth in the IBM is continuous. Probably fine for now, but perhaps should borrow code from above/Fullerton IBM to increase accuracy.
+
+
+**To do:**
+
+* eventually, should probably collate all parameters into a single control script/page...that way we can see where all the sensitive/arbitrary parameters are 
+
+
+Source dependencies
+```{r include=FALSE}
+source("Habitat.R")
+source("Functions.R")
+```
+
+Load pre-calculated growth
+```{r}
+load("data/wt.growth.array.RData")
+```
+
+
+## Parameters and initialization
+
+Three movement strategies are simulated: fish that remain year-round in the warm patch (`resident_warm`), fish that remain year-round in the cold patch (`resident_cold`), and fish that choose the better-growing patch each day (`optimal_mover`). Ration sizes match the unequal-ration scenario above.
+
+**Notes:**
+
+* All fish start at same size, no variation
+* If relevant, variation in boldness parameter probably needs tuning
+* If using individual-level movement thresholds (i.e., boldness), residents can be given *move_threshold = Inf* to formally unify all three strategies under one mechanism, rather than branching by strategy label — keeps the code cleaner if we expand to more strategies later.
+
+
+Misc. objects
+```{r}
+waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
+rations <- seq(0.02, 0.17, 0.001)
+weights <- seq(1, 1500, 1)
+```
+
+
+Configure and initialize fish
+```{r}
+# Configuration options:
+move_stochastic <- "prob" # individual movement stochasticity: options = "none", "prob", "indiv"
+food_densdepen <- "hyperbolic" # density dependence: options = "fullerton", "hyperbolic
+
+# misc. parameters
+n_fish_per_strat <- 50     # fish per strategy
+start_wt         <- 10     # initial weight (g)
+MaxDensity4Growth <- 50    # growth is not depressed further above this density (currently this is arbitary)
+move_cost        <- 0.005  # g/g/d subtracted from the alternative patch's growth rate before
+                           # comparing — fish switch only when penalised gain > staying gain
+sigma_bold       <- 0.002  # SD of boldness distribution, for dispersal propensity (g/g/d units)
+tau              <- 0.001  # sensitivity to growth difference (for probabilistic/softmax variation in movement)
+K_warm <- K_cold <- 500    # For hyperbolic reduction, strength of density dependence/half-saturation density: fish density at which ration is halved
+
+# Fullerton has movement cost coded slightly differently, where movement cost is a function of the instantaneous growth rate, distance moved, and a constant...rather than simply a fixed cost as is the case here. But because we only have two patches that are spatially implicit, we can ignore this more complex parameterization...at least for now.
+
+# ration_warm = 0.10, ration_cold = 0.07 (defined in "Unequal ration" section above)
+
+# Lookup sequences — identical to the axes of the wt.growth array
+wt_seq_ibm <- waterTemps[, "WT"]  # seq(0.1, 25, 0.1), 250 values       
+ra_seq_ibm <- rations             # seq(0.02, 0.17, 0.001), 151 values
+
+# Pre-compute ration indices (constant throughout simulation)
+# ra_idx_warm <- which.min(abs(ra_seq_ibm - ration_warm))
+# ra_idx_cold <- which.min(abs(ra_seq_ibm - ration_cold))
+
+# set.seed(7843)
+# initialize fish
+fish_pop <- bind_rows(
+  tibble(strategy = "resident_warm", patch = "warm",
+         weight = pmax(1, rnorm(n_fish_per_strat, start_wt, 0))),
+  tibble(strategy = "resident_cold", patch = "cold",
+         weight = pmax(1, rnorm(n_fish_per_strat, start_wt, 0))),
+  tibble(strategy = "optimal_mover", patch = "warm",
+         weight = pmax(1, rnorm(n_fish_per_strat, start_wt, 0)))) %>%
+  mutate(pid = row_number(),
+         ration = if_else(patch == "warm", ration_warm, ration_cold),
+         # Individual movement threshold — drawn once, fixed for life
+         # Positive = reluctant to move (needs a clear advantage)
+         # Negative = bold/prone to move (moves even when slightly disadvantaged)
+         move_threshold = c(rep(Inf, n_fish_per_strat*2), # residents never move
+                            rnorm(n_fish_per_strat, mean = 0, sd = sigma_bold)),
+         prob_surv = 1, survive = 1) %>%
+  group_by(patch) %>% mutate(density = n()) %>% ungroup()
+fish_pop
+```
+
+
+## Parameter tuning
+
+### Stochastic movement
+
+#### Individual movement threshold
+
+Plot the distribution of move_threshold values against the distribution of daily g_move - g_stay values to check that sigma_bold creates meaningful variation rather than all fish behaving identically or randomly.
+```{r fig.width=7, fig.height=6}
+# ── 1. Daily g_move − g_stay across the season ─────────────────────────────────
+# Computed at representative masses (start, mid, end-of-season)
+rep_weights <- c(10, 50, 150)
+
+gdiff_df <- map_dfr(rep_weights, function(w) {
+  ma_idx <- pmax(1L, pmin(4500L, round(w)))
+  map_dfr(seq_len(nrow(habitat_df)), function(d) {
+    t           <- habitat_df$doy[d]
+    T_warm      <- get_patchtemp(t, "warm")
+    T_cold      <- get_patchtemp(t, "cold")
+    R_warm      <- get_patchration(t, "warm")
+    R_cold      <- get_patchration(t, "cold")
+    wt_idx_warm <- which.min(abs(wt_seq_ibm - T_warm))
+    wt_idx_cold <- which.min(abs(wt_seq_ibm - T_cold))
+    ra_idx_warm <- which.min(abs(ra_seq_ibm - R_warm))
+    ra_idx_cold <- which.min(abs(ra_seq_ibm - R_cold))
+    g_warm <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx]
+    g_cold <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx]
+    tibble(date = habitat_df$date[d], g_diff = g_warm - g_cold, weight = w)
+  })
+}) |>
+  mutate(weight_lab = paste0(weight, " g fish"))
+
+# ── 2. move_threshold distribution for several sigma_bold candidates ────────────
+sigma_candidates <- c(0.001, 0.003, 0.005, 0.01)
+thresh_df <- map_dfr(sigma_candidates, function(s) {
+  tibble(
+    move_threshold = rnorm(5000, mean = 0, sd = s),
+    sigma_lab = paste0("σ = ", s)
+  )
+}) |>
+  mutate(sigma_lab = factor(sigma_lab, levels = paste0("σ = ", sigma_candidates)))
+
+# ── 3. Plot ────────────────────────────────────────────────────────────────────
+# Panel A: g_diff over time
+p_time <- ggplot(gdiff_df, aes(x = date, y = g_diff, color = factor(weight))) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "Date", y = "g_warm − g_cold (g/g/d)",
+       color = "Fish weight (g)", title = "A: Daily growth advantage of warm over cold patch")
+
+# Panel B: distribution of g_diff vs move_threshold candidates
+p_dist <- ggplot() +
+  # Shaded density of g_diff (pooled across weights — the "signal")
+  geom_density(data = gdiff_df, aes(x = g_diff, fill = "Patch growth\nadvantage"),
+               alpha = 0.3, color = NA) +
+  # move_threshold distributions for each sigma
+  geom_density(data = thresh_df, aes(x = move_threshold, color = sigma_lab),
+               linewidth = 0.85) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_fill_manual(values = "steelblue") +
+  scale_color_brewer(palette = "Reds", direction = 1) +
+  labs(x = "g/g/d", y = "Density",
+       fill = NULL, color = "Threshold SD (σ)",
+       title = "B: Threshold distribution vs. actual growth advantage")
+
+cowplot::plot_grid(p_time, p_dist, ncol = 1, rel_heights = c(1, 1.1))
+```
+Panel A shows the growth signal movers are responding to: g_warm - g_cold is small and near zero most of the year (~0 to +0.005), with a large negative dip in summer (−0.025) when cold becomes strongly advantageous. Fish weight has minimal effect on the signal.
+
+Panel B shows how the threshold distributions compare to that signal — here's what it means for behavior:
+
+* σ = 0.001: Threshold much narrower than the signal. Most fish behave nearly deterministically — modest individual variation, mainly near the switching crossover in spring/fall
+* σ = 0.003: Threshold width similar to the low-signal periods (winter/shoulder seasons). Good spread of individual responses when the patch advantage is marginal; still mostly consistent in summer
+* σ = 0.005: Threshold wider than the signal for most of the year — choices become largely random outside the summer peak
+* σ = 0.01: Nearly random throughout; boldness is essentially noise
+
+*σ = 0.001–0.003 is the defensible range — it creates genuine individual variation in behavior during the biologically interesting transitional periods (when movers are near indifferent between patches), while still letting the signal dominate during the strong summer cold-patch advantage. A reasonable starting point is sigma_bold = 0.002*
+
+
+#### Probabilistic (softmax)
+
+Plot the probability of choosing the warm patch given different values of tau, across a range of between-patch differences in growth potential.
+```{r}
+# Softmax: P(warm) = exp(g_warm/tau) / (exp(g_warm/tau) + exp(g_cold/tau))
+# Equivalently: sigmoid of (g_warm - g_cold) / tau
+tau_vals <- c(0.001, 0.003, 0.005, 0.01, 0.025)
+
+g_diff_seq <- seq(-0.03, 0.03, length.out = 400)
+
+softmax_df <- map_dfr(tau_vals, function(tau) {
+  tibble(
+    g_diff = g_diff_seq,
+    p_warm = 1 / (1 + exp(-g_diff / tau)),
+    tau_lab = paste0("τ = ", tau)
+  )
+}) |>
+  mutate(tau_lab = factor(tau_lab, levels = paste0("τ = ", tau_vals)))
+
+# Observed g_diff range from the earlier gdiff_df (pooled across weights)
+obs_range <- range(gdiff_df$g_diff)
+
+ggplot(softmax_df, aes(x = g_diff, y = p_warm, color = tau_lab)) +
+  # Shade the observed g_diff range from the simulation
+  annotate("rect",
+           xmin = obs_range[1], xmax = obs_range[2],
+           ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  annotate("text", x = mean(obs_range), y = 0.9,
+           label = "Observed\ng_diff range", size = 3, color = "grey40",
+           hjust = 0.5) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 0,   linetype = "dashed", color = "grey50") +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "RdYlBu", direction = -1) +
+  scale_y_continuous(labels = scales::percent_format(),
+                     breaks = seq(0, 1, 0.25)) +
+  scale_x_continuous(labels = scales::label_number(accuracy = 0.01)) +
+  annotate("text", x =  0.028, y = 0.58, label = "warm\nbetter", size = 3,
+           color = "grey40", hjust = 1) +
+  annotate("text", x = -0.028, y = 0.58, label = "cold\nbetter", size = 3,
+           color = "grey40", hjust = 0) +
+  labs(
+    x     = "g_warm − g_cold  (g/g/d)",
+    y     = "P(choose warm patch)",
+    color = "Sensitivity (τ)",
+    title = "Softmax patch selection probability",
+    subtitle = "Grey band = observed growth difference range in simulation"
+  ) +
+  theme_bw()
+```
+
+* tau = 0.001: Near step-function — almost deterministic. Fish choose the better patch >99% of the time when |g_diff| > ~0.005
+* tau = 0.003: Mostly deterministic at the summer peak (g_diff ≈ −0.025), but probabilistic near the zero-crossing — similar in effect to the perceptual noise approach
+* tau = 0.005: Substantial uncertainty even at moderate growth differences
+* tau = 0.010-0.025: Gradual, shallow curves — even a strong cold-patch advantage (~0.025) only shifts P(warm) to ~25–30%; choices are largely stochastic throughout
+
+*For this simulation (given the range of observed growth differences), τ = 0.001–0.003 is the meaningful range — it preserves the deterministic signal in summer while allowing individual probabilistic variation near the switching crossover. τ much above 0.005 makes the patch signal mostly invisible to the decision rule, i.e., patch selection becomes increasingly random.*
+
+
+## Simulation loop
+
+For each day of year, optimal movers compare the bioenergetics growth rate at both patches — the vectorised equivalent of calling `fncGrowthPossible()` for each fish — and switch only when the movement-cost-penalised gain in the alternative patch exceeds staying (but this may differ among individuals depending on how movement stochasticity is configured). Warm and cold patch residents stay in their pre-defined patch. `fncGrowthFish()` then looks up the actual growth rate for every fish at their current patch, weight, and ration, and weights are updated accordingly.
+
+```{r}
+n_days  <- nrow(habitat_df) # number of days in the simulation
+n_fish  <- nrow(fish_pop)   # number of fish in the simulation
+fish_pop_init <- fish_pop   # snapshot of full population before any mortality
+
+# Pre-allocate storage (rows = fish pid, columns = days)
+# Rows are indexed by fish pid (1:n_fish), which is stable even as fish die.
+# Dead fish slots remain NA for all days after death.
+ggd_matrix     <- matrix(NA_real_,      nrow = n_fish, ncol = n_days)  # standardized growth rates experienced
+gd_matrix      <- matrix(NA_real_,      nrow = n_fish, ncol = n_days)  # absolute growth rates
+temp_matrix    <- matrix(NA_real_,      nrow = n_fish, ncol = n_days)  # water temps experienced 
+patch_matrix   <- matrix(NA_character_, nrow = n_fish, ncol = n_days)  # patch occupied 
+mass_matrix    <- matrix(NA_real_,      nrow = n_fish, ncol = n_days)  # weight/mass trajectories
+surv_matrix    <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # survived (1) or died (0) each day
+switches       <- integer(n_fish)                                       # count patch switches per fish (indexed by pid)
+
+
+for (d in 1:n_days) {
+  t <- habitat_df$doy[d] # day of year
+      
+  # 1. GET/FIND PATCH TEMPERATURE AND RATION -----------------------------------------------------
+  
+  # Temperature indices for this day — shared by all fish
+  T_warm      <- get_patchtemp(t, "warm")             # get warm patch temp on day t
+  T_cold      <- get_patchtemp(t, "cold")             # get cold patch temp on day t
+  wt_idx_warm <- which.min(abs(wt_seq_ibm - T_warm))  # water temp index for warm patch on day t
+  wt_idx_cold <- which.min(abs(wt_seq_ibm - T_cold))  # water temp index for cold patch on day t
+  
+  # Ration indices for this day - shared by all fish
+  R_warm      <- get_patchration(t, "warm")
+  R_cold      <- get_patchration(t, "cold")
+  ra_idx_warm <- which.min(abs(ra_seq_ibm - R_warm))  # ration index for warm patch on day t
+  ra_idx_cold <- which.min(abs(ra_seq_ibm - R_cold))  # ration index for cold patch on day t
+  
+  
+  # 2. CHOOSE PATCH: OPTIMAL MOVERS ---------------------------------------------------------------
+
+  # Mirrors fncGrowthPossible() logic, vectorized across all movers at once.
+  # Patch choice senses baseline temperature and ration, but not density
+  mover_rows <- which(fish_pop$strategy == "optimal_mover")  # get row indices for optimal movers
+  
+  if (length(mover_rows) > 0) {
+    # Mass indices for each mover (clamped to array bounds)
+    ma_idx_vec <- pmax(1L, pmin(4500L, round(fish_pop$weight[mover_rows]))) # get row index for current mass
+    
+    # Growth rate (g/g/d) at each patch for every mover (vectorized array lookup)
+    g_warm_vec <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx_vec]  # growth in warm patch given current conditions
+    g_cold_vec <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx_vec]  # growth in cold patch given current conditions
+    
+    # Calculate growth associated with staying in current patch vs. moving to alternate patch
+    # If relevant, penalize the alternative patch by energetic cost of movement
+    in_warm    <- fish_pop$patch[mover_rows] == "warm"  # is the fish in warm patch? T/F
+    g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec) # growth if staying in current patch
+    g_move_net <- ifelse(in_warm, g_cold_vec, g_warm_vec) # growth if moving (unpenalized) 
+    #g_move_net <- ifelse(in_warm, g_cold_vec - move_cost, g_warm_vec - move_cost) # growth if moving (penalized)
+    prev_patch <- fish_pop$patch[mover_rows]
+    
+    # stochasticity in movement
+    if (move_stochastic == "none") {
+      ### 2a. Deterministic: All movers do the same thing
+      # Update patch based on whether moving is beneficial. 
+      # 1. If fish in is warm patch and growth potential of moving exceeds growth potential of staying, move to cold. 
+      # 2. If fish in is cold patch and growth potential of moving exceeds growth potential of staying, move to warm. 
+      fish_pop$patch[mover_rows] <- case_when(
+        in_warm  & g_move_net > g_stay ~ "cold",
+        !in_warm & g_move_net > g_stay ~ "warm", 
+        TRUE                           ~ fish_pop$patch[mover_rows]
+        )
+    } else if (move_stochastic == "prob") {
+      ### 2b. Probabilistic (softmax) rule: Instead of a hard threshold, fish switch with a probability that increases with the growth advantage. One parameter: τ (sensitivity; small = nearly deterministic, large = nearly random).
+      p_warm <- exp(g_warm_vec / tau) / (exp(g_warm_vec / tau) + exp(g_cold_vec / tau)) # calculate probability of selecting warm habitat
+      choose_warm <- runif(length(mover_rows)) < p_warm # choose warm if p_warm exceeds a random number between 0 and 1
+      fish_pop$patch[mover_rows] <- if_else(choose_warm, "warm", "cold") # update patch
+    } else if (move_stochastic == "indiv") {
+      ### 2c. Individual-level movement threshold: each fish has a unique threshold for movement, representing individual variation in boldness/dispersal propensity
+      fish_pop$patch[mover_rows] <- case_when(
+      in_warm  & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "cold",
+      !in_warm & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "warm",
+      TRUE                                                                   ~ prev_patch) #fish_pop$patch[mover_rows])
+    }
+    
+    # Tally switches (indexed by pid so counts remain correct as fish die)
+    switched <- fish_pop$patch[mover_rows] != prev_patch
+    switches[fish_pop$pid[mover_rows]] <- switches[fish_pop$pid[mover_rows]] + as.integer(switched)
+
+  } # end patch choice
+  
+  # Update ration to reflect current patch
+  fish_pop$ration <- if_else(fish_pop$patch == "warm", R_warm, R_cold)
+  
+  # 3. UPDATE HABITAT QUALITY (DENSITY-DEPENDENT RATION) -----------------------------------------
+
+  # Update density after fish have moved
+  fish_pop <- fish_pop %>% group_by(patch) %>% mutate(density = n()) %>% ungroup()
+  
+  if (food_densdepen == "fullerton") {
+    ### 3a. Fullerton approach
+    # get density effect on ration
+    fdens <- fdens_raw <- fish_pop$density # get fish "density" per patch (here, simply abundance b/c space is not specified)
+    fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth # high densities cap out at MaxDensity4Growth
+    density.effect <- fncRescale((1 - c(fdens, 0.01, MaxDensity4Growth)), c((0.5),1)) # calculate density effect scalar
+    density.effect <- density.effect[-c(length(density.effect), (length(density.effect) - 1))] # remove the last 2 temporary values
+    # update ration in patches to account for density dependence in food availability
+    fish_pop <- fish_pop %>% mutate(ration = ration * density.effect)
+  } else if (food_densdepen == "hyperbolic") {
+    ### 3b. Hyperbolic reduction approach
+    fish_pop <- fncDensityRation(fish_pop = fish_pop, R_warm = R_warm, R_cold = R_cold, k_warm = K_warm, k_cold = K_cold)
+  }
+  
+  
+  # 4. GROW FISH (WISCONSIN BIOENERGETICS) -------------------------------------------------------
+  
+  # Growth lookup for all fish via fncGrowthFish. Growth in g/g/d
+  growth_df <- fncGrowthFish(NA, as.data.frame(fish_pop), t)
+  
+  
+  # 5. SURVIVAL BASED ON FISH WEIGHT AND GROWTH --------------------------------------------------
+  
+  surv.list <- fncSurvive(growth_df)
+  growth_df <- growth_df %>% 
+    mutate(prob_surv = surv.list[[1]], 
+           survive   = surv.list[[2]])
+  
+  
+  # 6. STORE RESULTS AND REMOVE NON-SURVIVORS ----------------------------------------------------
+  
+  # Store experienced rates before weight update.
+  # All indexing uses fish pid (rows 1:n_fish) so slots remain stable as fish die.
+  temp_matrix[fish_pop$pid, d]  <- growth_df$WT.actual
+  ggd_matrix[fish_pop$pid, d]   <- growth_df$growth
+  gd_matrix[fish_pop$pid, d]    <- growth_df$growth * fish_pop$weight
+  
+  # Update weight: W_{t+1} = W_t + (growth_rate * W_t)
+  fish_pop$weight <- fish_pop$weight + (growth_df$growth * fish_pop$weight)
+  
+  # Store updated weight, patch, and survival outcome for this day
+  mass_matrix[fish_pop$pid, d]  <- fish_pop$weight
+  patch_matrix[fish_pop$pid, d] <- fish_pop$patch
+  surv_matrix[fish_pop$pid, d]  <- growth_df$survive
+  
+  # Remove non-survivors — only living fish carry forward to next iteration
+  fish_pop <- fish_pop[growth_df$survive == 1, ]
+}
+```
+
+
+## Visualize output
+
+Summarize results
+```{r}
+# assign DOY column names
+colnames(mass_matrix)    <- as.character(habitat_df$doy)
+colnames(patch_matrix)   <- as.character(habitat_df$doy)
+colnames(temp_matrix)    <- as.character(habitat_df$doy)
+colnames(ggd_matrix)     <- as.character(habitat_df$doy)
+
+# Convert weight matrix to long format, join with patch matrix
+# Use fish_pop_init to label rows — fish_pop at this point only contains survivors
+mass_long <- as_tibble(mass_matrix) %>%
+  bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
+  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "weight") %>%
+  mutate(doy = as.integer(doy)) %>%
+  left_join(
+    as_tibble(patch_matrix) %>%
+      bind_cols(fish_pop_init %>% select(pid)) %>%
+      pivot_longer(-pid, names_to = "doy", values_to = "patch") %>%
+      mutate(doy = as.integer(doy)),
+    by = c("pid", "doy")
+  ) %>%
+  left_join(habitat_df %>% select(doy, date), by = "doy")
+
+# Convert temp matrix to long format
+temp_long <- as_tibble(temp_matrix) %>%
+  bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
+  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "temp") %>%
+  mutate(doy = as.integer(doy))
+
+# convert standardized growth rate matrix to long format
+ggd_long <- as_tibble(ggd_matrix) %>%
+  bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
+  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "ggd") %>%
+  mutate(doy = as.integer(doy))
+
+# convert survival matrix to long format (1 = survived, 0 = died, NA = already dead)
+surv_long <- as_tibble(surv_matrix) %>%
+  bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
+  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "survived") %>%
+  mutate(doy = as.integer(doy))
+
+# summarize by strategy
+ibm_summary <- mass_long %>%
+  left_join(temp_long, by = c("pid", "strategy", "doy")) %>%
+  left_join(ggd_long,  by = c("pid", "strategy", "doy")) %>%
+  left_join(surv_long, by = c("pid", "strategy", "doy")) %>%
+  group_by(strategy, doy, date) %>%
+  summarise(
+    mean_weight = mean(weight, na.rm = TRUE),
+    sd_weight   = sd(weight,   na.rm = TRUE),
+    mean_temp   = mean(temp,   na.rm = TRUE),
+    sd_temp     = sd(temp,     na.rm = TRUE),
+    mean_ggd    = mean(ggd,    na.rm = TRUE),
+    sd_ggd      = sd(ggd,      na.rm = TRUE),
+    prop_warm   = mean(patch == "warm", na.rm = TRUE),
+    n_alive     = sum(!is.na(weight)),   # fish with non-NA weight were alive this day
+    .groups     = "drop"
+  )
+
+ibm_summary
+```
+
+
+### Size trajectories
+
+Weight trajectories by strategy (ribbon = ±1 SD across individuals). 
+
+*Uncertainty derives from variation in starting size (if allowed) and stochasticity in individual movement behavior (if configured).*
+```{r}
+ibm_summary %>%
+  ggplot(aes(x = date, color = strategy, fill = strategy)) +
+  geom_ribbon(aes(ymin = mean_weight - sd_weight, ymax = mean_weight + sd_weight),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(y = mean_weight)) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_fill_manual(values  = c(resident_warm = "red", 
+                                resident_cold = "blue",
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + #ylim(0,10000) +
+  xlab("Date") + ylab("Mean weight ± SD (g)")
+```
+
+
+### Survival
+
+Plot daily counts of survivors and overall survival by strategy (plots are the same, survival is standardized by number of initial fish per strategy)
+```{r}
+p1 <- ibm_summary %>% 
+  ggplot(aes(x = date, y = n_alive, color = strategy)) +
+  geom_line() +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(
+    x     = "Date",
+    y     = "Number alive",
+    color = "Strategy",
+    title = "Population size by strategy"
+  ) +
+  theme_bw()
+
+p2 <- ibm_summary %>% 
+  ggplot(aes(x = date, y = n_alive / n_fish_per_strat, color = strategy)) +
+  geom_line() +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(
+    x     = "Date",
+    y     = "Proportion alive",
+    color = "Strategy",
+    title = "Cumulative survival by strategy"
+  ) +
+  theme_bw()
+
+ggpubr::ggarrange(p1, p2, common.legend = TRUE)
+```
+
+Summarize survival outcomes by strategy:
+```{r}
+ibm_summary %>% 
+  filter(doy == n_days) %>%
+  mutate(survive_rate = n_alive / n_fish_per_strat) %>%
+  select(strategy, n_alive, survive_rate)
+```
+
+* *resident_warm* has the lowest overall survival, consistent with it being the poorest-growing strategy.
+  + mid-year acceleration in *resident_warm* mortality coincides with slower/negative growth in mid-summer, which is exactly what the function should be responding to.
+  + similarly, late-year acceleration in mortality coincides with negative growth at this time
+* *resident_cold* has moderate overall survival (88%). Survival declines the early part of the year when growth is negative and fish are small. No mortality occurs during the summer, consistent with theory on the role of perennially cold habitat providing summer refugia. 
+* *optimal_mover* has the highest overall survival (~96%), reflecting its growth advantage keeping individual survival probabilities near 1.0 most of the year.
+
+
+Check whether mortality is concentrated among the smallest or slowest-growing individuals within each strategy — e.g., plot final weight of survivors vs. non-survivors — to confirm size-selective mortality is operating as expected.
+```{r}
+n_days <- ncol(mass_matrix)
+
+# Per-fish fate summary
+fish_fate <- fish_pop_init %>%
+  mutate(
+    # Survived to end of year if final day weight is non-NA
+    survived     = if_else(!is.na(mass_matrix[pid, n_days]), "Survived", "Died"),
+    # Last recorded weight (weight at death for non-survivors, final weight for survivors)
+    wt_last      = apply(mass_matrix, 1, function(x) tail(x[!is.na(x)], 1)),
+    # Mean daily growth rate across all days alive
+    mean_ggd     = rowMeans(ggd_matrix, na.rm = TRUE),
+    # Days alive
+    days_alive   = rowSums(!is.na(mass_matrix))
+  )
+
+fish_fate %>% count(strategy, survived)
+```
+
+```{r fig.height=7, fig.width=5}
+strategy_order <- c("resident_warm", "resident_cold", "optimal_mover")
+
+fd <- fish_fate %>% mutate(strategy = factor(strategy, levels = strategy_order))
+
+p_wt <- ggplot(fd, aes(x = survived, y = wt_last)) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, fill = "grey") +
+  geom_jitter(width = 0.15, size = 1.5, alpha = 0.6) +
+  facet_wrap(~ strategy, nrow = 1) +
+  #scale_fill_manual(values = c(Died = "tomato", Survived = "steelblue")) +
+  labs(x = NULL, y = "Weight (g)",
+       title = "A: Weight at last observation") +
+  theme_bw() + theme(legend.position = "none")
+
+p_ggd <- ggplot(fd, aes(x = survived, y = mean_ggd)) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, fill = "grey") +
+  geom_jitter(width = 0.15, size = 1.5, alpha = 0.6) +
+  facet_wrap(~ strategy, nrow = 1) +
+  #scale_fill_manual(values = c(Died = "tomato", Survived = "steelblue")) +
+  labs(x = NULL, y = "Mean growth rate (g/g/d)",
+       title = "B: Mean daily growth rate across days alive") +
+  theme_bw() + theme(legend.position = "none")
+
+p_days <- ggplot(fd |> filter(survived == "Died"),
+                 aes(x = strategy, y = days_alive, color = strategy)) +
+  geom_jitter(width = 0.15, size = 2.5, alpha = 0.8) +
+  scale_x_discrete(limits = strategy_order) +
+  labs(x = NULL, y = "Day of death (day of year)",
+       title = "C: When did non-survivors die?") +
+  theme_bw() + theme(legend.position = "none") +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen"))
+
+egg::ggarrange(p_wt, p_ggd, p_days, ncol = 1)
+```
+Yes, overall, the mortality function in behaving correctly: it's selecting against small, slow-growing fish in a biologically interpretable way.
+
+* Panel A — fish that died were consistently lighter at last observation across all strategies. The separation is sharpest for *optimal_mover* (tiny died fish vs. large survivors) and *resident_cold*, and more compressed for *resident_warm* where all fish are similarly small.
+* Panel B — The growth rate signal is the clearest confirmation. Non-survivors in *resident_cold* and *optimal_mover* had negative mean growth rates — they were actively losing mass before dying, which is exactly what you'd expect the survival function to respond to. *resident_warm* non-survivors overlap more with survivors, which makes sense: when the whole strategy is slow-growing, survival probabilities don't vary as much among individuals, so mortality there is more stochastic.
+* Panel C — Timing of deaths also makes biological sense:
+  + *resident_cold* deaths cluster early (~day 55–70)...the smallest/slowest fish that can't sustain themselves even in the cold patch
+  + *resident_warm* deaths spread through summer/fall as the warm patch becomes suboptimal
+  + *optimal_mover* deaths also cluster early...a few unlucky fish
+
+
+### Patch occupancy
+
+Patch occupancy for optimal movers — proportion in warm patch through the year.
+
+* If move_stochastic = "prob", movers only really start to pile into the warm habitat during the shoulder seasons when benefits of warm habitat far exceed the cold habitat. 
+* If move_stochastic = "Indiv", ...
+```{r}
+ibm_summary %>%
+  filter(strategy == "optimal_mover") %>%
+  ggplot(aes(x = date, y = prop_warm)) +
+  geom_line() +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+  theme_bw() +
+  xlab("Date") + ylab("Proportion of optimal movers in warm patch")
+```
+
+
+### Experienced temperature
+
+Temperature experienced by optimal movers
+```{r}
+ibm_summary %>%
+  filter(strategy == "optimal_mover") %>%
+  ggplot(aes(x = date, color = strategy, fill = strategy)) +
+  geom_ribbon(aes(ymin = mean_temp - sd_temp, ymax = mean_temp + sd_temp),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(y = mean_temp)) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_fill_manual(values  = c(resident_warm = "red", 
+                                resident_cold = "blue",
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + #ylim(0,10000) +
+  xlab("Date") + ylab("Experienced temperature (deg. C)")
+```
+
+
+### Experienced growth
+
+Experienced standardized growth rates over time, by strategy.
+```{r}
+ibm_summary %>%
+  # filter(strategy == "optimal_mover") %>%
+  ggplot(aes(x = date, color = strategy, fill = strategy)) +
+  geom_ribbon(aes(ymin = mean_ggd - sd_ggd, ymax = mean_ggd + sd_ggd),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(y = mean_ggd)) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_fill_manual(values  = c(resident_warm = "red", 
+                                resident_cold = "blue",
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + #ylim(0,10000) +
+  xlab("Date") + ylab("Experienced growth rate (g/g/d)")
+```
+
+
+### Boldness
+
+Compile end of simulation results
+```{r eval=FALSE}
+fish_results <- fish_pop %>%
+  mutate(
+    final_weight   = mass_matrix[, n_days],
+    n_switches     = switches
+    # boldness       = move_threshold   # positive = shy, negative = bold
+  )
+
+fish_results %>%
+  group_by(strategy) %>%
+  summarise(mean_wt = round(mean(final_weight), 1),
+            mean_switches = round(mean(n_switches), 1))
+```
+
+Plot only if move_stochastic = "indiv"
+```{r fig.width=5, fig.height=7}
+if (move_stochastic == "indiv") {
+  
+movers <- fish_results %>% filter(strategy == "optimal_mover")
+
+# Panel A: boldness vs final weight
+p_wt <- ggplot(movers, aes(x = boldness, y = final_weight)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "steelblue", linewidth = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  annotate("text", x =  0.006, y = min(movers$final_weight) + 5,
+           label = "shy →",  hjust = 0, size = 3.5, color = "grey40") +
+  annotate("text", x = -0.006, y = min(movers$final_weight) + 5,
+           label = "← bold", hjust = 1, size = 3.5, color = "grey40") +
+  labs(x = "Boldness (move_threshold)", y = "Final weight (g)",
+       title = "A: Boldness vs. end-of-season weight")
+
+# Panel B: boldness vs number of patch switches
+p_sw <- ggplot(movers, aes(x = boldness, y = n_switches)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "tomato", linewidth = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  labs(x = "Boldness (move_threshold)", y = "No. patch switches",
+       title = "B: Boldness vs. switching frequency")
+
+# Panel C: switching frequency vs final weight  
+p_sw_wt <- ggplot(movers, aes(x = n_switches, y = final_weight)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "mediumpurple", linewidth = 0.8) +
+  labs(x = "No. patch switches", y = "Final weight (g)",
+       title = "C: Switching frequency vs. end-of-season weight")
+
+cowplot::plot_grid(p_wt, p_sw, p_sw_wt, ncol = 1)
+
+}
+
+```
+

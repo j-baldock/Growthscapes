@@ -18,7 +18,11 @@ book:
   date: today
   chapters:
     - index.qmd
-    - SimpleIBM.qmd
+    - Habitat.qmd
+    - Functions.qmd
+    - PreCalGrowth.qmd
+    - GrowthRegime.qmd
+    - IBM_simulation.qmd
 
 format:
   html:

@@ -561,6 +561,160 @@ fncMoveCost <- function(gr = fish$growth) {
 }
 
 
+fncMoveCost_power <- function(w, c = 0.025, a = 1) {
+  c / w^a
+}
+
+
+fncMoveCost_logistic <- function(w, c_max = 0.05, k = 3, w50 = 2) {
+  c_max / (1 + exp(k * (w - w50)))
+}
+
+
+fncMoveCost_allometric <- function(w, c = 0.025, b = 0.75) {
+  c * w^(b - 1)   # = c * w^(-0.25): slower decay than Option 1
+}
+
+
+w_seq <- seq(0.1, 150, by = 0.1)
+
+cost_df <- tibble(weight = w_seq) |>
+  mutate(
+    `Option 1: Power (c=0.025, a=1)`          = fncMoveCost_power(weight),
+    `Option 2: Logistic (cmax=0.05, w50=2)`   = fncMoveCost_logistic(weight),
+    `Option 3: Allometric (c=0.025, b=0.75)`   = fncMoveCost_allometric(weight)
+  ) |>
+  pivot_longer(-weight, names_to = "option", values_to = "cost")
+
+# Reference lines: max observed |g_diff| and typical patch advantage range
+# g_ref <- gdiff_df |> summarise(
+#   max_adv = max(abs(g_diff)),
+#   p75_adv = quantile(abs(g_diff[g_diff != 0]), 0.75)
+# )
+
+p1 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
+  # Shade <1g region (essentially immobile zone)
+  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
+           size = 2.8, color = "grey40", hjust = 0.5) +
+  # Reference lines for typical patch growth differences
+  # geom_hline(yintercept = g_ref$max_adv,  linetype = "dashed", color = "grey40") +
+  # geom_hline(yintercept = g_ref$p75_adv,  linetype = "dotted", color = "grey40") +
+  # annotate("text", x = 148, y = g_ref$max_adv + 0.002,
+  #          label = "Max |g_diff|", size = 3, hjust = 1, color = "grey40") +
+  # annotate("text", x = 148, y = g_ref$p75_adv + 0.002,
+  #          label = "75th pctile |g_diff|", size = 3, hjust = 1, color = "grey40") +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.1)) +
+  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
+  labs(
+    x     = "Fish weight (g)",
+    y     = "Movement cost (g/g/d)",
+    color = NULL,
+    title = "Size-dependent movement cost functions",
+    subtitle = "Cost must exceed patch growth difference to prevent movement"
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1))
+
+
+p2 <- p1 + xlim(0, 5)
+
+fig <- ggpubr::ggarrange(
+  p1 + labs(title = NULL, subtitle = NULL),
+  p2 + labs(title = NULL, subtitle = NULL),
+  nrow = 1, common.legend = TRUE, legend = "bottom"
+)
+
+ggpubr::annotate_figure(
+  ggpubr::annotate_figure(fig,
+    top = ggpubr::text_grob(
+      "Cost must exceed patch growth difference to prevent movement",
+      size = 10, color = "grey40"
+    )
+  ),
+  top = ggpubr::text_grob(
+    "Size-dependent movement cost functions",
+    face = "bold", size = 13
+  )
+)
+
+
+w_seq <- seq(0.1, 150, by = 0.1)
+
+# variable a
+cost_df <- tibble(weight = w_seq) |>
+  mutate(
+    `Option 1: Power (c=0.025, a=1)`   = fncMoveCost_power(weight, c=0.025, a=1),
+    `Option 2: Power (c=0.025, a=1.5)`   = fncMoveCost_power(weight, c=0.025, a=1.5),
+    `Option 3: Power (c=0.025, a=2)`   = fncMoveCost_power(weight, c=0.025, a=2)
+  ) |>
+  pivot_longer(-weight, names_to = "option", values_to = "cost")
+
+p1 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
+  # Shade <1g region (essentially immobile zone)
+  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
+           size = 2.8, color = "grey40", hjust = 0.5) +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.1)) +
+  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
+  labs(
+    x     = "Fish weight (g)",
+    y     = "Movement cost (g/g/d)",
+    color = NULL,
+    title = "Variable a: decay exponent",
+    subtitle = "Changes how quickly movement costs decay with size"
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1))
+p1 <- p1 + xlim(0, 5)
+
+# variable c
+cost_df <- tibble(weight = w_seq) |>
+  mutate(
+    `Option 1: Power (c=0.025, a=1)`   = fncMoveCost_power(weight, c=0.025, a=1),
+    `Option 2: Power (c=0.05, a=1)`   = fncMoveCost_power(weight, c=0.05, a=1),
+    `Option 3: Power (c=0.1, a=1)`   = fncMoveCost_power(weight, c=0.1, a=1)
+  ) |>
+  pivot_longer(-weight, names_to = "option", values_to = "cost")
+
+p2 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
+  # Shade <1g region (essentially immobile zone)
+  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
+           size = 2.8, color = "grey40", hjust = 0.5) +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.1)) +
+  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
+  labs(
+    x     = "Fish weight (g)",
+    y     = "Movement cost (g/g/d)",
+    color = NULL,
+    title = "Variable c: scaling constant",
+    subtitle = "Changes the size of the immobile zone"
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1))
+p2 <- p2 + xlim(0, 5)
+
+
+ggpubr::ggarrange(
+  p1, p2,
+  nrow = 1
+)
+
+
+
 MaxDensity4Growth <- 50 # growth is not depressed further above this density (currently this is arbitary)
 fdens_raw <- fdens <- seq(from = 1, to = 100, by = 1) # create sequence of fish density
 fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth # high densities cap out at MaxDensity4Growth
@@ -604,7 +758,7 @@ expand.grid(
   facet_wrap(~ patch, labeller = label_both) +
   labs(
     x     = "Fish density (N per patch)",
-    y     = "Realized ration (proportion of Cmax)",
+    y     = "Realized ration (g)",
     color = "Half-saturation\ndensity (k)",
     title = "Density-dependent ration reduction",
     caption = "Dashed line = baseline ration (no density effect)"

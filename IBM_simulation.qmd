@@ -30,6 +30,8 @@ library(egg)
 * Density-dependence
   + Fullerton upper density threshold
   + Hyperbolic half saturation density
+* Movement cost
+  + Power function a (decay exponent) and c (scaling constant)
 * Movement stochasticity
   + Probabilistic/softmax tau (sensitivity to growth difference)
   + Individual-level movement threshold, SD in individual boldness
@@ -44,6 +46,8 @@ library(egg)
 **To do:**
 
 * eventually, should probably collate all parameters into a single control script/page...that way we can see where all the sensitive/arbitrary parameters are 
+* stochasticity in movement: it probably makes sense to combine stochastic movement processes...e.g, probabilistic and individual thresholds, and perhaps even random noise as well
+
 
 
 Source dependencies
@@ -66,7 +70,7 @@ Three movement strategies are simulated: fish that remain year-round in the warm
 
 * All fish start at same size, no variation
 * If relevant, variation in boldness parameter probably needs tuning
-* If using individual-level movement thresholds (i.e., boldness), residents can be given *move_threshold = Inf* to formally unify all three strategies under one mechanism, rather than branching by strategy label — keeps the code cleaner if we expand to more strategies later.
+* If using individual-level movement thresholds (i.e., boldness), residents can be given `move_threshold = Inf` to formally unify all three strategies under one mechanism, rather than branching by strategy label — keeps the code cleaner if we expand to more strategies later.
 
 
 Misc. objects
@@ -87,8 +91,8 @@ food_densdepen <- "hyperbolic" # density dependence: options = "fullerton", "hyp
 n_fish_per_strat <- 50     # fish per strategy
 start_wt         <- 10     # initial weight (g)
 MaxDensity4Growth <- 50    # growth is not depressed further above this density (currently this is arbitary)
-move_cost        <- 0.005  # g/g/d subtracted from the alternative patch's growth rate before
-                           # comparing — fish switch only when penalised gain > staying gain
+movecost_c        <- 0.025 # movement cost power function: `c` = scaling constant; `
+movecost_a       <- 1      # movement cost power function `a` = decay exponent (higher = steeper drop-off)
 sigma_bold       <- 0.002  # SD of boldness distribution, for dispersal propensity (g/g/d units)
 tau              <- 0.001  # sensitivity to growth difference (for probabilistic/softmax variation in movement)
 K_warm <- K_cold <- 500    # For hyperbolic reduction, strength of density dependence/half-saturation density: fish density at which ration is halved
@@ -133,7 +137,7 @@ fish_pop
 
 #### Individual movement threshold
 
-Plot the distribution of move_threshold values against the distribution of daily g_move - g_stay values to check that sigma_bold creates meaningful variation rather than all fish behaving identically or randomly.
+Plot the distribution of `move_threshold` values against the distribution of daily `g_move - g_stay` values to check that `sigma_bold` creates meaningful variation rather than all fish behaving identically or randomly.
 ```{r fig.width=7, fig.height=6}
 # ── 1. Daily g_move − g_stay across the season ─────────────────────────────────
 # Computed at representative masses (start, mid, end-of-season)
@@ -194,7 +198,7 @@ p_dist <- ggplot() +
 
 cowplot::plot_grid(p_time, p_dist, ncol = 1, rel_heights = c(1, 1.1))
 ```
-Panel A shows the growth signal movers are responding to: g_warm - g_cold is small and near zero most of the year (~0 to +0.005), with a large negative dip in summer (−0.025) when cold becomes strongly advantageous. Fish weight has minimal effect on the signal.
+Panel A shows the growth signal movers are responding to: `g_warm - g_cold` is small and near zero most of the year (~0 to +0.005), with a large negative dip in summer (−0.025) when cold becomes strongly advantageous. Fish weight has minimal effect on the signal.
 
 Panel B shows how the threshold distributions compare to that signal — here's what it means for behavior:
 
@@ -208,7 +212,7 @@ Panel B shows how the threshold distributions compare to that signal — here's 
 
 #### Probabilistic (softmax)
 
-Plot the probability of choosing the warm patch given different values of tau, across a range of between-patch differences in growth potential.
+Plot the probability of choosing the warm patch given different values of `tau`, across a range of between-patch differences in growth potential.
 ```{r}
 # Softmax: P(warm) = exp(g_warm/tau) / (exp(g_warm/tau) + exp(g_cold/tau))
 # Equivalently: sigmoid of (g_warm - g_cold) / tau
@@ -320,11 +324,13 @@ for (d in 1:n_days) {
     g_cold_vec <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx_vec]  # growth in cold patch given current conditions
     
     # Calculate growth associated with staying in current patch vs. moving to alternate patch
-    # If relevant, penalize the alternative patch by energetic cost of movement
     in_warm    <- fish_pop$patch[mover_rows] == "warm"  # is the fish in warm patch? T/F
     g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec) # growth if staying in current patch
     g_move_net <- ifelse(in_warm, g_cold_vec, g_warm_vec) # growth if moving (unpenalized) 
-    #g_move_net <- ifelse(in_warm, g_cold_vec - move_cost, g_warm_vec - move_cost) # growth if moving (penalized)
+    # If relevant, penalize the alternative patch by size-dependent energetic cost of movement
+    move_cost_vec <- fncMoveCost_power(fish_pop$weight[mover_rows], a = movecost_a, c = movecost_c)
+    g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)
+    
     prev_patch <- fish_pop$patch[mover_rows]
     
     # stochasticity in movement
@@ -548,11 +554,11 @@ ibm_summary %>%
   select(strategy, n_alive, survive_rate)
 ```
 
-* *resident_warm* has the lowest overall survival, consistent with it being the poorest-growing strategy.
-  + mid-year acceleration in *resident_warm* mortality coincides with slower/negative growth in mid-summer, which is exactly what the function should be responding to.
+* `resident_warm` has the lowest overall survival, consistent with it being the poorest-growing strategy.
+  + mid-year acceleration in `resident_warm` mortality coincides with slower/negative growth in mid-summer, which is exactly what the function should be responding to.
   + similarly, late-year acceleration in mortality coincides with negative growth at this time
-* *resident_cold* has moderate overall survival (88%). Survival declines the early part of the year when growth is negative and fish are small. No mortality occurs during the summer, consistent with theory on the role of perennially cold habitat providing summer refugia. 
-* *optimal_mover* has the highest overall survival (~96%), reflecting its growth advantage keeping individual survival probabilities near 1.0 most of the year.
+* `resident_cold` has moderate overall survival (88%). Survival declines the early part of the year when growth is negative and fish are small. No mortality occurs during the summer, consistent with theory on the role of perennially cold habitat providing summer refugia. 
+* `optimal_mover` has the highest overall survival (~96%), reflecting its growth advantage keeping individual survival probabilities near 1.0 most of the year.
 
 
 Check whether mortality is concentrated among the smallest or slowest-growing individuals within each strategy — e.g., plot final weight of survivors vs. non-survivors — to confirm size-selective mortality is operating as expected.
@@ -613,20 +619,20 @@ egg::ggarrange(p_wt, p_ggd, p_days, ncol = 1)
 ```
 Yes, overall, the mortality function in behaving correctly: it's selecting against small, slow-growing fish in a biologically interpretable way.
 
-* Panel A — fish that died were consistently lighter at last observation across all strategies. The separation is sharpest for *optimal_mover* (tiny died fish vs. large survivors) and *resident_cold*, and more compressed for *resident_warm* where all fish are similarly small.
-* Panel B — The growth rate signal is the clearest confirmation. Non-survivors in *resident_cold* and *optimal_mover* had negative mean growth rates — they were actively losing mass before dying, which is exactly what you'd expect the survival function to respond to. *resident_warm* non-survivors overlap more with survivors, which makes sense: when the whole strategy is slow-growing, survival probabilities don't vary as much among individuals, so mortality there is more stochastic.
+* Panel A — fish that died were consistently lighter at last observation across all strategies. The separation is sharpest for `optimal_mover` (tiny died fish vs. large survivors) and `resident_cold`, and more compressed for `resident_warm` where all fish are similarly small.
+* Panel B — The growth rate signal is the clearest confirmation. Non-survivors in `resident_cold` and `optimal_mover` had negative mean growth rates — they were actively losing mass before dying, which is exactly what you'd expect the survival function to respond to. `resident_warm` non-survivors overlap more with survivors, which makes sense: when the whole strategy is slow-growing, survival probabilities don't vary as much among individuals, so mortality there is more stochastic.
 * Panel C — Timing of deaths also makes biological sense:
-  + *resident_cold* deaths cluster early (~day 55–70)...the smallest/slowest fish that can't sustain themselves even in the cold patch
-  + *resident_warm* deaths spread through summer/fall as the warm patch becomes suboptimal
-  + *optimal_mover* deaths also cluster early...a few unlucky fish
+  + `resident_cold` deaths cluster early (~day 55–70)...the smallest/slowest fish that can't sustain themselves even in the cold patch
+  + `resident_warm` deaths spread through summer/fall as the warm patch becomes suboptimal
+  + `optimal_mover` deaths also cluster early...a few unlucky fish
 
 
 ### Patch occupancy
 
 Patch occupancy for optimal movers — proportion in warm patch through the year.
 
-* If move_stochastic = "prob", movers only really start to pile into the warm habitat during the shoulder seasons when benefits of warm habitat far exceed the cold habitat. 
-* If move_stochastic = "Indiv", ...
+* If `move_stochastic = "prob"`, movers only really start to pile into the warm habitat during the shoulder seasons when benefits of warm habitat far exceed the cold habitat. 
+* If `move_stochastic = "Indiv"`, ...
 ```{r}
 ibm_summary %>%
   filter(strategy == "optimal_mover") %>%
@@ -697,7 +703,7 @@ fish_results %>%
             mean_switches = round(mean(n_switches), 1))
 ```
 
-Plot only if move_stochastic = "indiv"
+Plot only if `move_stochastic = "indiv"`
 ```{r fig.width=5, fig.height=7}
 if (move_stochastic == "indiv") {
   

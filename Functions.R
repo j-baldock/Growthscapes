@@ -556,6 +556,59 @@ fncGrowthPossible <- function(fweight, t, ration_warm, ration_cold) {
 }
 
 
+fncMoveSoftmax <- function(gwarm, gcold, tau = 0.001) {
+  exp(gwarm / tau) / (exp(gwarm / tau) + exp(gcold / tau))
+}
+
+
+# Softmax: P(warm) = exp(g_warm/tau) / (exp(g_warm/tau) + exp(g_cold/tau))
+# Equivalently: sigmoid of (g_warm - g_cold) / tau
+tau_vals <- c(0.001, 0.003, 0.005, 0.01, 0.025)
+
+g_diff_seq <- seq(-0.03, 0.03, length.out = 400)
+
+softmax_df <- map_dfr(tau_vals, function(tau) {
+  tibble(
+    g_diff = g_diff_seq,
+    p_warm = 1 / (1 + exp(-g_diff / tau)),
+    tau_lab = paste0("τ = ", tau)
+  )
+}) |>
+  mutate(tau_lab = factor(tau_lab, levels = paste0("τ = ", tau_vals)))
+
+# Observed g_diff range from the earlier gdiff_df (pooled across weights)
+obs_range <- c(-0.02395578, 0.00791707)
+
+ggplot(softmax_df, aes(x = g_diff, y = p_warm, color = tau_lab)) +
+  # Shade the observed g_diff range from the simulation
+  annotate("rect",
+           xmin = obs_range[1], xmax = obs_range[2],
+           ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  annotate("text", x = mean(obs_range), y = 0.9,
+           label = "Observed\ng_diff range", size = 3, color = "grey40",
+           hjust = 0.5) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 0,   linetype = "dashed", color = "grey50") +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "RdYlBu", direction = -1) +
+  scale_y_continuous(labels = scales::percent_format(),
+                     breaks = seq(0, 1, 0.25)) +
+  scale_x_continuous(labels = scales::label_number(accuracy = 0.01)) +
+  annotate("text", x =  0.028, y = 0.58, label = "warm\nbetter", size = 3,
+           color = "grey40", hjust = 1) +
+  annotate("text", x = -0.028, y = 0.58, label = "cold\nbetter", size = 3,
+           color = "grey40", hjust = 0) +
+  labs(
+    x     = "g_warm − g_cold  (g/g/d)",
+    y     = "P(choose warm patch)",
+    color = "Sensitivity (τ)",
+    title = "Softmax patch selection probability",
+    subtitle = "Grey band = observed growth difference range in simulation"
+  ) +
+  theme_bw()
+
+
 fncMoveCost <- function(gr = fish$growth) {
   return(abs(gr) * move_cost)
 }
@@ -715,6 +768,104 @@ ggpubr::ggarrange(
 
 
 
+w_seq <- seq(0.1, 150, by = 0.1)
+
+# variable a
+cost_df <- tibble(weight = w_seq) |>
+  mutate(
+    `Option 1: Allometric (c=0.025, b=0.75)`   = fncMoveCost_allometric(weight, c=0.025, b=0.75),
+    `Option 2: Allometric (c=0.025, b=0.50)`   = fncMoveCost_allometric(weight, c=0.025, b=0.50),
+    `Option 3: Allometric (c=0.025, b=0.25)`   = fncMoveCost_allometric(weight, c=0.025, b=0.25)
+  ) |>
+  pivot_longer(-weight, names_to = "option", values_to = "cost")
+
+p1 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
+  # Shade <1g region (essentially immobile zone)
+  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
+           size = 2.8, color = "grey40", hjust = 0.5) +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.1)) +
+  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
+  labs(
+    x     = "Fish weight (g)",
+    y     = "Movement cost (g/g/d)",
+    color = NULL,
+    title = "Variable b: metabolic exponent",
+    subtitle = "Changes how quickly costs decay w/ size"
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1))
+p1 <- p1 + xlim(0, 5)
+
+# variable c
+cost_df <- tibble(weight = w_seq) |>
+  mutate(
+    `Option 1: Allometric (c=0.025, b=0.75)`   = fncMoveCost_allometric(weight, c=0.025, b=0.75),
+    `Option 2: Allometric (c=0.05, b=0.75)`   = fncMoveCost_allometric(weight, c=0.05, b=0.75),
+    `Option 3: Allometric (c=0.1, b=0.75)`   = fncMoveCost_allometric(weight, c=0.1, b=0.75)
+  ) |>
+  pivot_longer(-weight, names_to = "option", values_to = "cost")
+
+p2 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
+  # Shade <1g region (essentially immobile zone)
+  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
+           size = 2.8, color = "grey40", hjust = 0.5) +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.1)) +
+  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
+  labs(
+    x     = "Fish weight (g)",
+    y     = "Movement cost (g/g/d)",
+    color = NULL,
+    title = "Variable c: scaling constant",
+    subtitle = "Changes the ~size of the immobile zone"
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1))
+p2 <- p2 + xlim(0, 5)
+
+
+ggpubr::ggarrange(
+  p1, p2,
+  nrow = 1
+)
+
+
+
+cost_df <- tibble(weight = w_seq) |>
+  mutate(
+    `Allometric (c=0.025, b=0.6)`   = fncMoveCost_allometric(weight, c=0.025, b=0.6)
+  ) |>
+  pivot_longer(-weight, names_to = "option", values_to = "cost")
+
+ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
+  # Shade <1g region (essentially immobile zone)
+  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  # annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
+  #          size = 2.8, color = "grey40", hjust = 0.5) +
+  geom_line(linewidth = 0.9) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.065)) +
+  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
+  labs(
+    x     = "Fish weight (g)",
+    y     = "Movement cost (g/g/d)",
+    color = NULL
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1))
+
+
 MaxDensity4Growth <- 50 # growth is not depressed further above this density (currently this is arbitary)
 fdens_raw <- fdens <- seq(from = 1, to = 100, by = 1) # create sequence of fish density
 fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth # high densities cap out at MaxDensity4Growth
@@ -801,27 +952,37 @@ fish_pop %>%
   ylab("Ration")
 
 
-fncSurvive <- function(df, minprob = 0.997){
-  # df: data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
-  # minprob: smallest probability any fish can have of dying in any time step
+fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.1, rescale = 0.01){
+  # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
+  # minprob:     smallest probability any fish can have of dying in any time step
+  # b:           controls steepness of the base size-survival curve
+  # b_interact:  controls steepness of weight buffering on negative growth; smaller values = growth
+  #              effects persist to larger sizes. Default 0.1 means buffering is near-complete ~50g, i.e., no effect of growth >50g.
+  # rescale:     controls the relative effect of growth rates on survival. As minprob declines, you need a larger rescale value to generate meaningful variation in survival across the range of observed growth rates
   
   # Weights
   w <- df$weight # weight of fish that are alive at this time step
   
-  # Function: 
-  b <- 1 # beta: b=1 has no effect, but could change the shape of the curve with different values if desired
-  v <- minprob + (1 - minprob) * (1 - 1 / exp(b * w))
+  # Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)
+  w_scale <- 1 - 1 / exp(b * w)
+  v <- minprob + (1 - minprob) * w_scale
   
   # Growth during this time step that reflects recent conditions (i.e., a hungry/stressed fish may behave in ways that make it more vulnerable to predation, etc.)
   g <- df$growth 
-  g <- fncRescale(g, to = c(-0.001, 0.001))
+  g <- fncRescale(g, to = c(-rescale, rescale))
+  
+  # Weight x growth interaction: larger fish are buffered from negative growth penalties
+  # (controlled independently from base curve via b_interact).
+  # Small fish bear the full cost of negative growth; positive growth benefits are size-independent.
+  w_buf    <- 1 - 1 / exp(b_interact * w)
+  g_effect <- ifelse(g < 0, g * (1 - w_buf), g)
   
   # Amount of food eaten in previous time step (better survival if bellies full b/c hunkered down somewhere)
   # f <- df$pvals
   # f <- fncRescale(f, to = c(-0.001, 0.001))
   
   # Probability of survival
-  prb.srv <- v + g #+ f
+  prb.srv <- v + g_effect #+ f
   prb.srv[prb.srv > 1] <- 1 # set upper bound at 1
   
   # Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step
@@ -842,46 +1003,205 @@ surv.list <- fncSurvive(df)
 df <- df %>% mutate(prsurv = surv.list[[1]],
                     survivors = surv.list[[2]])
 
-df %>% #filter(pvals == 0.1) %>%
+p1 <- df %>% #filter(pvals == 0.1) %>%
   ggplot() +
   geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
-  xlim(0,10) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Survival probability") + labs(color = "Instantaneous\ngrowth (g/g/d)")
+  xlim(0,5) + theme_bw() +
+  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 0-5g", subtitle = "survival increases with fish size")
+
+p2 <- df %>% #filter(pvals == 0.1) %>%
+  ggplot() +
+  geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
+  xlim(10,50) + ylim(0.996,1) + theme_bw() +
+  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-50g", subtitle = "effect of growth diminishes for larger fish")
+
+ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 
 
-fncReproduction <- function(df, fec_a = 0.8, fec_b = 1.2, BH_a = 0.8, BH_b = 0.2) {
-  
-  eggs_per_fish <- fec_a * (df$weight[df$survivors == 1 & df$mature == 1] ^ fec_b)
-  total_eggs <- sum(eggs_per_fish)
-  total_recruits <- round((BH_a * total_eggs) / (1 + BH_b * total_eggs))
-  
-  return(list(eggs_per_fish, total_recruits))
+# Compare b_interact values
+df_comp <- expand_grid(
+  weight      = seq(0, 50, by = 0.2),
+  growth      = c(-0.03, 0.03),
+  b_interact  = c(0.01, 0.05, 0.1, 0.5, 1.0)
+) %>%
+  group_by(b_interact) %>%
+  mutate(prsurv = fncSurvive(
+    tibble(weight = weight, growth = growth),
+    minprob = 0.96, b = 1, b_interact = unique(b_interact)
+  )[[1]]) %>%
+  ungroup()
+
+p1 <- df_comp %>%
+  filter(growth %in% c(-0.03, 0.03)) %>%
+  mutate(growth_label = ifelse(growth < 0, "Negative growth (−0.03)", "Positive growth (+0.03)")) |>
+  ggplot(aes(x = weight, y = prsurv, color = as_factor(b_interact), linetype = growth_label)) +
+  geom_line(linewidth = 0.7) +
+  theme_bw() +
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  xlab("Fish weight (g)") + ylab("Survival probability") +
+  labs(color = "b_interact", linetype = "Growth", 
+       title = "Effect of b_interact")
+
+p2 <- df_comp %>%
+  filter(growth %in% c(-0.03, 0.03)) %>%
+  mutate(growth_label = ifelse(growth < 0, "Negative growth (−0.03)", "Positive growth (+0.03)")) |>
+  ggplot(aes(x = weight, y = prsurv, color = as_factor(b_interact), linetype = growth_label)) +
+  geom_line(linewidth = 0.7) +
+  theme_bw() +
+  coord_cartesian(ylim = c(0.989, 1)) +
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  xlab("Fish weight (g)") + ylab("Survival probability") +
+  labs(color = "b_interact", linetype = "Growth", 
+       title = "Zoomed in: high surival")
+
+ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
+
+
+df_comp <- expand_grid(
+  weight      = c(0.5, 1, 2, 5, 10, 20, 50),
+  growth      = c(-0.03, 0.03),
+  b_interact  = c(0.01, 0.05, 0.1, 0.5, 1.0)
+) %>%
+  group_by(b_interact) %>%
+  mutate(prsurv = fncSurvive(
+    tibble(weight = weight, growth = growth),
+    minprob = 0.96, b = 1, b_interact = unique(b_interact)
+  )[[1]]) %>%
+  ungroup() %>%
+  mutate(seasonal = prsurv^90)
+
+# Focus: survival gap between worst and best growth, by weight and b_interact
+df_gap <- df_comp %>%
+  group_by(weight, b_interact) %>%
+  summarise(
+    seasonal_worst = min(seasonal),
+    seasonal_best  = max(seasonal),
+    gap          = seasonal_best - seasonal_worst
+  ) %>%
+  ungroup()
+
+# plot seasonal survival by growth and weight
+df_comp %>%
+  mutate(
+    growth_label = case_when(
+      growth == -0.03 ~ "Negative (−0.03)",
+      growth ==  0.03 ~ "Positive (+0.03)"
+    ),
+    b_label = paste0("b_interact = ", b_interact)
+  ) %>%
+  ggplot(aes(x = weight, y = seasonal, color = as_factor(b_interact), linetype = growth_label)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  scale_x_log10(breaks = c(0.5, 1, 2, 5, 10, 20, 50)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_bw() +
+  xlab("Fish weight (g, log scale)") +
+  ylab("90-day survival") +
+  labs(color = "b_interact",
+       title = "Seasonal survival by growth, weight, and b_interact",
+       subtitle = "Larger b_interact prolongs survival costs of slow growth")
+
+# plot difference between 
+ggplot(df_gap, aes(x = weight, y = gap, color = as_factor(b_interact))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  scale_x_log10(breaks = c(0.5, 1, 2, 5, 10, 20, 50)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_bw() +
+  xlab("Fish weight (g, log scale)") +
+  ylab("90-day survival gap\n(best − worst growth)") +
+  labs(color = "b_interact",
+       title = "Seasonal survival gap between the fastest and slowest growing fish",
+       subtitle = "Growth-driven survival gaps are greatest for small (but not the smallest) fish")
+
+
+# length in mm
+# weight in grams
+fncLW <- function(values, input = c("lengths", "weights"), sigma = 0) {
+  # values: vector of lengths (mm) or weights (g)
+  # input:  type of data in 'values'; output will be the other type
+  # sigma:  residual SD on the log10(weight) scale from the LW regression.
+  #         Set sigma = 0 (default) for deterministic output.
+  #         Biologically plausible values are typically 0.05–0.10.
+  #         Noise is applied on the log10 scale (multiplicative on arithmetic scale).
+  input <- match.arg(input)
+  n <- length(values)
+  if (input == "lengths") {
+    # Length (mm) -> Weight (g): add noise on log10(W) scale
+    noise <- rnorm(n, mean = 0, sd = sigma)
+    10^(-5.023 + 3.024 * log10(values) + noise)
+  } else {
+    # Weight (g) -> Length (mm): noise propagated to log10(L) scale (sigma / b)
+    noise <- rnorm(n, mean = 0, sd = sigma / 3.024)
+    10^((log10(values) + 5.023) / 3.024 + noise)
+  }
+}
+
+# Show length -> weight for several sigma values
+expand_grid(
+  length_mm = seq(0, 500, by = 5),
+  sigma     = c(0.05, 0.10, 0.15)
+) |>
+  # Replicate each combo a few times to show scatter
+  slice(rep(1:n(), each = 5)) |>
+  rowwise() |>
+  mutate(weight_g = fncLW(length_mm, input = "lengths", sigma = sigma)) |>
+  ungroup() |>
+  ggplot(aes(x = length_mm, y = weight_g)) +
+  geom_point(alpha = 0.15, size = 0.8) +
+  geom_line(
+    data = tibble(length_mm = seq(1, 500, by = 1),
+                  weight_g  = fncLW(seq(1, 500, by = 1), "lengths", sigma = 0)),
+    color = "firebrick2", linewidth = 0.8
+  ) +
+  facet_wrap(~ paste0("sigma = ", sigma)) +
+  theme_bw() +
+  xlab("Length (mm)") + ylab("Weight (g)") +
+  labs(title = "Length-weight relationship with log-scale noise (red = deterministic mean)")
+
+
+
+bind_rows(tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0002, f_b = 2.599, study = "RBT (Schill)") %>% mutate(eggs = f_a * (length_mm^f_b)),
+          tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0026, f_b = 2.226, study = "YCT (Meyer)") %>% mutate(eggs = f_a * (length_mm^f_b)),
+          tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0035, f_b = 2.200, study = "BNT (Elliott)") %>% mutate(eggs = f_a * (length_mm^f_b)),
+          tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0010, f_b = 2.340, study = "BUL (Al-Chokhachy)") %>% mutate(eggs = f_a * (length_mm^f_b))
+          ) %>%
+  ggplot() + 
+  geom_line(aes(x = length_mm, y = eggs, color = study), linewidth = 0.9) +
+  geom_line(data = tibble(length_mm = seq(150, 500, by = 10), f_a = 0.002, f_b = 2.25, study = "Mean") %>% mutate(eggs = f_a * (length_mm^f_b)),
+            aes(x = length_mm, y = eggs), color = "black", linewidth = 0.7, linetype = "dashed") +
+  theme_bw() + xlab("Length (mm)") + ylab("Fecundity (number of eggs)")
+
+
+fncFecund <- function (lengths, sigma = 0) {
+  n <- length(lengths)
+  noise <- rnorm(n, mean = 0, sd = sigma)
+  10^(log10(0.002) + 2.25 * log10(lengths) + noise)
 }
 
 
-# total_recruits <- 0
-#     if (week_of_year == 26) {
-#       mature_alive <- which(fish$alive & fish$mature)
-#       if (length(mature_alive) > 0) {
-#         eggs_per_fish  <- p$fecundity_a * (fish$W[mature_alive] ^ p$fecundity_b)
-#         total_eggs     <- sum(eggs_per_fish)
-#         total_recruits <- round(
-#           (p$BH_alpha * total_eggs) / (1 + p$BH_beta * total_eggs)
-#         )
-#       }
-#     }
-
-
-fec_a = 0.8; fec_b = 1.2; BH_a = 0.8; BH_b = 0.2
-
-myweights <- c(100:3000)
-eggs <- fec_a * (myweights ^ fec_b)
-plot(eggs ~ myweights, type = "l", xlab = "Fish weight (g)", ylab = "Fecundity (number of eggs)")
-
-myeggs <- c(1:200)
-recruits <- round((BH_a * myeggs) / (1 + BH_b * myeggs))
-plot(recruits ~ myeggs, type = "l", xlab = "Total eggs", ylab = "Recruitment")
-
+expand_grid(
+  length_mm = seq(150, 500, by = 5),
+  sigma     = c(0.05, 0.10, 0.15)
+) |>
+  # Replicate each combo a few times to show scatter
+  slice(rep(1:n(), each = 5)) |>
+  rowwise() |>
+  mutate(eggs = fncFecund(length_mm, sigma = sigma)) |>
+  ungroup() |>
+  ggplot(aes(x = length_mm, y = eggs)) +
+  geom_point(alpha = 0.15, size = 0.8) +
+  geom_line(
+    data = tibble(length_mm = seq(150, 500, by = 1),
+                  eggs  = fncFecund(lengths = seq(150, 500, by = 1), sigma = 0)),
+    color = "firebrick2", linewidth = 0.8
+  ) +
+  facet_wrap(~ paste0("sigma = ", sigma)) +
+  theme_bw() +
+  xlab("Length (mm)") + ylab("Fecundity (number of eggs)") +
+  labs(title = "Length-fecundity relationships with log-scale noise (red = deterministic mean)")
 
 
 #quarto::qmd_to_r_script("Functions.qmd")

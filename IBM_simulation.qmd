@@ -11,6 +11,20 @@ library(egg)
 **Purpose:** construct an individual based model to simulate how fish move to track temperature-based growth opportunities across a habitat network, the resulting effects on growth, and the implications for long-term population dynamics.
 
 
+Source dependencies
+```{r}
+source("Habitat.R")
+source("Functions.R")
+```
+
+Load pre-calculated growth
+```{r}
+load("data/wt.growth.array.RData")
+```
+
+
+## Design notes
+
 ***Configuration options***
 
 * **Stochasticity in movement** is accounted for by one of three alternative mechanisms:
@@ -20,6 +34,7 @@ library(egg)
 * **Density-dependent food availaility:** after fish have selected patches, calculate food availability based on patch density and baseline ration levels. Two alternative approaches:
   + *Modified Fullerton approach:* ration size decreases linearly with fish density, up to some (*a priori* defined) threshold above which there is no effect of there is no effect of density of ration size.
   + *Hyperbolic reduction:* describes a non-linear decrease in ration size with increasing fish density, where the rate of decrease slows as density increases.
+* **Environment sensing:** 
 
 
 ***Senstive parameters:***
@@ -31,7 +46,7 @@ library(egg)
   + Fullerton upper density threshold
   + Hyperbolic half saturation density
 * Movement cost
-  + Power function a (decay exponent) and c (scaling constant)
+  + Allometric function b (metabolic exponent) and c (scaling constant)
 * Movement stochasticity
   + Probabilistic/softmax tau (sensitivity to growth difference)
   + Individual-level movement threshold, SD in individual boldness
@@ -39,38 +54,27 @@ library(egg)
   
 ***Notes:***
 
-* No penalty for movement. Could implement a simple movement cost penalty (subtract constant), or scaled by fish size. Fullerton scales by travel distance, but this is not relevant for spatially implicit movement. 
 * Currently, we just look-up growth from the precalculated growth array, but this is going to be less accurate for the IBM b/c precalculated growth rates are calculated over 1g mass increments, whereas growth in the IBM is continuous. Probably fine for now, but perhaps should borrow code from above/Fullerton IBM to increase accuracy.
+* If `sense_environment == "density_all"`, the density used for the alternative patch is the current pre-movement density (i.e., what the fish can observe before anyone decides to move that day). This is the most tractable approximation — computing post-movement density would require solving a joint decision problem. 
+* If using individual-level movement thresholds (i.e., boldness), residents can be given `move_threshold = Inf` to formally unify all three strategies under one mechanism, rather than branching by strategy label — keeps the code cleaner if we expand to more strategies later.
 
 
-**To do:**
+***To do:***
 
 * eventually, should probably collate all parameters into a single control script/page...that way we can see where all the sensitive/arbitrary parameters are 
 * stochasticity in movement: it probably makes sense to combine stochastic movement processes...e.g, probabilistic and individual thresholds, and perhaps even random noise as well
-
-
-
-Source dependencies
-```{r include=FALSE}
-source("Habitat.R")
-source("Functions.R")
-```
-
-Load pre-calculated growth
-```{r}
-load("data/wt.growth.array.RData")
-```
+* Size-at-maturity could probably be sampled probabilistically, with noise. Preliminary simulation will just set a specific size threshold. 
+* Same for timing of reproduction: rather than all mature fish reproducing on a single day, we could have them spread out over a given period, or make spawn timing size-dependent, with larger fish spawning first. Lots of empirical evidence for this. That would be very interesting because it would give the offspring of the larger/early spawners a competitive advantage over offspring of smaller/later spawners, likely magnifying the effect of size on reproductive success. 
 
 
 ## Parameters and initialization
 
 Three movement strategies are simulated: fish that remain year-round in the warm patch (`resident_warm`), fish that remain year-round in the cold patch (`resident_cold`), and fish that choose the better-growing patch each day (`optimal_mover`). Ration sizes match the unequal-ration scenario above.
 
-**Notes:**
+**Configuration notes:**
 
 * All fish start at same size, no variation
 * If relevant, variation in boldness parameter probably needs tuning
-* If using individual-level movement thresholds (i.e., boldness), residents can be given `move_threshold = Inf` to formally unify all three strategies under one mechanism, rather than branching by strategy label — keeps the code cleaner if we expand to more strategies later.
 
 
 Misc. objects
@@ -86,13 +90,17 @@ Configure and initialize fish
 # Configuration options:
 move_stochastic <- "prob" # individual movement stochasticity: options = "none", "prob", "indiv"
 food_densdepen <- "hyperbolic" # density dependence: options = "fullerton", "hyperbolic
+sense_environment <- "density_current" # how omniscient are fish to temperature and density-dependent growth across the habitat patches?
+                        #   - "abiotic_only" = Omniscient to abiotic (temp-based) GP only...this is how it currently is. 
+			                  #   - "density_current" = Sense density dependent GP in current habitat, and compare to abiotic GP in the alternative habitat (perhaps the most biologically realistic)
+			                  #   - "density_all" = Omniscient to density dependent GP in all habitats
 
 # misc. parameters
 n_fish_per_strat <- 50     # fish per strategy
 start_wt         <- 10     # initial weight (g)
 MaxDensity4Growth <- 50    # growth is not depressed further above this density (currently this is arbitary)
-movecost_c        <- 0.025 # movement cost power function: `c` = scaling constant; `
-movecost_a       <- 1      # movement cost power function `a` = decay exponent (higher = steeper drop-off)
+movecost_c        <- 0.025 # movement cost allometric function: `c` = scaling constant; `
+movecost_b       <- 0.6      # movement cost allometric function `a` = decay exponent (higher = steeper drop-off)
 sigma_bold       <- 0.002  # SD of boldness distribution, for dispersal propensity (g/g/d units)
 tau              <- 0.001  # sensitivity to growth difference (for probabilistic/softmax variation in movement)
 K_warm <- K_cold <- 500    # For hyperbolic reduction, strength of density dependence/half-saturation density: fish density at which ration is halved
@@ -210,65 +218,6 @@ Panel B shows how the threshold distributions compare to that signal — here's 
 *σ = 0.001–0.003 is the defensible range — it creates genuine individual variation in behavior during the biologically interesting transitional periods (when movers are near indifferent between patches), while still letting the signal dominate during the strong summer cold-patch advantage. A reasonable starting point is sigma_bold = 0.002*
 
 
-#### Probabilistic (softmax)
-
-Plot the probability of choosing the warm patch given different values of `tau`, across a range of between-patch differences in growth potential.
-```{r}
-# Softmax: P(warm) = exp(g_warm/tau) / (exp(g_warm/tau) + exp(g_cold/tau))
-# Equivalently: sigmoid of (g_warm - g_cold) / tau
-tau_vals <- c(0.001, 0.003, 0.005, 0.01, 0.025)
-
-g_diff_seq <- seq(-0.03, 0.03, length.out = 400)
-
-softmax_df <- map_dfr(tau_vals, function(tau) {
-  tibble(
-    g_diff = g_diff_seq,
-    p_warm = 1 / (1 + exp(-g_diff / tau)),
-    tau_lab = paste0("τ = ", tau)
-  )
-}) |>
-  mutate(tau_lab = factor(tau_lab, levels = paste0("τ = ", tau_vals)))
-
-# Observed g_diff range from the earlier gdiff_df (pooled across weights)
-obs_range <- range(gdiff_df$g_diff)
-
-ggplot(softmax_df, aes(x = g_diff, y = p_warm, color = tau_lab)) +
-  # Shade the observed g_diff range from the simulation
-  annotate("rect",
-           xmin = obs_range[1], xmax = obs_range[2],
-           ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  annotate("text", x = mean(obs_range), y = 0.9,
-           label = "Observed\ng_diff range", size = 3, color = "grey40",
-           hjust = 0.5) +
-  geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey50") +
-  geom_vline(xintercept = 0,   linetype = "dashed", color = "grey50") +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "RdYlBu", direction = -1) +
-  scale_y_continuous(labels = scales::percent_format(),
-                     breaks = seq(0, 1, 0.25)) +
-  scale_x_continuous(labels = scales::label_number(accuracy = 0.01)) +
-  annotate("text", x =  0.028, y = 0.58, label = "warm\nbetter", size = 3,
-           color = "grey40", hjust = 1) +
-  annotate("text", x = -0.028, y = 0.58, label = "cold\nbetter", size = 3,
-           color = "grey40", hjust = 0) +
-  labs(
-    x     = "g_warm − g_cold  (g/g/d)",
-    y     = "P(choose warm patch)",
-    color = "Sensitivity (τ)",
-    title = "Softmax patch selection probability",
-    subtitle = "Grey band = observed growth difference range in simulation"
-  ) +
-  theme_bw()
-```
-
-* tau = 0.001: Near step-function — almost deterministic. Fish choose the better patch >99% of the time when |g_diff| > ~0.005
-* tau = 0.003: Mostly deterministic at the summer peak (g_diff ≈ −0.025), but probabilistic near the zero-crossing — similar in effect to the perceptual noise approach
-* tau = 0.005: Substantial uncertainty even at moderate growth differences
-* tau = 0.010-0.025: Gradual, shallow curves — even a strong cold-patch advantage (~0.025) only shifts P(warm) to ~25–30%; choices are largely stochastic throughout
-
-*For this simulation (given the range of observed growth differences), τ = 0.001–0.003 is the meaningful range — it preserves the deterministic signal in summer while allowing individual probabilistic variation near the switching crossover. τ much above 0.005 makes the patch signal mostly invisible to the decision rule, i.e., patch selection becomes increasingly random.*
-
 
 ## Simulation loop
 
@@ -319,23 +268,55 @@ for (d in 1:n_days) {
     # Mass indices for each mover (clamped to array bounds)
     ma_idx_vec <- pmax(1L, pmin(4500L, round(fish_pop$weight[mover_rows]))) # get row index for current mass
     
-    # Growth rate (g/g/d) at each patch for every mover (vectorized array lookup)
-    g_warm_vec <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx_vec]  # growth in warm patch given current conditions
-    g_cold_vec <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx_vec]  # growth in cold patch given current conditions
-    
-    # Calculate growth associated with staying in current patch vs. moving to alternate patch
-    in_warm    <- fish_pop$patch[mover_rows] == "warm"  # is the fish in warm patch? T/F
-    g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec) # growth if staying in current patch
-    g_move_net <- ifelse(in_warm, g_cold_vec, g_warm_vec) # growth if moving (unpenalized) 
-    # If relevant, penalize the alternative patch by size-dependent energetic cost of movement
-    move_cost_vec <- fncMoveCost_power(fish_pop$weight[mover_rows], a = movecost_a, c = movecost_c)
-    g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)
+    ## 2.A.
+    in_warm       <- fish_pop$patch[mover_rows] == "warm"  # is the fish in warm patch? T/F
+    move_cost_vec <- fncMoveCost_allometric(fish_pop$weight[mover_rows], c = movecost_c, b = movecost_b) # calculate size-dependent cost of movement 
+
+    if (sense_environment == "abiotic_only") {
+      ### 2.A.1. Individuals sense only temperature-based growth potential across all habitats
+      g_warm_vec <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx_vec]
+      g_cold_vec <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx_vec]
+      g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec) # growth if staying in current patch
+      g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec) # growth if moving to alternate patch
+
+    } else if (sense_environment == "density_current") {
+      ### 2.A.2. Individuals sense density-dependent GP in current habitat, abiotic GP in alternative habitat
+      # Density-adjusted ration indices for each patch (hyperbolic: R * K / (K + N))
+      n_warm         <- sum(fish_pop$patch == "warm")
+      n_cold         <- sum(fish_pop$patch == "cold")
+      ra_idx_warm_dd <- which.min(abs(ra_seq_ibm - round(R_warm * K_warm / (K_warm + n_warm), 2)))
+      ra_idx_cold_dd <- which.min(abs(ra_seq_ibm - round(R_cold * K_cold / (K_cold + n_cold), 2)))
+
+      # Warm fish sense dd-adjusted warm / abiotic cold; cold fish sense abiotic warm / dd-adjusted cold
+      g_warm_vec <- ifelse(in_warm,
+        wt.growth[wt_idx_warm, ra_idx_warm_dd, ma_idx_vec],
+        wt.growth[wt_idx_warm, ra_idx_warm,    ma_idx_vec])
+      g_cold_vec <- ifelse(in_warm,
+        wt.growth[wt_idx_cold, ra_idx_cold,    ma_idx_vec],
+        wt.growth[wt_idx_cold, ra_idx_cold_dd, ma_idx_vec])
+      g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec)
+      g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)
+
+    } else if (sense_environment == "density_all") {
+      ### 2.A.3. Individuals sense density-dependent GP across all habitats
+      # Density-adjusted ration indices for each patch (hyperbolic: R * K / (K + N))
+      n_warm         <- sum(fish_pop$patch == "warm")
+      n_cold         <- sum(fish_pop$patch == "cold")
+      ra_idx_warm_dd <- which.min(abs(ra_seq_ibm - round(R_warm * K_warm / (K_warm + n_warm), 2)))
+      ra_idx_cold_dd <- which.min(abs(ra_seq_ibm - round(R_cold * K_cold / (K_cold + n_cold), 2)))
+
+      # Both patches sensed with density-adjusted ration
+      g_warm_vec <- wt.growth[wt_idx_warm, ra_idx_warm_dd, ma_idx_vec]
+      g_cold_vec <- wt.growth[wt_idx_cold, ra_idx_cold_dd, ma_idx_vec]
+      g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec)
+      g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)
+    }
     
     prev_patch <- fish_pop$patch[mover_rows]
     
-    # stochasticity in movement
+    ## 2.B. Impose stochasticity in movement
     if (move_stochastic == "none") {
-      ### 2a. Deterministic: All movers do the same thing
+      ### 2.B.1. Deterministic: All movers do the same thing
       # Update patch based on whether moving is beneficial. 
       # 1. If fish in is warm patch and growth potential of moving exceeds growth potential of staying, move to cold. 
       # 2. If fish in is cold patch and growth potential of moving exceeds growth potential of staying, move to warm. 
@@ -345,12 +326,12 @@ for (d in 1:n_days) {
         TRUE                           ~ fish_pop$patch[mover_rows]
         )
     } else if (move_stochastic == "prob") {
-      ### 2b. Probabilistic (softmax) rule: Instead of a hard threshold, fish switch with a probability that increases with the growth advantage. One parameter: τ (sensitivity; small = nearly deterministic, large = nearly random).
-      p_warm <- exp(g_warm_vec / tau) / (exp(g_warm_vec / tau) + exp(g_cold_vec / tau)) # calculate probability of selecting warm habitat
+      ### 2.B.2. Probabilistic (softmax) rule: Instead of a hard threshold, fish switch with a probability that increases with the growth advantage. One parameter: τ (sensitivity; small = nearly deterministic, large = nearly random).
+      p_warm <- fncMoveSoftmax(gwarm = g_warm_vec, gcold = g_cold_vec, tau = 0.001) # calculate probability of selecting warm habitat
       choose_warm <- runif(length(mover_rows)) < p_warm # choose warm if p_warm exceeds a random number between 0 and 1
       fish_pop$patch[mover_rows] <- if_else(choose_warm, "warm", "cold") # update patch
     } else if (move_stochastic == "indiv") {
-      ### 2c. Individual-level movement threshold: each fish has a unique threshold for movement, representing individual variation in boldness/dispersal propensity
+      ### 2.B.3. Individual-level movement threshold: each fish has a unique threshold for movement, representing individual variation in boldness/dispersal propensity
       fish_pop$patch[mover_rows] <- case_when(
       in_warm  & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "cold",
       !in_warm & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "warm",
@@ -489,7 +470,7 @@ ibm_summary
 
 ### Size trajectories
 
-Weight trajectories by strategy (ribbon = ±1 SD across individuals). 
+Mean weight trajectories by strategy (ribbon = ±1 SD across individuals). 
 
 *Uncertainty derives from variation in starting size (if allowed) and stochasticity in individual movement behavior (if configured).*
 ```{r}
@@ -506,6 +487,18 @@ ibm_summary %>%
                                 optimal_mover = "darkgreen")) +
   theme_bw() + #ylim(0,10000) +
   xlab("Date") + ylab("Mean weight ± SD (g)")
+```
+
+Show individual weight trajectories
+```{r}
+mass_long %>%
+  ggplot(aes(x = date, y = weight, color = strategy, group = pid)) +
+  geom_line(alpha = 0.5) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + #ylim(0,10000) +
+  xlab("Date") + ylab("Individual weight (g)")
 ```
 
 
@@ -553,6 +546,11 @@ ibm_summary %>%
   mutate(survive_rate = n_alive / n_fish_per_strat) %>%
   select(strategy, n_alive, survive_rate)
 ```
+
+*Interpretation below is based on past model runs with different parameterization/configuration. But what is consistent across runs is that (1) summer is a challenging time for survival in the warm habitat, (2) winter/spring is challenges survival in the cold habitat, and (3) movers always have the highest survival.*
+
+`sense_environment` appears to have a large effect on survival outcomes, but doesn't change overall patterns described above.
+
 
 * `resident_warm` has the lowest overall survival, consistent with it being the poorest-growing strategy.
   + mid-year acceleration in `resident_warm` mortality coincides with slower/negative growth in mid-summer, which is exactly what the function should be responding to.
@@ -631,8 +629,11 @@ Yes, overall, the mortality function in behaving correctly: it's selecting again
 
 Patch occupancy for optimal movers — proportion in warm patch through the year.
 
-* If `move_stochastic = "prob"`, movers only really start to pile into the warm habitat during the shoulder seasons when benefits of warm habitat far exceed the cold habitat. 
-* If `move_stochastic = "Indiv"`, ...
+* Stochasticity in movement
+  + If `move_stochastic = "prob"`, movers only really start to pile into the warm habitat during the shoulder seasons when benefits of warm habitat far exceed the cold habitat. 
+  + If `move_stochastic = "Indiv"`, ...
+* Environment sensing
+  + If `sense_environment = "densit_current"` or `sense_environment = "densit_all"`, movers bounce rapidly between the two habitats as they chase the apparently better habitat, but then experience reduced growth due to strong density dependence. This appears to be driven by fact that most movers are doing the same thing.
 ```{r}
 ibm_summary %>%
   filter(strategy == "optimal_mover") %>%

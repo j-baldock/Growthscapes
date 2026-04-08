@@ -1,5 +1,7 @@
 ---
 title: "IBM Simulation"
+execute:
+  cache: refresh
 ---
 
 ```{r, include = FALSE}
@@ -12,7 +14,7 @@ library(egg)
 
 
 Source dependencies
-```{r}
+```{r include = FALSE}
 source("Habitat.R")
 source("Functions.R")
 ```
@@ -34,7 +36,10 @@ load("data/wt.growth.array.RData")
 * **Density-dependent food availaility:** after fish have selected patches, calculate food availability based on patch density and baseline ration levels. Two alternative approaches:
   + *Modified Fullerton approach:* ration size decreases linearly with fish density, up to some (*a priori* defined) threshold above which there is no effect of there is no effect of density of ration size.
   + *Hyperbolic reduction:* describes a non-linear decrease in ration size with increasing fish density, where the rate of decrease slows as density increases.
-* **Environment sensing:** 
+* **Environment sensing:** how omniscient are fish to temperature and density-dependent growth across the habitat patches?
+  + `abiotic_only`: fish can only sense temperature-dependent GP, regardless of which habitat is occupied
+  + `density_current`: fish sense density-dependent GP in current habitat, and compare to abiotic (temp-based) GP in the alternative habitat
+  + `density_all`: fish can sense density-dependent GP in all habitats
 
 
 ***Senstive parameters:***
@@ -45,6 +50,8 @@ load("data/wt.growth.array.RData")
 * Density-dependence
   + Fullerton upper density threshold
   + Hyperbolic half saturation density
+* Movement decision
+  + Probabilistic/softmax tau (strength of threshold)
 * Movement cost
   + Allometric function b (metabolic exponent) and c (scaling constant)
 * Movement stochasticity
@@ -137,86 +144,6 @@ fish_pop <- bind_rows(
   group_by(patch) %>% mutate(density = n()) %>% ungroup()
 fish_pop
 ```
-
-
-## Parameter tuning
-
-### Stochastic movement
-
-#### Individual movement threshold
-
-Plot the distribution of `move_threshold` values against the distribution of daily `g_move - g_stay` values to check that `sigma_bold` creates meaningful variation rather than all fish behaving identically or randomly.
-```{r fig.width=7, fig.height=6}
-# ── 1. Daily g_move − g_stay across the season ─────────────────────────────────
-# Computed at representative masses (start, mid, end-of-season)
-rep_weights <- c(10, 50, 150)
-
-gdiff_df <- map_dfr(rep_weights, function(w) {
-  ma_idx <- pmax(1L, pmin(4500L, round(w)))
-  map_dfr(seq_len(nrow(habitat_df)), function(d) {
-    t           <- habitat_df$doy[d]
-    T_warm      <- get_patchtemp(t, "warm")
-    T_cold      <- get_patchtemp(t, "cold")
-    R_warm      <- get_patchration(t, "warm")
-    R_cold      <- get_patchration(t, "cold")
-    wt_idx_warm <- which.min(abs(wt_seq_ibm - T_warm))
-    wt_idx_cold <- which.min(abs(wt_seq_ibm - T_cold))
-    ra_idx_warm <- which.min(abs(ra_seq_ibm - R_warm))
-    ra_idx_cold <- which.min(abs(ra_seq_ibm - R_cold))
-    g_warm <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx]
-    g_cold <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx]
-    tibble(date = habitat_df$date[d], g_diff = g_warm - g_cold, weight = w)
-  })
-}) |>
-  mutate(weight_lab = paste0(weight, " g fish"))
-
-# ── 2. move_threshold distribution for several sigma_bold candidates ────────────
-sigma_candidates <- c(0.001, 0.003, 0.005, 0.01)
-thresh_df <- map_dfr(sigma_candidates, function(s) {
-  tibble(
-    move_threshold = rnorm(5000, mean = 0, sd = s),
-    sigma_lab = paste0("σ = ", s)
-  )
-}) |>
-  mutate(sigma_lab = factor(sigma_lab, levels = paste0("σ = ", sigma_candidates)))
-
-# ── 3. Plot ────────────────────────────────────────────────────────────────────
-# Panel A: g_diff over time
-p_time <- ggplot(gdiff_df, aes(x = date, y = g_diff, color = factor(weight))) +
-  geom_line(linewidth = 0.8) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  scale_color_brewer(palette = "Dark2") +
-  labs(x = "Date", y = "g_warm − g_cold (g/g/d)",
-       color = "Fish weight (g)", title = "A: Daily growth advantage of warm over cold patch")
-
-# Panel B: distribution of g_diff vs move_threshold candidates
-p_dist <- ggplot() +
-  # Shaded density of g_diff (pooled across weights — the "signal")
-  geom_density(data = gdiff_df, aes(x = g_diff, fill = "Patch growth\nadvantage"),
-               alpha = 0.3, color = NA) +
-  # move_threshold distributions for each sigma
-  geom_density(data = thresh_df, aes(x = move_threshold, color = sigma_lab),
-               linewidth = 0.85) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
-  scale_fill_manual(values = "steelblue") +
-  scale_color_brewer(palette = "Reds", direction = 1) +
-  labs(x = "g/g/d", y = "Density",
-       fill = NULL, color = "Threshold SD (σ)",
-       title = "B: Threshold distribution vs. actual growth advantage")
-
-cowplot::plot_grid(p_time, p_dist, ncol = 1, rel_heights = c(1, 1.1))
-```
-Panel A shows the growth signal movers are responding to: `g_warm - g_cold` is small and near zero most of the year (~0 to +0.005), with a large negative dip in summer (−0.025) when cold becomes strongly advantageous. Fish weight has minimal effect on the signal.
-
-Panel B shows how the threshold distributions compare to that signal — here's what it means for behavior:
-
-* σ = 0.001: Threshold much narrower than the signal. Most fish behave nearly deterministically — modest individual variation, mainly near the switching crossover in spring/fall
-* σ = 0.003: Threshold width similar to the low-signal periods (winter/shoulder seasons). Good spread of individual responses when the patch advantage is marginal; still mostly consistent in summer
-* σ = 0.005: Threshold wider than the signal for most of the year — choices become largely random outside the summer peak
-* σ = 0.01: Nearly random throughout; boldness is essentially noise
-
-*σ = 0.001–0.003 is the defensible range — it creates genuine individual variation in behavior during the biologically interesting transitional periods (when movers are near indifferent between patches), while still letting the signal dominate during the strong summer cold-patch advantage. A reasonable starting point is sigma_bold = 0.002*
-
 
 
 ## Simulation loop
@@ -633,7 +560,7 @@ Patch occupancy for optimal movers — proportion in warm patch through the year
   + If `move_stochastic = "prob"`, movers only really start to pile into the warm habitat during the shoulder seasons when benefits of warm habitat far exceed the cold habitat. 
   + If `move_stochastic = "Indiv"`, ...
 * Environment sensing
-  + If `sense_environment = "densit_current"` or `sense_environment = "densit_all"`, movers bounce rapidly between the two habitats as they chase the apparently better habitat, but then experience reduced growth due to strong density dependence. This appears to be driven by fact that most movers are doing the same thing.
+  + If `sense_environment = "density_current"` or `sense_environment = "density_all"`, movers bounce rapidly between the two habitats as they chase the apparently better habitat, but then experience reduced growth due to strong density dependence. This appears to be driven by fact that most movers are doing the same thing.
 ```{r}
 ibm_summary %>%
   filter(strategy == "optimal_mover") %>%

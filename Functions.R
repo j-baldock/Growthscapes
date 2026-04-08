@@ -12,6 +12,9 @@ library(egg)
 source("Habitat.R")
 
 
+load("data/wt.growth.array.RData")
+
+
 # Rescale a vector to a specific
 fncRescale <- function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)) {
     (x - from[1]) / diff(from) * diff(to) + to[1]
@@ -609,6 +612,74 @@ ggplot(softmax_df, aes(x = g_diff, y = p_warm, color = tau_lab)) +
   theme_bw()
 
 
+
+rations <- seq(0.02, 0.17, 0.001)
+waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
+
+wt_seq_ibm <- waterTemps[, "WT"]  # seq(0.1, 25, 0.1), 250 values       
+ra_seq_ibm <- rations             # seq(0.02, 0.17, 0.001), 151 values
+
+
+# ── 1. Daily g_move − g_stay across the season ─────────────────────────────────
+# Computed at representative masses (start, mid, end-of-season)
+rep_weights <- c(10, 50, 150)
+
+gdiff_df <- map_dfr(rep_weights, function(w) {
+  ma_idx <- pmax(1L, pmin(4500L, round(w)))
+  map_dfr(seq_len(nrow(habitat_df)), function(d) {
+    t           <- habitat_df$doy[d]
+    T_warm      <- get_patchtemp(t, "warm")
+    T_cold      <- get_patchtemp(t, "cold")
+    R_warm      <- get_patchration(t, "warm")
+    R_cold      <- get_patchration(t, "cold")
+    wt_idx_warm <- which.min(abs(wt_seq_ibm - T_warm))
+    wt_idx_cold <- which.min(abs(wt_seq_ibm - T_cold))
+    ra_idx_warm <- which.min(abs(ra_seq_ibm - R_warm))
+    ra_idx_cold <- which.min(abs(ra_seq_ibm - R_cold))
+    g_warm <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx]
+    g_cold <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx]
+    tibble(date = habitat_df$date[d], g_diff = g_warm - g_cold, weight = w)
+  })
+}) |>
+  mutate(weight_lab = paste0(weight, " g fish"))
+
+# ── 2. move_threshold distribution for several sigma_bold candidates ────────────
+sigma_candidates <- c(0.001, 0.003, 0.005, 0.01)
+thresh_df <- map_dfr(sigma_candidates, function(s) {
+  tibble(
+    move_threshold = rnorm(5000, mean = 0, sd = s),
+    sigma_lab = paste0("σ = ", s)
+  )
+}) |>
+  mutate(sigma_lab = factor(sigma_lab, levels = paste0("σ = ", sigma_candidates)))
+
+# ── 3. Plot ────────────────────────────────────────────────────────────────────
+# Panel A: g_diff over time
+p_time <- ggplot(gdiff_df, aes(x = date, y = g_diff, color = factor(weight))) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "Date", y = "g_warm − g_cold (g/g/d)",
+       color = "Fish weight (g)", title = "A: Daily growth advantage of warm over cold patch")
+
+# Panel B: distribution of g_diff vs move_threshold candidates
+p_dist <- ggplot() +
+  # Shaded density of g_diff (pooled across weights — the "signal")
+  geom_density(data = gdiff_df, aes(x = g_diff, fill = "Patch growth\nadvantage"),
+               alpha = 0.3, color = NA) +
+  # move_threshold distributions for each sigma
+  geom_density(data = thresh_df, aes(x = move_threshold, color = sigma_lab),
+               linewidth = 0.85) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_fill_manual(values = "steelblue") +
+  scale_color_brewer(palette = "Reds", direction = 1) +
+  labs(x = "g/g/d", y = "Density",
+       fill = NULL, color = "Threshold SD (σ)",
+       title = "B: Threshold distribution vs. actual growth advantage")
+
+cowplot::plot_grid(p_time, p_dist, ncol = 1, rel_heights = c(1, 1.1))
+
+
 fncMoveCost <- function(gr = fish$growth) {
   return(abs(gr) * move_cost)
 }
@@ -952,7 +1023,7 @@ fish_pop %>%
   ylab("Ration")
 
 
-fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.1, rescale = 0.01){
+fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01){
   # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
   # minprob:     smallest probability any fish can have of dying in any time step
   # b:           controls steepness of the base size-survival curve
@@ -994,7 +1065,7 @@ fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.1, rescale = 0.
 
 
 df <- expand_grid(
-  weight = seq(from = 0, to = 100, by = 0.1),
+  weight = seq(from = 0, to = 150, by = 0.1),
   growth = seq(from = -0.03, to = 0.03, by = 0.005)#,
   #pvals  = seq(from = 0, to = 1, by = 0.1)
 )
@@ -1013,9 +1084,9 @@ p1 <- df %>% #filter(pvals == 0.1) %>%
 p2 <- df %>% #filter(pvals == 0.1) %>%
   ggplot() +
   geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
-  xlim(10,50) + ylim(0.996,1) + theme_bw() +
+  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
   xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-50g", subtitle = "effect of growth diminishes for larger fish")
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
 
 ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 

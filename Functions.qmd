@@ -18,6 +18,12 @@ Source dependencies
 source("Habitat.R")
 ```
 
+Load pre-calculated growth
+```{r}
+load("data/wt.growth.array.RData")
+```
+
+
 ## Basic functions
 
 Rescale a vector to a specific range...e.g., \[0-1\].
@@ -672,9 +678,9 @@ ggplot(softmax_df, aes(x = g_diff, y = p_warm, color = tau_lab)) +
 ```{ojs}
 //| label: softmax-interactive
 
-viewof tau = Inputs.range([0.001, 0.05], {
+viewof tau = Inputs.range([0.0001, 0.01], {
   value: 0.005,
-  step: 0.001,
+  step: 0.0001,
   label: "Sensitivity (τ)"
 })
 
@@ -736,6 +742,94 @@ Plot.plot({
   title: `Softmax patch selection  (τ = ${tau.toFixed(3)})`
 })
 ```
+
+
+
+#### Boldness
+
+Each fish could have a unique threshold for movement, representing individual variation in boldness/dispersal propensity. This is not a function per se, but just showing how we settled on the choice of parameter value. 
+
+Plot the distribution of `move_threshold` values against the distribution of daily `g_move - g_stay` values to check that `sigma_bold` creates meaningful variation rather than all fish behaving identically or randomly.
+```{r fig.width=7, fig.height=6}
+
+rations <- seq(0.02, 0.17, 0.001)
+waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
+
+wt_seq_ibm <- waterTemps[, "WT"]  # seq(0.1, 25, 0.1), 250 values       
+ra_seq_ibm <- rations             # seq(0.02, 0.17, 0.001), 151 values
+
+
+# ── 1. Daily g_move − g_stay across the season ─────────────────────────────────
+# Computed at representative masses (start, mid, end-of-season)
+rep_weights <- c(10, 50, 150)
+
+gdiff_df <- map_dfr(rep_weights, function(w) {
+  ma_idx <- pmax(1L, pmin(4500L, round(w)))
+  map_dfr(seq_len(nrow(habitat_df)), function(d) {
+    t           <- habitat_df$doy[d]
+    T_warm      <- get_patchtemp(t, "warm")
+    T_cold      <- get_patchtemp(t, "cold")
+    R_warm      <- get_patchration(t, "warm")
+    R_cold      <- get_patchration(t, "cold")
+    wt_idx_warm <- which.min(abs(wt_seq_ibm - T_warm))
+    wt_idx_cold <- which.min(abs(wt_seq_ibm - T_cold))
+    ra_idx_warm <- which.min(abs(ra_seq_ibm - R_warm))
+    ra_idx_cold <- which.min(abs(ra_seq_ibm - R_cold))
+    g_warm <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx]
+    g_cold <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx]
+    tibble(date = habitat_df$date[d], g_diff = g_warm - g_cold, weight = w)
+  })
+}) |>
+  mutate(weight_lab = paste0(weight, " g fish"))
+
+# ── 2. move_threshold distribution for several sigma_bold candidates ────────────
+sigma_candidates <- c(0.001, 0.003, 0.005, 0.01)
+thresh_df <- map_dfr(sigma_candidates, function(s) {
+  tibble(
+    move_threshold = rnorm(5000, mean = 0, sd = s),
+    sigma_lab = paste0("σ = ", s)
+  )
+}) |>
+  mutate(sigma_lab = factor(sigma_lab, levels = paste0("σ = ", sigma_candidates)))
+
+# ── 3. Plot ────────────────────────────────────────────────────────────────────
+# Panel A: g_diff over time
+p_time <- ggplot(gdiff_df, aes(x = date, y = g_diff, color = factor(weight))) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "Date", y = "g_warm − g_cold (g/g/d)",
+       color = "Fish weight (g)", title = "A: Daily growth advantage of warm over cold patch")
+
+# Panel B: distribution of g_diff vs move_threshold candidates
+p_dist <- ggplot() +
+  # Shaded density of g_diff (pooled across weights — the "signal")
+  geom_density(data = gdiff_df, aes(x = g_diff, fill = "Patch growth\nadvantage"),
+               alpha = 0.3, color = NA) +
+  # move_threshold distributions for each sigma
+  geom_density(data = thresh_df, aes(x = move_threshold, color = sigma_lab),
+               linewidth = 0.85) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_fill_manual(values = "steelblue") +
+  scale_color_brewer(palette = "Reds", direction = 1) +
+  labs(x = "g/g/d", y = "Density",
+       fill = NULL, color = "Threshold SD (σ)",
+       title = "B: Threshold distribution vs. actual growth advantage")
+
+cowplot::plot_grid(p_time, p_dist, ncol = 1, rel_heights = c(1, 1.1))
+```
+Panel A shows the growth signal movers are responding to: `g_warm - g_cold` is small and near zero most of the year (~0 to +0.005), with a large negative dip in summer (−0.025) when cold becomes strongly advantageous. Fish weight has minimal effect on the signal.
+
+Panel B shows how the threshold distributions compare to that signal — here's what it means for behavior:
+
+* `σ = 0.001`: Threshold much narrower than the signal. Most fish behave nearly deterministically — modest individual variation, mainly near the switching crossover in spring/fall
+* `σ = 0.003`: Threshold width similar to the low-signal periods (winter/shoulder seasons). Good spread of individual responses when the patch advantage is marginal; still mostly consistent in summer
+* `σ = 0.005`: Threshold wider than the signal for most of the year — choices become largely random outside the summer peak
+* `σ = 0.01`: Nearly random throughout; boldness is essentially noise
+
+*σ = 0.001–0.003 is the defensible range — it creates genuine individual variation in behavior during the biologically interesting transitional periods (when movers are near indifferent between patches), while still letting the signal dominate during the strong summer cold-patch advantage. A reasonable starting point is sigma_bold = 0.002*
+
+
 
 ## Movement cost
 
@@ -1186,16 +1280,17 @@ Fish experience mortality based on their size (cumulative experience) and instan
 -   `df`: data frame of fish table with only the survivors
 -   `minprob`: smallest probability any fish can have of dying in any time step, before accounting for growth effects
 -   `b`: controls steepness of the base size-survival curve
--   `b_interact`: controls steepness of weight buffering on negative growth; smaller values = growth effects persist to larger sizes. Default 0.1 means buffering is near-complete \~50g, i.e., no effect of growth \>50g.
+-   `b_interact`: controls steepness of weight buffering on negative growth; smaller values = growth effects persist to larger sizes. Default `b_interact` is 0.03: buffering is near-complete ~150g, i.e., no effect of growth >150g.
 -   `rescale`: controls the relative effect of growth rates on survival. As minprob declines, you need a larger rescale value to generate meaningful variation in survival across the range of observed growth rates
 
 **Notes:**
 
 -   Fullerton's original code for the survival function also accounted for recent consumption (p-values: proportion of max consumption) in addition to size and recent growth. But the IBM simulation code has p-values fixed at 1, and the supporting papers state that survival is only based on fish weight and recent growth. Thus, here I remove any consumption effects to maintain consistency with published work. Fullerton's original code also did not allow growth effects to change with size.
 -   Note that effect of growth rate is scaled to the growth rates experienced by all fish, but only in that time step. So even if all fish are experiencing positive growth rates, survival probability will be less than s-min for fish growing the slowest. Likewise, even if all fish are experiencing negative growth, many will still live.
+-   Default `b_interact` is 0.03
 
 ```{r}
-fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.1, rescale = 0.01){
+fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01){
   # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
   # minprob:     smallest probability any fish can have of dying in any time step
   # b:           controls steepness of the base size-survival curve
@@ -1240,7 +1335,7 @@ As an example, plot daily survival probabilities based on fish size and instanta
 
 ```{r}
 df <- expand_grid(
-  weight = seq(from = 0, to = 100, by = 0.1),
+  weight = seq(from = 0, to = 150, by = 0.1),
   growth = seq(from = -0.03, to = 0.03, by = 0.005)#,
   #pvals  = seq(from = 0, to = 1, by = 0.1)
 )
@@ -1259,9 +1354,9 @@ p1 <- df %>% #filter(pvals == 0.1) %>%
 p2 <- df %>% #filter(pvals == 0.1) %>%
   ggplot() +
   geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
-  xlim(10,50) + ylim(0.996,1) + theme_bw() +
+  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
   xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-50g", subtitle = "effect of growth diminishes for larger fish")
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
 
 ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 ```
@@ -1368,6 +1463,7 @@ ggplot(df_gap, aes(x = weight, y = gap, color = as_factor(b_interact))) +
        title = "Seasonal survival gap between the fastest and slowest growing fish",
        subtitle = "Growth-driven survival gaps are greatest for small (but not the smallest) fish")
 ```
+
 
 ## Reproduction
 
@@ -1499,7 +1595,11 @@ expand_grid(
 
 Setting `sigma`somewhere between `0.1` and `0.15` is probably most biologically plausible...most literature shows pretty noisy relationships.
 
+
 ### Size at maturity
+
+
+
 
 ## Write R file
 

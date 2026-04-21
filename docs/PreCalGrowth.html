@@ -390,7 +390,8 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
   <li><a href="#plot-output" id="toc-plot-output" class="nav-link" data-scroll-target="#plot-output"><span class="header-section-number">4.3</span> Plot output</a>
   <ul class="collapse">
   <li><a href="#growth-rate" id="toc-growth-rate" class="nav-link" data-scroll-target="#growth-rate"><span class="header-section-number">4.3.1</span> Growth rate</a></li>
-  <li><a href="#energy-budget" id="toc-energy-budget" class="nav-link" data-scroll-target="#energy-budget"><span class="header-section-number">4.3.2</span> Energy budget</a></li>
+  <li><a href="#consumption" id="toc-consumption" class="nav-link" data-scroll-target="#consumption"><span class="header-section-number">4.3.2</span> Consumption</a></li>
+  <li><a href="#energy-budget" id="toc-energy-budget" class="nav-link" data-scroll-target="#energy-budget"><span class="header-section-number">4.3.3</span> Energy budget</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -438,16 +439,15 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>prey.en.dens <span class="ot">&lt;-</span> <span class="dv">3500</span> <span class="co"># see Railsback and Rose 1999, Beauchamp et al. 2007</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<p>Set up arrays</p>
+<p>Set up arrays. Very big to allow much wider range of and more accurate values of rations and weights</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>waterTemps <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="st">"pid"</span> <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(<span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="dv">25</span>, <span class="fl">0.1</span>))),<span class="st">"WT"</span> <span class="ot">=</span> <span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="dv">25</span>, <span class="fl">0.1</span>))</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>rations <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.02</span>, <span class="fl">0.17</span>, <span class="fl">0.001</span>)</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>weights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">1500</span>, <span class="dv">1</span>)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>wt.growth <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="cn">NA</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">nrow</span>(waterTemps), <span class="fu">length</span>(rations), <span class="fu">length</span>(weights))) <span class="co">#dim = c(250 WTs, 16 rations, 1500 weights)</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>p.values <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="cn">NA</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">nrow</span>(waterTemps), <span class="fu">length</span>(rations), <span class="fu">length</span>(weights)))</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>respiration <span class="ot">&lt;-</span> consumption <span class="ot">&lt;-</span> wastes <span class="ot">&lt;-</span> wt.growth</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>rations <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.001</span>, <span class="fl">0.4</span>, <span class="fl">0.001</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>weights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.25</span>, <span class="dv">1500</span>, <span class="fl">0.25</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>wt.growth <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="cn">NA</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">nrow</span>(waterTemps), <span class="fu">length</span>(rations), <span class="fu">length</span>(weights))) <span class="co">#dim = c(250 WTs, 400 rations, 6000 weights)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>p.values <span class="ot">&lt;-</span> respiration <span class="ot">&lt;-</span> consumption <span class="ot">&lt;-</span> wastes <span class="ot">&lt;-</span> cmax <span class="ot">&lt;-</span> pvals_derived <span class="ot">&lt;-</span> wt.growth</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -470,19 +470,21 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    Results <span class="ot">&lt;-</span> <span class="fu">BioE</span>(Input, Constants) <span class="co">#run BioE code given input and constants</span></span>
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    wt.growth[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Gg_WinBioE) <span class="co"># growth in g/g/d...growth standardized by fish weight</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    p.values[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>pp)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># p.values[,r,w] &lt;- c(Results$pp) # these are always constant, by definition</span></span>
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    consumption[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Consumption)</span>
 <span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    wastes[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Egestion <span class="sc">+</span> Results<span class="sc">$</span>Excretion <span class="sc">+</span> Results<span class="sc">$</span>S.resp)</span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    respiration[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Respiration)</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="do">## In Joules instead of grams:</span></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wt.growth[,r,w] &lt;- c(Results$Growth_j)</span></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># consumption[,r,w] &lt;- c(Results$Consumption_j)</span></span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wastes[,r,w] &lt;- c(Results$Egestion_j + Results$Excretion_j + Results$Sj.resp)</span></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># respiration[,r,w] &lt;- c(Results$Respiration_j)</span></span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  <span class="co"># print(w)</span></span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    cmax[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Consumption_max)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    pvals_derived[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Pvalue)</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="do">## In Joules instead of grams:</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wt.growth[,r,w] &lt;- c(Results$Growth_j)</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># consumption[,r,w] &lt;- c(Results$Consumption_j)</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wastes[,r,w] &lt;- c(Results$Egestion_j + Results$Excretion_j + Results$Sj.resp)</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="co"># respiration[,r,w] &lt;- c(Results$Respiration_j)</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (w <span class="sc">%%</span> <span class="dv">100</span> <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">print</span>(w)</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>Save outputs. Only ‘wt.growth’ is needed for simulations. The others are merely for plotting below.</p>
@@ -492,7 +494,9 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wt.growth"</span>, <span class="at">file =</span> <span class="st">"data/wt.growth.array.RData"</span>)</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"respiration"</span>, <span class="at">file =</span> <span class="st">"data/respiration.array.RData"</span>)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wastes"</span>, <span class="at">file =</span> <span class="st">"data/wastes.array.RData"</span>)</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"consumption"</span>, <span class="at">file =</span> <span class="st">"data/consumption.array.RData"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"consumption"</span>, <span class="at">file =</span> <span class="st">"data/consumption.array.RData"</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"pvals_derived"</span>, <span class="at">file =</span> <span class="st">"data/pvalsderived.array.RData"</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"cmax"</span>, <span class="at">file =</span> <span class="st">"data/cmax.array.RData"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>Load back in to plot</p>
@@ -503,11 +507,13 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/consumption.array.RData"</span>)</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wastes.array.RData"</span>)</span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/respiration.array.RData"</span>)</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># fncGetBioEParms("stealhead", pred.en.dens, prey.en.dens, oxy, pff,</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">#                             waterTemps,</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">#                             startweights = rep(ww, nrow(waterTemps)),</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">#                             pvals = rep(1, nrow(waterTemps)),</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">#                             ration = rep(rr, nrow(waterTemps)))</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/pvalsderived.array.RData"</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/cmax.array.RData"</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># fncGetBioEParms("stealhead", pred.en.dens, prey.en.dens, oxy, pff,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">#                             waterTemps,</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">#                             startweights = rep(ww, nrow(waterTemps)),</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co">#                             pvals = rep(1, nrow(waterTemps)),</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co">#                             ration = rep(rr, nrow(waterTemps)))</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -515,6 +521,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <h2 data-number="4.3" class="anchored" data-anchor-id="plot-output"><span class="header-section-number">4.3</span> Plot output</h2>
 <section id="growth-rate" class="level3" data-number="4.3.1">
 <h3 data-number="4.3.1" class="anchored" data-anchor-id="growth-rate"><span class="header-section-number">4.3.1</span> Growth rate</h3>
+<p><strong>Note that because of the range of values we used for ration, growth of small fish (&lt;5g) is constrained even at the highest rations (max ration &lt; allometric C<sub>max</sub>). So it only appears as if max growth increases with size for fish between 0.5 a 5g.</strong></p>
 <p>Plot growth rate by temperature for fish of varying masses, variable ration sizes.</p>
 <div class="cell">
 <details class="code-fold">
@@ -522,12 +529,12 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Growth rate (g/g/d)"</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.04</span>, <span class="fl">0.04</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">400</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.06</span>, <span class="fl">0.1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(rations), <span class="at">by =</span> <span class="dv">50</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">400</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
@@ -543,38 +550,21 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># speccols &lt;- hcl.colors(13, "Temps")</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ratiseq &lt;- seq(1, length(rations), by = 30)</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># tempseq &lt;- seq(1, length(waterTemps[,"WT"]), by = 20)</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co"># for (r in 1:length(ratiseq)) {</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">#   </span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">#   plot(wt.growth[1,ratiseq[r],] ~ weights, type = "n", ylim = c(-0.04, 0.04),</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">#        ylab = "Growth rate (g/g/d)", xlab = "Weight (g)", </span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">#        main = paste0("ration = ", rations[ratiseq[r]]," g"))</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">#   </span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">#   for (i in 1:length(tempseq)) { </span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">#     lines(wt.growth[tempseq[i],ratiseq[r],] ~ weights, col = speccols[i])</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">#     # print(range(wt.growth[i,ratiseq[r],]))</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co">#   }</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co"># }</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>speccols <span class="ot">&lt;-</span> <span class="fu">hcl.colors</span>(<span class="dv">11</span>, <span class="st">"Temps"</span>)</span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>ratiseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(rations), <span class="at">by =</span> <span class="dv">15</span>)</span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>tempseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(waterTemps[,<span class="st">"WT"</span>]), <span class="at">by =</span> <span class="dv">45</span>)</span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(tempseq)) { </span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(wt.growth[tempseq[i],<span class="dv">1</span>,] <span class="sc">~</span> weights, <span class="at">type =</span> <span class="st">"n"</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.04</span>, <span class="fl">0.04</span>),</span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>       <span class="at">ylab =</span> <span class="st">"Growth rate (g/g/d)"</span>, <span class="at">xlab =</span> <span class="st">"Weight (g)"</span>, </span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"temp = "</span>, waterTemps[tempseq[i], <span class="st">"WT"</span>],<span class="st">" C"</span>))</span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(ratiseq)) {</span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">lines</span>(wt.growth[tempseq[i],ratiseq[r],] <span class="sc">~</span> weights, <span class="at">col =</span> speccols[r])</span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(range(wt.growth[i,ratiseq[r],]))</span></span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>speccols <span class="ot">&lt;-</span> <span class="fu">hcl.colors</span>(<span class="dv">9</span>, <span class="st">"Temps"</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>ratiseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(rations), <span class="at">by =</span> <span class="dv">49</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>tempseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(waterTemps[,<span class="st">"WT"</span>]), <span class="at">by =</span> <span class="dv">45</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(tempseq)) { </span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(wt.growth[tempseq[i],<span class="dv">1</span>,] <span class="sc">~</span> weights, <span class="at">type =</span> <span class="st">"n"</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.06</span>, <span class="fl">0.1</span>), <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">50</span>),</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">ylab =</span> <span class="st">"Growth rate (g/g/d)"</span>, <span class="at">xlab =</span> <span class="st">"Weight (g)"</span>, </span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"temp = "</span>, waterTemps[tempseq[i], <span class="st">"WT"</span>],<span class="st">" C"</span>))</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(ratiseq)) {</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">lines</span>(wt.growth[tempseq[i],ratiseq[r],] <span class="sc">~</span> weights, <span class="at">col =</span> speccols[r])</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(range(wt.growth[i,ratiseq[r],]))</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">100</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -595,9 +585,9 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(wt.growth)[<span class="dv">3</span>]) {</span>
 <span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>opttemp_ratlo[i] <span class="ot">&lt;-</span> waterTemps[<span class="fu">which.max</span>(wt.growth[,<span class="dv">10</span>,i]),<span class="dv">2</span>]</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>opttemp_rathi[i] <span class="ot">&lt;-</span> waterTemps[<span class="fu">which.max</span>(wt.growth[,<span class="dv">151</span>,i]),<span class="dv">2</span>]</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>opttemp_rathi[i] <span class="ot">&lt;-</span> waterTemps[<span class="fu">which.max</span>(wt.growth[,<span class="dv">400</span>,i]),<span class="dv">2</span>]</span>
 <span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>growth_ggd_ratlo[i] <span class="ot">&lt;-</span> wt.growth[<span class="fu">which.max</span>(wt.growth[,<span class="dv">10</span>,i]),<span class="dv">10</span>,i]</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>growth_ggd_rathi[i] <span class="ot">&lt;-</span> wt.growth[<span class="fu">which.max</span>(wt.growth[,<span class="dv">151</span>,i]),<span class="dv">151</span>,i]</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>growth_ggd_rathi[i] <span class="ot">&lt;-</span> wt.growth[<span class="fu">which.max</span>(wt.growth[,<span class="dv">400</span>,i]),<span class="dv">151</span>,i]</span>
 <span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>opttemptib <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
@@ -627,56 +617,157 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 </div>
 </div>
 </div>
+<p>Compare raw growth (g/g/d) to g/g/d derived from J/g/d (as in Fullerton)</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(wt.growth.raw[, <span class="dv">151</span>, fish.mass] <span class="sc">~</span> wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"Raw g/g/d"</span>, <span class="at">xlab =</span> <span class="st">"g/g/d calculated from J/g/d</span><span class="sc">\n</span><span class="st">(Fullerton method)"</span>, </span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.03</span>, <span class="fl">0.08</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(wt.growth.raw[,i, fish.mass] <span class="sc">~</span> wt.growth[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(wt.growth.raw[, <span class="dv">1</span>, fish.mass] <span class="sc">~</span> wt.growth[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(wt.growth.raw[, <span class="dv">151</span>, fish.mass] <span class="sc">~</span> wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>Show raw growth</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Growth rate (g/g/d)"</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.025</span>, <span class="fl">0.08</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
 </section>
-<section id="energy-budget" class="level3" data-number="4.3.2">
-<h3 data-number="4.3.2" class="anchored" data-anchor-id="energy-budget"><span class="header-section-number">4.3.2</span> Energy budget</h3>
+<section id="consumption" class="level3" data-number="4.3.2">
+<h3 data-number="4.3.2" class="anchored" data-anchor-id="consumption"><span class="header-section-number">4.3.2</span> Consumption</h3>
+<p>Consumption:</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"Consumption (g/g/d)"</span>, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.17</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], consumption[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], consumption[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="fl">0.17</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="PreCalGrowth_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>P-values: proportion of maximum consumption</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"P-value"</span>, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">1</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="PreCalGrowth_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Same as above, but only show lines for ration size = 0.1g, the value we set for patch-level daily food availability (see <code>Habitat.qmd</code>)</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>focal_ration <span class="ot">&lt;-</span> <span class="fl">0.1</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="fu">which.min</span>(<span class="fu">abs</span>(rations <span class="sc">-</span> focal_ration)), fish.mass], </span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"P-value"</span>, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>))</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="PreCalGrowth_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="energy-budget" class="level3" data-number="4.3.3">
+<h3 data-number="4.3.3" class="anchored" data-anchor-id="energy-budget"><span class="header-section-number">4.3.3</span> Energy budget</h3>
 <p>Create multi-panel energy budget plots for different sized fish: <em>Consumption</em> = <em>metabolism</em> + <em>wastes</em> + <em>growth</em></p>
 <p>Scope for growth is thus the difference between <em>Consumption</em> and (<em>metabolism</em> + <em>wastes</em>), i.e., the space between the green and red lines:</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># png("growth.banana.png", 8, 6, "in", res = 300)</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab=</span><span class="st">"Water temperature (C)"</span>,</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.18</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>) <span class="co">#min ration</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(fish.mass <span class="sc">==</span> <span class="dv">1</span>) <span class="fu">legend</span>(<span class="st">"topleft"</span>, <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"C-Max"</span>, <span class="st">"Wastes"</span>, <span class="st">"Respiration"</span>), <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">3</span> , <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">'n'</span>)</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># png("growth.banana.png", 8, 6, "in", res = 300)</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab=</span><span class="st">"Water temperature (C)"</span>,</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.18</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>) <span class="co">#min ration</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(fish.mass <span class="sc">==</span> <span class="dv">1</span>) <span class="fu">legend</span>(<span class="st">"topleft"</span>, <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"C-Max"</span>, <span class="st">"Wastes"</span>, <span class="st">"Respiration"</span>), <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">3</span> , <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">'n'</span>)</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="PreCalGrowth_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="PreCalGrowth_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dev.off()</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dev.off()</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>Create single panel plot of ‘growth banana’: shaded region is the scope for growth</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>fish.mass <span class="ot">&lt;-</span> <span class="dv">500</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type =</span> <span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>,</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>), <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#max ration</span></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="fu">polygon</span>(<span class="fu">c</span>(waterTemps[, <span class="st">"WT"</span>], <span class="fu">rev</span>(waterTemps[, <span class="st">"WT"</span>])), <span class="fu">c</span>(wastes[, <span class="dv">151</span>, fish.mass], <span class="fu">rev</span>(respiration[, <span class="dv">151</span>, fish.mass])),</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">col =</span> <span class="st">"grey"</span>)</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>fish.mass <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type =</span> <span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>), <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#max ration</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="fu">polygon</span>(<span class="fu">c</span>(waterTemps[, <span class="st">"WT"</span>], <span class="fu">rev</span>(waterTemps[, <span class="st">"WT"</span>])), <span class="fu">c</span>(wastes[, <span class="dv">151</span>, fish.mass], <span class="fu">rev</span>(respiration[, <span class="dv">151</span>, fish.mass])),</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>        <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">col =</span> <span class="st">"grey"</span>)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="PreCalGrowth_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="PreCalGrowth_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -1165,225 +1256,288 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
       </a>
   </div>
 </nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Pre-Calculate Growth"</span></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggpubr)</span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(egg)</span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>**Purpose:** Precalculate growth to look-up growth rates based on weight, temperature, and ration.</span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>Source dependencies</span>
-<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
-<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Habitat.R"</span>)</span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Functions.R"</span>)</span>
-<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="fu">## Set-up</span></span>
-<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>Set parameters for *O. mykiss*</span>
-<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>spp <span class="ot">&lt;-</span> <span class="st">"stealhead"</span></span>
-<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>numFish <span class="ot">&lt;-</span> <span class="dv">500</span> <span class="co">#number of fish in a network per scenario</span></span>
-<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>Constants <span class="ot">&lt;-</span> <span class="fu">fncReadConstants</span>()</span>
-<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>st.wt <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="co">#starting weight</span></span>
-<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>ration.lo <span class="ot">&lt;-</span> <span class="fl">0.02</span></span>
-<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>ration.hi <span class="ot">&lt;-</span> ration.lo <span class="sc">+</span> <span class="fl">0.05</span></span>
-<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>pred.en.dens <span class="ot">&lt;-</span> <span class="dv">5900</span> <span class="co">#predator energy density</span></span>
-<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>oxy <span class="ot">&lt;-</span> <span class="dv">13560</span> <span class="co">#oxygen consumed</span></span>
-<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>pff <span class="ot">&lt;-</span> <span class="fl">0.1</span> <span class="co">#percent indigestible prey</span></span>
-<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>prey.en.dens <span class="ot">&lt;-</span> <span class="dv">3500</span> <span class="co"># see Railsback and Rose 1999, Beauchamp et al. 2007</span></span>
-<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>Set up arrays</span>
-<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>waterTemps <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="st">"pid"</span> <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(<span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="dv">25</span>, <span class="fl">0.1</span>))),<span class="st">"WT"</span> <span class="ot">=</span> <span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="dv">25</span>, <span class="fl">0.1</span>))</span>
-<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>rations <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.02</span>, <span class="fl">0.17</span>, <span class="fl">0.001</span>)</span>
-<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>weights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">1500</span>, <span class="dv">1</span>)</span>
-<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>wt.growth <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="cn">NA</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">nrow</span>(waterTemps), <span class="fu">length</span>(rations), <span class="fu">length</span>(weights))) <span class="co">#dim = c(250 WTs, 16 rations, 1500 weights)</span></span>
-<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a>p.values <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="cn">NA</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">nrow</span>(waterTemps), <span class="fu">length</span>(rations), <span class="fu">length</span>(weights)))</span>
-<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a>respiration <span class="ot">&lt;-</span> consumption <span class="ot">&lt;-</span> wastes <span class="ot">&lt;-</span> wt.growth</span>
-<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Calculate growth</span></span>
-<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>Loop through arrays to record growth for each case</span>
-<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a><span class="in">```{r eval=FALSE}</span></span>
-<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(w <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(wt.growth)[<span class="dv">3</span>]){</span>
-<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a>  ww <span class="ot">&lt;-</span> weights[w]</span>
-<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(wt.growth)[<span class="dv">2</span>]){</span>
-<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>    rr <span class="ot">&lt;-</span> rations[r]</span>
-<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>    Input<span class="ot">&lt;-</span> <span class="fu">fncGetBioEParms</span>(<span class="st">"stealhead"</span>, pred.en.dens, prey.en.dens, oxy, pff,</span>
-<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>                            waterTemps, </span>
-<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a>                            <span class="at">startweights =</span> <span class="fu">rep</span>(ww, <span class="fu">nrow</span>(waterTemps)), </span>
-<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a>                            <span class="at">pvals =</span> <span class="fu">rep</span>(<span class="dv">1</span>, <span class="fu">nrow</span>(waterTemps)),</span>
-<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a>                            <span class="at">ration =</span> <span class="fu">rep</span>(rr, <span class="fu">nrow</span>(waterTemps)))</span>
-<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a>    Results <span class="ot">&lt;-</span> <span class="fu">BioE</span>(Input, Constants) <span class="co">#run BioE code given input and constants</span></span>
-<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a>    wt.growth[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Gg_WinBioE) <span class="co"># growth in g/g/d...growth standardized by fish weight</span></span>
-<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a>    p.values[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>pp)</span>
-<span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a>    consumption[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Consumption)</span>
-<span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a>    wastes[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Egestion <span class="sc">+</span> Results<span class="sc">$</span>Excretion <span class="sc">+</span> Results<span class="sc">$</span>S.resp)</span>
-<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a>    respiration[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Respiration)</span>
-<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>    <span class="do">## In Joules instead of grams:</span></span>
-<span id="cb13-74"><a href="#cb13-74" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wt.growth[,r,w] &lt;- c(Results$Growth_j)</span></span>
-<span id="cb13-75"><a href="#cb13-75" aria-hidden="true" tabindex="-1"></a>    <span class="co"># consumption[,r,w] &lt;- c(Results$Consumption_j)</span></span>
-<span id="cb13-76"><a href="#cb13-76" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wastes[,r,w] &lt;- c(Results$Egestion_j + Results$Excretion_j + Results$Sj.resp)</span></span>
-<span id="cb13-77"><a href="#cb13-77" aria-hidden="true" tabindex="-1"></a>    <span class="co"># respiration[,r,w] &lt;- c(Results$Respiration_j)</span></span>
-<span id="cb13-78"><a href="#cb13-78" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb13-79"><a href="#cb13-79" aria-hidden="true" tabindex="-1"></a>  <span class="co"># print(w)</span></span>
-<span id="cb13-80"><a href="#cb13-80" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb13-81"><a href="#cb13-81" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-82"><a href="#cb13-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-83"><a href="#cb13-83" aria-hidden="true" tabindex="-1"></a>Save outputs. Only 'wt.growth' is needed for simulations. The others are merely for plotting below.</span>
-<span id="cb13-84"><a href="#cb13-84" aria-hidden="true" tabindex="-1"></a><span class="in">```{r eval=FALSE}</span></span>
-<span id="cb13-85"><a href="#cb13-85" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wt.growth"</span>, <span class="at">file =</span> <span class="st">"data/wt.growth.array.RData"</span>)</span>
-<span id="cb13-86"><a href="#cb13-86" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"respiration"</span>, <span class="at">file =</span> <span class="st">"data/respiration.array.RData"</span>)</span>
-<span id="cb13-87"><a href="#cb13-87" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wastes"</span>, <span class="at">file =</span> <span class="st">"data/wastes.array.RData"</span>)</span>
-<span id="cb13-88"><a href="#cb13-88" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"consumption"</span>, <span class="at">file =</span> <span class="st">"data/consumption.array.RData"</span>)</span>
-<span id="cb13-89"><a href="#cb13-89" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-90"><a href="#cb13-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-91"><a href="#cb13-91" aria-hidden="true" tabindex="-1"></a>Load back in to plot</span>
-<span id="cb13-94"><a href="#cb13-94" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb13-95"><a href="#cb13-95" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wt.growth.array.RData"</span>)</span>
-<span id="cb13-96"><a href="#cb13-96" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/consumption.array.RData"</span>)</span>
-<span id="cb13-97"><a href="#cb13-97" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wastes.array.RData"</span>)</span>
-<span id="cb13-98"><a href="#cb13-98" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/respiration.array.RData"</span>)</span>
-<span id="cb13-99"><a href="#cb13-99" aria-hidden="true" tabindex="-1"></a><span class="co"># fncGetBioEParms("stealhead", pred.en.dens, prey.en.dens, oxy, pff,</span></span>
-<span id="cb13-100"><a href="#cb13-100" aria-hidden="true" tabindex="-1"></a><span class="co">#                             waterTemps,</span></span>
-<span id="cb13-101"><a href="#cb13-101" aria-hidden="true" tabindex="-1"></a><span class="co">#                             startweights = rep(ww, nrow(waterTemps)),</span></span>
-<span id="cb13-102"><a href="#cb13-102" aria-hidden="true" tabindex="-1"></a><span class="co">#                             pvals = rep(1, nrow(waterTemps)),</span></span>
-<span id="cb13-103"><a href="#cb13-103" aria-hidden="true" tabindex="-1"></a><span class="co">#                             ration = rep(rr, nrow(waterTemps)))</span></span>
-<span id="cb13-104"><a href="#cb13-104" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-105"><a href="#cb13-105" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-106"><a href="#cb13-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-107"><a href="#cb13-107" aria-hidden="true" tabindex="-1"></a><span class="fu">## Plot output</span></span>
-<span id="cb13-108"><a href="#cb13-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-109"><a href="#cb13-109" aria-hidden="true" tabindex="-1"></a><span class="fu">### Growth rate</span></span>
-<span id="cb13-110"><a href="#cb13-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-111"><a href="#cb13-111" aria-hidden="true" tabindex="-1"></a>Plot growth rate by temperature for fish of varying masses, variable ration sizes. </span>
-<span id="cb13-112"><a href="#cb13-112" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
-<span id="cb13-113"><a href="#cb13-113" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
-<span id="cb13-114"><a href="#cb13-114" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Growth rate (g/g/d)"</span></span>
-<span id="cb13-115"><a href="#cb13-115" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
-<span id="cb13-116"><a href="#cb13-116" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
-<span id="cb13-117"><a href="#cb13-117" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.04</span>, <span class="fl">0.04</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
-<span id="cb13-118"><a href="#cb13-118" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
-<span id="cb13-119"><a href="#cb13-119" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
-<span id="cb13-120"><a href="#cb13-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
-<span id="cb13-121"><a href="#cb13-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
-<span id="cb13-122"><a href="#cb13-122" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb13-123"><a href="#cb13-123" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-124"><a href="#cb13-124" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-125"><a href="#cb13-125" aria-hidden="true" tabindex="-1"></a>Plot growth potential by weight under different temperatures (panels) and ration sizes (line color: red = high, blue = low). </span>
-<span id="cb13-126"><a href="#cb13-126" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
-<span id="cb13-127"><a href="#cb13-127" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
-<span id="cb13-128"><a href="#cb13-128" aria-hidden="true" tabindex="-1"></a><span class="co"># speccols &lt;- hcl.colors(13, "Temps")</span></span>
-<span id="cb13-129"><a href="#cb13-129" aria-hidden="true" tabindex="-1"></a><span class="co"># ratiseq &lt;- seq(1, length(rations), by = 30)</span></span>
-<span id="cb13-130"><a href="#cb13-130" aria-hidden="true" tabindex="-1"></a><span class="co"># tempseq &lt;- seq(1, length(waterTemps[,"WT"]), by = 20)</span></span>
-<span id="cb13-131"><a href="#cb13-131" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
-<span id="cb13-132"><a href="#cb13-132" aria-hidden="true" tabindex="-1"></a><span class="co"># for (r in 1:length(ratiseq)) {</span></span>
-<span id="cb13-133"><a href="#cb13-133" aria-hidden="true" tabindex="-1"></a><span class="co">#   </span></span>
-<span id="cb13-134"><a href="#cb13-134" aria-hidden="true" tabindex="-1"></a><span class="co">#   plot(wt.growth[1,ratiseq[r],] ~ weights, type = "n", ylim = c(-0.04, 0.04),</span></span>
-<span id="cb13-135"><a href="#cb13-135" aria-hidden="true" tabindex="-1"></a><span class="co">#        ylab = "Growth rate (g/g/d)", xlab = "Weight (g)", </span></span>
-<span id="cb13-136"><a href="#cb13-136" aria-hidden="true" tabindex="-1"></a><span class="co">#        main = paste0("ration = ", rations[ratiseq[r]]," g"))</span></span>
-<span id="cb13-137"><a href="#cb13-137" aria-hidden="true" tabindex="-1"></a><span class="co">#   </span></span>
-<span id="cb13-138"><a href="#cb13-138" aria-hidden="true" tabindex="-1"></a><span class="co">#   for (i in 1:length(tempseq)) { </span></span>
-<span id="cb13-139"><a href="#cb13-139" aria-hidden="true" tabindex="-1"></a><span class="co">#     lines(wt.growth[tempseq[i],ratiseq[r],] ~ weights, col = speccols[i])</span></span>
-<span id="cb13-140"><a href="#cb13-140" aria-hidden="true" tabindex="-1"></a><span class="co">#     # print(range(wt.growth[i,ratiseq[r],]))</span></span>
-<span id="cb13-141"><a href="#cb13-141" aria-hidden="true" tabindex="-1"></a><span class="co">#   }</span></span>
-<span id="cb13-142"><a href="#cb13-142" aria-hidden="true" tabindex="-1"></a><span class="co"># }</span></span>
-<span id="cb13-143"><a href="#cb13-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-144"><a href="#cb13-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-145"><a href="#cb13-145" aria-hidden="true" tabindex="-1"></a>speccols <span class="ot">&lt;-</span> <span class="fu">hcl.colors</span>(<span class="dv">11</span>, <span class="st">"Temps"</span>)</span>
-<span id="cb13-146"><a href="#cb13-146" aria-hidden="true" tabindex="-1"></a>ratiseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(rations), <span class="at">by =</span> <span class="dv">15</span>)</span>
-<span id="cb13-147"><a href="#cb13-147" aria-hidden="true" tabindex="-1"></a>tempseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(waterTemps[,<span class="st">"WT"</span>]), <span class="at">by =</span> <span class="dv">45</span>)</span>
-<span id="cb13-148"><a href="#cb13-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-149"><a href="#cb13-149" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(tempseq)) { </span>
-<span id="cb13-150"><a href="#cb13-150" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb13-151"><a href="#cb13-151" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(wt.growth[tempseq[i],<span class="dv">1</span>,] <span class="sc">~</span> weights, <span class="at">type =</span> <span class="st">"n"</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.04</span>, <span class="fl">0.04</span>),</span>
-<span id="cb13-152"><a href="#cb13-152" aria-hidden="true" tabindex="-1"></a>       <span class="at">ylab =</span> <span class="st">"Growth rate (g/g/d)"</span>, <span class="at">xlab =</span> <span class="st">"Weight (g)"</span>, </span>
-<span id="cb13-153"><a href="#cb13-153" aria-hidden="true" tabindex="-1"></a>       <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"temp = "</span>, waterTemps[tempseq[i], <span class="st">"WT"</span>],<span class="st">" C"</span>))</span>
-<span id="cb13-154"><a href="#cb13-154" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb13-155"><a href="#cb13-155" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(ratiseq)) {</span>
-<span id="cb13-156"><a href="#cb13-156" aria-hidden="true" tabindex="-1"></a>    <span class="fu">lines</span>(wt.growth[tempseq[i],ratiseq[r],] <span class="sc">~</span> weights, <span class="at">col =</span> speccols[r])</span>
-<span id="cb13-157"><a href="#cb13-157" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(range(wt.growth[i,ratiseq[r],]))</span></span>
-<span id="cb13-158"><a href="#cb13-158" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb13-159"><a href="#cb13-159" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb13-160"><a href="#cb13-160" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-161"><a href="#cb13-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-162"><a href="#cb13-162" aria-hidden="true" tabindex="-1"></a>Plot optimal growth temperature and maximum growth rate by fish size: blue = maximum ration, grey = (nearly) minimum ration</span>
-<span id="cb13-165"><a href="#cb13-165" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb13-166"><a href="#cb13-166" aria-hidden="true" tabindex="-1"></a><span class="co"># dim(wt.growth)[3]</span></span>
-<span id="cb13-167"><a href="#cb13-167" aria-hidden="true" tabindex="-1"></a>opttemptib <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">weight =</span> weights, </span>
-<span id="cb13-168"><a href="#cb13-168" aria-hidden="true" tabindex="-1"></a>                     <span class="at">opttemp_ratlo =</span> <span class="cn">NA</span>, <span class="at">opttemp_rathi =</span> <span class="cn">NA</span>, </span>
-<span id="cb13-169"><a href="#cb13-169" aria-hidden="true" tabindex="-1"></a>                     <span class="at">growth_ggd_ratlo =</span> <span class="cn">NA</span>, <span class="at">growth_ggd_rathi =</span> <span class="cn">NA</span>)</span>
-<span id="cb13-170"><a href="#cb13-170" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-171"><a href="#cb13-171" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(wt.growth)[<span class="dv">3</span>]) {</span>
-<span id="cb13-172"><a href="#cb13-172" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>opttemp_ratlo[i] <span class="ot">&lt;-</span> waterTemps[<span class="fu">which.max</span>(wt.growth[,<span class="dv">10</span>,i]),<span class="dv">2</span>]</span>
-<span id="cb13-173"><a href="#cb13-173" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>opttemp_rathi[i] <span class="ot">&lt;-</span> waterTemps[<span class="fu">which.max</span>(wt.growth[,<span class="dv">151</span>,i]),<span class="dv">2</span>]</span>
-<span id="cb13-174"><a href="#cb13-174" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>growth_ggd_ratlo[i] <span class="ot">&lt;-</span> wt.growth[<span class="fu">which.max</span>(wt.growth[,<span class="dv">10</span>,i]),<span class="dv">10</span>,i]</span>
-<span id="cb13-175"><a href="#cb13-175" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>growth_ggd_rathi[i] <span class="ot">&lt;-</span> wt.growth[<span class="fu">which.max</span>(wt.growth[,<span class="dv">151</span>,i]),<span class="dv">151</span>,i]</span>
-<span id="cb13-176"><a href="#cb13-176" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb13-177"><a href="#cb13-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-178"><a href="#cb13-178" aria-hidden="true" tabindex="-1"></a>opttemptib <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb13-179"><a href="#cb13-179" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> opttemp_ratlo), <span class="at">color =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
-<span id="cb13-180"><a href="#cb13-180" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> opttemp_rathi), <span class="at">color =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
-<span id="cb13-181"><a href="#cb13-181" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Optimal temperature for growth (C)"</span>)</span>
-<span id="cb13-182"><a href="#cb13-182" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-183"><a href="#cb13-183" aria-hidden="true" tabindex="-1"></a>opttemptib <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb13-184"><a href="#cb13-184" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> growth_ggd_ratlo), <span class="at">color =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
-<span id="cb13-185"><a href="#cb13-185" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> growth_ggd_rathi), <span class="at">color =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
-<span id="cb13-186"><a href="#cb13-186" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Maximum growth rate (g/g/d)"</span>)</span>
-<span id="cb13-187"><a href="#cb13-187" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-188"><a href="#cb13-188" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-189"><a href="#cb13-189" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-190"><a href="#cb13-190" aria-hidden="true" tabindex="-1"></a><span class="fu">### Energy budget</span></span>
-<span id="cb13-191"><a href="#cb13-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-192"><a href="#cb13-192" aria-hidden="true" tabindex="-1"></a>Create multi-panel energy budget plots for different sized fish: *Consumption* = *metabolism* + *wastes* + *growth*</span>
-<span id="cb13-193"><a href="#cb13-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-194"><a href="#cb13-194" aria-hidden="true" tabindex="-1"></a>Scope for growth is thus the difference between *Consumption* and (*metabolism* + *wastes*), i.e., the space between the green and red lines:</span>
-<span id="cb13-195"><a href="#cb13-195" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
-<span id="cb13-196"><a href="#cb13-196" aria-hidden="true" tabindex="-1"></a><span class="co"># png("growth.banana.png", 8, 6, "in", res = 300)</span></span>
-<span id="cb13-197"><a href="#cb13-197" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
-<span id="cb13-198"><a href="#cb13-198" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
-<span id="cb13-199"><a href="#cb13-199" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
-<span id="cb13-200"><a href="#cb13-200" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab=</span><span class="st">"Water temperature (C)"</span>,</span>
-<span id="cb13-201"><a href="#cb13-201" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.18</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
-<span id="cb13-202"><a href="#cb13-202" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>) <span class="co">#min ration</span></span>
-<span id="cb13-203"><a href="#cb13-203" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
-<span id="cb13-204"><a href="#cb13-204" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
-<span id="cb13-205"><a href="#cb13-205" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(fish.mass <span class="sc">==</span> <span class="dv">1</span>) <span class="fu">legend</span>(<span class="st">"topleft"</span>, <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"C-Max"</span>, <span class="st">"Wastes"</span>, <span class="st">"Respiration"</span>), <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">3</span> , <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">'n'</span>)</span>
-<span id="cb13-206"><a href="#cb13-206" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb13-207"><a href="#cb13-207" aria-hidden="true" tabindex="-1"></a><span class="co"># dev.off()</span></span>
-<span id="cb13-208"><a href="#cb13-208" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-209"><a href="#cb13-209" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-210"><a href="#cb13-210" aria-hidden="true" tabindex="-1"></a>Create single panel plot of 'growth banana': shaded region is the scope for growth</span>
-<span id="cb13-213"><a href="#cb13-213" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb13-214"><a href="#cb13-214" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
-<span id="cb13-215"><a href="#cb13-215" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
-<span id="cb13-216"><a href="#cb13-216" aria-hidden="true" tabindex="-1"></a>fish.mass <span class="ot">&lt;-</span> <span class="dv">500</span></span>
-<span id="cb13-217"><a href="#cb13-217" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type =</span> <span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>,</span>
-<span id="cb13-218"><a href="#cb13-218" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>), <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#max ration</span></span>
-<span id="cb13-219"><a href="#cb13-219" aria-hidden="true" tabindex="-1"></a><span class="fu">polygon</span>(<span class="fu">c</span>(waterTemps[, <span class="st">"WT"</span>], <span class="fu">rev</span>(waterTemps[, <span class="st">"WT"</span>])), <span class="fu">c</span>(wastes[, <span class="dv">151</span>, fish.mass], <span class="fu">rev</span>(respiration[, <span class="dv">151</span>, fish.mass])),</span>
-<span id="cb13-220"><a href="#cb13-220" aria-hidden="true" tabindex="-1"></a>        <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">col =</span> <span class="st">"grey"</span>)</span>
-<span id="cb13-221"><a href="#cb13-221" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
-<span id="cb13-222"><a href="#cb13-222" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
-<span id="cb13-223"><a href="#cb13-223" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-224"><a href="#cb13-224" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-225"><a href="#cb13-225" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-226"><a href="#cb13-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-227"><a href="#cb13-227" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-228"><a href="#cb13-228" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-229"><a href="#cb13-229" aria-hidden="true" tabindex="-1"></a></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Pre-Calculate Growth"</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggpubr)</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(egg)</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>**Purpose:** Precalculate growth to look-up growth rates based on weight, temperature, and ration.</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>Source dependencies</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Habitat.R"</span>)</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Functions.R"</span>)</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="fu">## Set-up</span></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>Set parameters for *O. mykiss*</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>spp <span class="ot">&lt;-</span> <span class="st">"stealhead"</span></span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>numFish <span class="ot">&lt;-</span> <span class="dv">500</span> <span class="co">#number of fish in a network per scenario</span></span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>Constants <span class="ot">&lt;-</span> <span class="fu">fncReadConstants</span>()</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>st.wt <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="co">#starting weight</span></span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>ration.lo <span class="ot">&lt;-</span> <span class="fl">0.02</span></span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>ration.hi <span class="ot">&lt;-</span> ration.lo <span class="sc">+</span> <span class="fl">0.05</span></span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>pred.en.dens <span class="ot">&lt;-</span> <span class="dv">5900</span> <span class="co">#predator energy density</span></span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a>oxy <span class="ot">&lt;-</span> <span class="dv">13560</span> <span class="co">#oxygen consumed</span></span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>pff <span class="ot">&lt;-</span> <span class="fl">0.1</span> <span class="co">#percent indigestible prey</span></span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a>prey.en.dens <span class="ot">&lt;-</span> <span class="dv">3500</span> <span class="co"># see Railsback and Rose 1999, Beauchamp et al. 2007</span></span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a>Set up arrays. Very big to allow much wider range of and more accurate values of rations and weights</span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
+<span id="cb18-44"><a href="#cb18-44" aria-hidden="true" tabindex="-1"></a>waterTemps <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="st">"pid"</span> <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(<span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="dv">25</span>, <span class="fl">0.1</span>))),<span class="st">"WT"</span> <span class="ot">=</span> <span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="dv">25</span>, <span class="fl">0.1</span>))</span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a>rations <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.001</span>, <span class="fl">0.4</span>, <span class="fl">0.001</span>)</span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a>weights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.25</span>, <span class="dv">1500</span>, <span class="fl">0.25</span>)</span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a>wt.growth <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="cn">NA</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">nrow</span>(waterTemps), <span class="fu">length</span>(rations), <span class="fu">length</span>(weights))) <span class="co">#dim = c(250 WTs, 400 rations, 6000 weights)</span></span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a>p.values <span class="ot">&lt;-</span> respiration <span class="ot">&lt;-</span> consumption <span class="ot">&lt;-</span> wastes <span class="ot">&lt;-</span> cmax <span class="ot">&lt;-</span> pvals_derived <span class="ot">&lt;-</span> wt.growth</span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-51"><a href="#cb18-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-52"><a href="#cb18-52" aria-hidden="true" tabindex="-1"></a><span class="fu">## Calculate growth</span></span>
+<span id="cb18-53"><a href="#cb18-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-54"><a href="#cb18-54" aria-hidden="true" tabindex="-1"></a>Loop through arrays to record growth for each case</span>
+<span id="cb18-55"><a href="#cb18-55" aria-hidden="true" tabindex="-1"></a><span class="in">```{r eval=FALSE}</span></span>
+<span id="cb18-56"><a href="#cb18-56" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(w <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(wt.growth)[<span class="dv">3</span>]){</span>
+<span id="cb18-57"><a href="#cb18-57" aria-hidden="true" tabindex="-1"></a>  ww <span class="ot">&lt;-</span> weights[w]</span>
+<span id="cb18-58"><a href="#cb18-58" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(wt.growth)[<span class="dv">2</span>]){</span>
+<span id="cb18-59"><a href="#cb18-59" aria-hidden="true" tabindex="-1"></a>    rr <span class="ot">&lt;-</span> rations[r]</span>
+<span id="cb18-60"><a href="#cb18-60" aria-hidden="true" tabindex="-1"></a>    Input<span class="ot">&lt;-</span> <span class="fu">fncGetBioEParms</span>(<span class="st">"stealhead"</span>, pred.en.dens, prey.en.dens, oxy, pff,</span>
+<span id="cb18-61"><a href="#cb18-61" aria-hidden="true" tabindex="-1"></a>                            waterTemps, </span>
+<span id="cb18-62"><a href="#cb18-62" aria-hidden="true" tabindex="-1"></a>                            <span class="at">startweights =</span> <span class="fu">rep</span>(ww, <span class="fu">nrow</span>(waterTemps)), </span>
+<span id="cb18-63"><a href="#cb18-63" aria-hidden="true" tabindex="-1"></a>                            <span class="at">pvals =</span> <span class="fu">rep</span>(<span class="dv">1</span>, <span class="fu">nrow</span>(waterTemps)),</span>
+<span id="cb18-64"><a href="#cb18-64" aria-hidden="true" tabindex="-1"></a>                            <span class="at">ration =</span> <span class="fu">rep</span>(rr, <span class="fu">nrow</span>(waterTemps)))</span>
+<span id="cb18-65"><a href="#cb18-65" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-66"><a href="#cb18-66" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-67"><a href="#cb18-67" aria-hidden="true" tabindex="-1"></a>    Results <span class="ot">&lt;-</span> <span class="fu">BioE</span>(Input, Constants) <span class="co">#run BioE code given input and constants</span></span>
+<span id="cb18-68"><a href="#cb18-68" aria-hidden="true" tabindex="-1"></a>    wt.growth[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Gg_WinBioE) <span class="co"># growth in g/g/d...growth standardized by fish weight</span></span>
+<span id="cb18-69"><a href="#cb18-69" aria-hidden="true" tabindex="-1"></a>    <span class="co"># p.values[,r,w] &lt;- c(Results$pp) # these are always constant, by definition</span></span>
+<span id="cb18-70"><a href="#cb18-70" aria-hidden="true" tabindex="-1"></a>    consumption[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Consumption)</span>
+<span id="cb18-71"><a href="#cb18-71" aria-hidden="true" tabindex="-1"></a>    wastes[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Egestion <span class="sc">+</span> Results<span class="sc">$</span>Excretion <span class="sc">+</span> Results<span class="sc">$</span>S.resp)</span>
+<span id="cb18-72"><a href="#cb18-72" aria-hidden="true" tabindex="-1"></a>    respiration[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Respiration)</span>
+<span id="cb18-73"><a href="#cb18-73" aria-hidden="true" tabindex="-1"></a>    cmax[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Consumption_max)</span>
+<span id="cb18-74"><a href="#cb18-74" aria-hidden="true" tabindex="-1"></a>    pvals_derived[,r,w] <span class="ot">&lt;-</span> <span class="fu">c</span>(Results<span class="sc">$</span>Pvalue)</span>
+<span id="cb18-75"><a href="#cb18-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-76"><a href="#cb18-76" aria-hidden="true" tabindex="-1"></a>    <span class="do">## In Joules instead of grams:</span></span>
+<span id="cb18-77"><a href="#cb18-77" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wt.growth[,r,w] &lt;- c(Results$Growth_j)</span></span>
+<span id="cb18-78"><a href="#cb18-78" aria-hidden="true" tabindex="-1"></a>    <span class="co"># consumption[,r,w] &lt;- c(Results$Consumption_j)</span></span>
+<span id="cb18-79"><a href="#cb18-79" aria-hidden="true" tabindex="-1"></a>    <span class="co"># wastes[,r,w] &lt;- c(Results$Egestion_j + Results$Excretion_j + Results$Sj.resp)</span></span>
+<span id="cb18-80"><a href="#cb18-80" aria-hidden="true" tabindex="-1"></a>    <span class="co"># respiration[,r,w] &lt;- c(Results$Respiration_j)</span></span>
+<span id="cb18-81"><a href="#cb18-81" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb18-82"><a href="#cb18-82" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (w <span class="sc">%%</span> <span class="dv">100</span> <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">print</span>(w)</span>
+<span id="cb18-83"><a href="#cb18-83" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-84"><a href="#cb18-84" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-85"><a href="#cb18-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-86"><a href="#cb18-86" aria-hidden="true" tabindex="-1"></a>Save outputs. Only 'wt.growth' is needed for simulations. The others are merely for plotting below.</span>
+<span id="cb18-87"><a href="#cb18-87" aria-hidden="true" tabindex="-1"></a><span class="in">```{r eval=FALSE}</span></span>
+<span id="cb18-88"><a href="#cb18-88" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wt.growth"</span>, <span class="at">file =</span> <span class="st">"data/wt.growth.array.RData"</span>)</span>
+<span id="cb18-89"><a href="#cb18-89" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"respiration"</span>, <span class="at">file =</span> <span class="st">"data/respiration.array.RData"</span>)</span>
+<span id="cb18-90"><a href="#cb18-90" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wastes"</span>, <span class="at">file =</span> <span class="st">"data/wastes.array.RData"</span>)</span>
+<span id="cb18-91"><a href="#cb18-91" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"consumption"</span>, <span class="at">file =</span> <span class="st">"data/consumption.array.RData"</span>)</span>
+<span id="cb18-92"><a href="#cb18-92" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"pvals_derived"</span>, <span class="at">file =</span> <span class="st">"data/pvalsderived.array.RData"</span>)</span>
+<span id="cb18-93"><a href="#cb18-93" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"cmax"</span>, <span class="at">file =</span> <span class="st">"data/cmax.array.RData"</span>)</span>
+<span id="cb18-94"><a href="#cb18-94" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-95"><a href="#cb18-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-96"><a href="#cb18-96" aria-hidden="true" tabindex="-1"></a>Load back in to plot</span>
+<span id="cb18-99"><a href="#cb18-99" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb18-100"><a href="#cb18-100" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wt.growth.array.RData"</span>)</span>
+<span id="cb18-101"><a href="#cb18-101" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/consumption.array.RData"</span>)</span>
+<span id="cb18-102"><a href="#cb18-102" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wastes.array.RData"</span>)</span>
+<span id="cb18-103"><a href="#cb18-103" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/respiration.array.RData"</span>)</span>
+<span id="cb18-104"><a href="#cb18-104" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/pvalsderived.array.RData"</span>)</span>
+<span id="cb18-105"><a href="#cb18-105" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/cmax.array.RData"</span>)</span>
+<span id="cb18-106"><a href="#cb18-106" aria-hidden="true" tabindex="-1"></a><span class="co"># fncGetBioEParms("stealhead", pred.en.dens, prey.en.dens, oxy, pff,</span></span>
+<span id="cb18-107"><a href="#cb18-107" aria-hidden="true" tabindex="-1"></a><span class="co">#                             waterTemps,</span></span>
+<span id="cb18-108"><a href="#cb18-108" aria-hidden="true" tabindex="-1"></a><span class="co">#                             startweights = rep(ww, nrow(waterTemps)),</span></span>
+<span id="cb18-109"><a href="#cb18-109" aria-hidden="true" tabindex="-1"></a><span class="co">#                             pvals = rep(1, nrow(waterTemps)),</span></span>
+<span id="cb18-110"><a href="#cb18-110" aria-hidden="true" tabindex="-1"></a><span class="co">#                             ration = rep(rr, nrow(waterTemps)))</span></span>
+<span id="cb18-111"><a href="#cb18-111" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-112"><a href="#cb18-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-113"><a href="#cb18-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-114"><a href="#cb18-114" aria-hidden="true" tabindex="-1"></a><span class="fu">## Plot output</span></span>
+<span id="cb18-115"><a href="#cb18-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-116"><a href="#cb18-116" aria-hidden="true" tabindex="-1"></a><span class="fu">### Growth rate</span></span>
+<span id="cb18-117"><a href="#cb18-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-118"><a href="#cb18-118" aria-hidden="true" tabindex="-1"></a>**Note that because of the range of values we used for ration, growth of small fish (&lt;5g) is constrained even at the highest rations (max ration &lt; allometric C~max~). So it only appears as if max growth increases with size for fish between 0.5 a 5g.**</span>
+<span id="cb18-119"><a href="#cb18-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-120"><a href="#cb18-120" aria-hidden="true" tabindex="-1"></a>Plot growth rate by temperature for fish of varying masses, variable ration sizes. </span>
+<span id="cb18-121"><a href="#cb18-121" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb18-122"><a href="#cb18-122" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-123"><a href="#cb18-123" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Growth rate (g/g/d)"</span></span>
+<span id="cb18-124"><a href="#cb18-124" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb18-125"><a href="#cb18-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">400</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb18-126"><a href="#cb18-126" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.06</span>, <span class="fl">0.1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb18-127"><a href="#cb18-127" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(rations), <span class="at">by =</span> <span class="dv">50</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb18-128"><a href="#cb18-128" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-129"><a href="#cb18-129" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb18-130"><a href="#cb18-130" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth[, <span class="dv">400</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb18-131"><a href="#cb18-131" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-132"><a href="#cb18-132" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-133"><a href="#cb18-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-134"><a href="#cb18-134" aria-hidden="true" tabindex="-1"></a>Plot growth potential by weight under different temperatures (panels) and ration sizes (line color: red = high, blue = low). </span>
+<span id="cb18-135"><a href="#cb18-135" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb18-136"><a href="#cb18-136" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-137"><a href="#cb18-137" aria-hidden="true" tabindex="-1"></a>speccols <span class="ot">&lt;-</span> <span class="fu">hcl.colors</span>(<span class="dv">9</span>, <span class="st">"Temps"</span>)</span>
+<span id="cb18-138"><a href="#cb18-138" aria-hidden="true" tabindex="-1"></a>ratiseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(rations), <span class="at">by =</span> <span class="dv">49</span>)</span>
+<span id="cb18-139"><a href="#cb18-139" aria-hidden="true" tabindex="-1"></a>tempseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(waterTemps[,<span class="st">"WT"</span>]), <span class="at">by =</span> <span class="dv">45</span>)</span>
+<span id="cb18-140"><a href="#cb18-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-141"><a href="#cb18-141" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(tempseq)) { </span>
+<span id="cb18-142"><a href="#cb18-142" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(wt.growth[tempseq[i],<span class="dv">1</span>,] <span class="sc">~</span> weights, <span class="at">type =</span> <span class="st">"n"</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.06</span>, <span class="fl">0.1</span>), <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">50</span>),</span>
+<span id="cb18-143"><a href="#cb18-143" aria-hidden="true" tabindex="-1"></a>       <span class="at">ylab =</span> <span class="st">"Growth rate (g/g/d)"</span>, <span class="at">xlab =</span> <span class="st">"Weight (g)"</span>, </span>
+<span id="cb18-144"><a href="#cb18-144" aria-hidden="true" tabindex="-1"></a>       <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"temp = "</span>, waterTemps[tempseq[i], <span class="st">"WT"</span>],<span class="st">" C"</span>))</span>
+<span id="cb18-145"><a href="#cb18-145" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb18-146"><a href="#cb18-146" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(ratiseq)) {</span>
+<span id="cb18-147"><a href="#cb18-147" aria-hidden="true" tabindex="-1"></a>    <span class="fu">lines</span>(wt.growth[tempseq[i],ratiseq[r],] <span class="sc">~</span> weights, <span class="at">col =</span> speccols[r])</span>
+<span id="cb18-148"><a href="#cb18-148" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(range(wt.growth[i,ratiseq[r],]))</span></span>
+<span id="cb18-149"><a href="#cb18-149" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb18-150"><a href="#cb18-150" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">100</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-151"><a href="#cb18-151" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb18-152"><a href="#cb18-152" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-153"><a href="#cb18-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-154"><a href="#cb18-154" aria-hidden="true" tabindex="-1"></a>Plot optimal growth temperature and maximum growth rate by fish size: blue = maximum ration, grey = (nearly) minimum ration</span>
+<span id="cb18-157"><a href="#cb18-157" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb18-158"><a href="#cb18-158" aria-hidden="true" tabindex="-1"></a><span class="co"># dim(wt.growth)[3]</span></span>
+<span id="cb18-159"><a href="#cb18-159" aria-hidden="true" tabindex="-1"></a>opttemptib <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">weight =</span> weights, </span>
+<span id="cb18-160"><a href="#cb18-160" aria-hidden="true" tabindex="-1"></a>                     <span class="at">opttemp_ratlo =</span> <span class="cn">NA</span>, <span class="at">opttemp_rathi =</span> <span class="cn">NA</span>, </span>
+<span id="cb18-161"><a href="#cb18-161" aria-hidden="true" tabindex="-1"></a>                     <span class="at">growth_ggd_ratlo =</span> <span class="cn">NA</span>, <span class="at">growth_ggd_rathi =</span> <span class="cn">NA</span>)</span>
+<span id="cb18-162"><a href="#cb18-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-163"><a href="#cb18-163" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(wt.growth)[<span class="dv">3</span>]) {</span>
+<span id="cb18-164"><a href="#cb18-164" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>opttemp_ratlo[i] <span class="ot">&lt;-</span> waterTemps[<span class="fu">which.max</span>(wt.growth[,<span class="dv">10</span>,i]),<span class="dv">2</span>]</span>
+<span id="cb18-165"><a href="#cb18-165" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>opttemp_rathi[i] <span class="ot">&lt;-</span> waterTemps[<span class="fu">which.max</span>(wt.growth[,<span class="dv">400</span>,i]),<span class="dv">2</span>]</span>
+<span id="cb18-166"><a href="#cb18-166" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>growth_ggd_ratlo[i] <span class="ot">&lt;-</span> wt.growth[<span class="fu">which.max</span>(wt.growth[,<span class="dv">10</span>,i]),<span class="dv">10</span>,i]</span>
+<span id="cb18-167"><a href="#cb18-167" aria-hidden="true" tabindex="-1"></a>  opttemptib<span class="sc">$</span>growth_ggd_rathi[i] <span class="ot">&lt;-</span> wt.growth[<span class="fu">which.max</span>(wt.growth[,<span class="dv">400</span>,i]),<span class="dv">151</span>,i]</span>
+<span id="cb18-168"><a href="#cb18-168" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-169"><a href="#cb18-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-170"><a href="#cb18-170" aria-hidden="true" tabindex="-1"></a>opttemptib <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb18-171"><a href="#cb18-171" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> opttemp_ratlo), <span class="at">color =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb18-172"><a href="#cb18-172" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> opttemp_rathi), <span class="at">color =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb18-173"><a href="#cb18-173" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Optimal temperature for growth (C)"</span>)</span>
+<span id="cb18-174"><a href="#cb18-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-175"><a href="#cb18-175" aria-hidden="true" tabindex="-1"></a>opttemptib <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb18-176"><a href="#cb18-176" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> growth_ggd_ratlo), <span class="at">color =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb18-177"><a href="#cb18-177" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> growth_ggd_rathi), <span class="at">color =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb18-178"><a href="#cb18-178" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Maximum growth rate (g/g/d)"</span>)</span>
+<span id="cb18-179"><a href="#cb18-179" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-180"><a href="#cb18-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-181"><a href="#cb18-181" aria-hidden="true" tabindex="-1"></a>Compare raw growth (g/g/d) to g/g/d derived from J/g/d (as in Fullerton)</span>
+<span id="cb18-182"><a href="#cb18-182" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6, eval=FALSE}</span></span>
+<span id="cb18-183"><a href="#cb18-183" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-184"><a href="#cb18-184" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb18-185"><a href="#cb18-185" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(wt.growth.raw[, <span class="dv">151</span>, fish.mass] <span class="sc">~</span> wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"Raw g/g/d"</span>, <span class="at">xlab =</span> <span class="st">"g/g/d calculated from J/g/d</span><span class="sc">\n</span><span class="st">(Fullerton method)"</span>, </span>
+<span id="cb18-186"><a href="#cb18-186" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.03</span>, <span class="fl">0.08</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb18-187"><a href="#cb18-187" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(wt.growth.raw[,i, fish.mass] <span class="sc">~</span> wt.growth[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb18-188"><a href="#cb18-188" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-189"><a href="#cb18-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-190"><a href="#cb18-190" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(wt.growth.raw[, <span class="dv">1</span>, fish.mass] <span class="sc">~</span> wt.growth[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb18-191"><a href="#cb18-191" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(wt.growth.raw[, <span class="dv">151</span>, fish.mass] <span class="sc">~</span> wt.growth[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb18-192"><a href="#cb18-192" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-193"><a href="#cb18-193" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-194"><a href="#cb18-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-195"><a href="#cb18-195" aria-hidden="true" tabindex="-1"></a>Show raw growth</span>
+<span id="cb18-196"><a href="#cb18-196" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6, eval=FALSE}</span></span>
+<span id="cb18-197"><a href="#cb18-197" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-198"><a href="#cb18-198" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Growth rate (g/g/d)"</span></span>
+<span id="cb18-199"><a href="#cb18-199" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb18-200"><a href="#cb18-200" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb18-201"><a href="#cb18-201" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.025</span>, <span class="fl">0.08</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb18-202"><a href="#cb18-202" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb18-203"><a href="#cb18-203" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-204"><a href="#cb18-204" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb18-205"><a href="#cb18-205" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wt.growth.raw[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb18-206"><a href="#cb18-206" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-207"><a href="#cb18-207" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-208"><a href="#cb18-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-209"><a href="#cb18-209" aria-hidden="true" tabindex="-1"></a><span class="fu">### Consumption</span></span>
+<span id="cb18-210"><a href="#cb18-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-211"><a href="#cb18-211" aria-hidden="true" tabindex="-1"></a>Consumption:</span>
+<span id="cb18-212"><a href="#cb18-212" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb18-213"><a href="#cb18-213" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-214"><a href="#cb18-214" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb18-215"><a href="#cb18-215" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"Consumption (g/g/d)"</span>, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb18-216"><a href="#cb18-216" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.17</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb18-217"><a href="#cb18-217" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb18-218"><a href="#cb18-218" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-219"><a href="#cb18-219" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], consumption[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb18-220"><a href="#cb18-220" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], consumption[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb18-221"><a href="#cb18-221" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="fl">0.17</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-222"><a href="#cb18-222" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-223"><a href="#cb18-223" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-224"><a href="#cb18-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-225"><a href="#cb18-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-226"><a href="#cb18-226" aria-hidden="true" tabindex="-1"></a>P-values: proportion of maximum consumption</span>
+<span id="cb18-227"><a href="#cb18-227" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb18-228"><a href="#cb18-228" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-229"><a href="#cb18-229" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb18-230"><a href="#cb18-230" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"P-value"</span>, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb18-231"><a href="#cb18-231" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb18-232"><a href="#cb18-232" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">length</span>(rations)<span class="sc">-</span><span class="dv">1</span>, <span class="at">by =</span> <span class="dv">10</span>)){ <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[,i, fish.mass], <span class="at">col =</span> <span class="st">"gray70"</span>)}</span>
+<span id="cb18-233"><a href="#cb18-233" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-234"><a href="#cb18-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">1</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-235"><a href="#cb18-235" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="dv">1</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># min ration</span></span>
+<span id="cb18-236"><a href="#cb18-236" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="fl">1.5</span>) <span class="co"># max ration</span></span>
+<span id="cb18-237"><a href="#cb18-237" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-238"><a href="#cb18-238" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-239"><a href="#cb18-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-240"><a href="#cb18-240" aria-hidden="true" tabindex="-1"></a>Same as above, but only show lines for ration size = 0.1g, the value we set for patch-level daily food availability (see <span class="in">`Habitat.qmd`</span>)  </span>
+<span id="cb18-241"><a href="#cb18-241" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb18-242"><a href="#cb18-242" aria-hidden="true" tabindex="-1"></a>focal_ration <span class="ot">&lt;-</span> <span class="fl">0.1</span></span>
+<span id="cb18-243"><a href="#cb18-243" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-244"><a href="#cb18-244" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb18-245"><a href="#cb18-245" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], pvals_derived[, <span class="fu">which.min</span>(<span class="fu">abs</span>(rations <span class="sc">-</span> focal_ration)), fish.mass], </span>
+<span id="cb18-246"><a href="#cb18-246" aria-hidden="true" tabindex="-1"></a>       <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> <span class="st">"P-value"</span>, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>, </span>
+<span id="cb18-247"><a href="#cb18-247" aria-hidden="true" tabindex="-1"></a>       <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight = "</span>, fish.mass,<span class="st">" g"</span>))</span>
+<span id="cb18-248"><a href="#cb18-248" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-249"><a href="#cb18-249" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-250"><a href="#cb18-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-251"><a href="#cb18-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-252"><a href="#cb18-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-253"><a href="#cb18-253" aria-hidden="true" tabindex="-1"></a><span class="fu">### Energy budget</span></span>
+<span id="cb18-254"><a href="#cb18-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-255"><a href="#cb18-255" aria-hidden="true" tabindex="-1"></a>Create multi-panel energy budget plots for different sized fish: *Consumption* = *metabolism* + *wastes* + *growth*</span>
+<span id="cb18-256"><a href="#cb18-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-257"><a href="#cb18-257" aria-hidden="true" tabindex="-1"></a>Scope for growth is thus the difference between *Consumption* and (*metabolism* + *wastes*), i.e., the space between the green and red lines:</span>
+<span id="cb18-258"><a href="#cb18-258" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb18-259"><a href="#cb18-259" aria-hidden="true" tabindex="-1"></a><span class="co"># png("growth.banana.png", 8, 6, "in", res = 300)</span></span>
+<span id="cb18-260"><a href="#cb18-260" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-261"><a href="#cb18-261" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
+<span id="cb18-262"><a href="#cb18-262" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(fish.mass <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)){</span>
+<span id="cb18-263"><a href="#cb18-263" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type=</span><span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab=</span><span class="st">"Water temperature (C)"</span>,</span>
+<span id="cb18-264"><a href="#cb18-264" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="dv">4</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.18</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>)) <span class="co">#max ration</span></span>
+<span id="cb18-265"><a href="#cb18-265" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>) <span class="co">#min ration</span></span>
+<span id="cb18-266"><a href="#cb18-266" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
+<span id="cb18-267"><a href="#cb18-267" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb18-268"><a href="#cb18-268" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(fish.mass <span class="sc">==</span> <span class="dv">1</span>) <span class="fu">legend</span>(<span class="st">"topleft"</span>, <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"C-Max"</span>, <span class="st">"Wastes"</span>, <span class="st">"Respiration"</span>), <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">3</span> , <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">'n'</span>)</span>
+<span id="cb18-269"><a href="#cb18-269" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-270"><a href="#cb18-270" aria-hidden="true" tabindex="-1"></a><span class="co"># dev.off()</span></span>
+<span id="cb18-271"><a href="#cb18-271" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-272"><a href="#cb18-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-273"><a href="#cb18-273" aria-hidden="true" tabindex="-1"></a>Create single panel plot of 'growth banana': shaded region is the scope for growth</span>
+<span id="cb18-276"><a href="#cb18-276" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb18-277"><a href="#cb18-277" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">las =</span> <span class="dv">1</span>)</span>
+<span id="cb18-278"><a href="#cb18-278" aria-hidden="true" tabindex="-1"></a>ylb <span class="ot">&lt;-</span> <span class="st">"Rates (g/g/d)"</span></span>
+<span id="cb18-279"><a href="#cb18-279" aria-hidden="true" tabindex="-1"></a>fish.mass <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb18-280"><a href="#cb18-280" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(waterTemps[,<span class="st">"WT"</span>], consumption[,<span class="dv">151</span>, fish.mass], <span class="at">type =</span> <span class="st">'l'</span>, <span class="at">ylab =</span> ylb, <span class="at">xlab =</span> <span class="st">"Water temperature (C)"</span>,</span>
+<span id="cb18-281"><a href="#cb18-281" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.02</span>, <span class="fl">0.1</span>), <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"fish weight ="</span>, fish.mass,<span class="st">" g"</span>), <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#max ration</span></span>
+<span id="cb18-282"><a href="#cb18-282" aria-hidden="true" tabindex="-1"></a><span class="fu">polygon</span>(<span class="fu">c</span>(waterTemps[, <span class="st">"WT"</span>], <span class="fu">rev</span>(waterTemps[, <span class="st">"WT"</span>])), <span class="fu">c</span>(wastes[, <span class="dv">151</span>, fish.mass], <span class="fu">rev</span>(respiration[, <span class="dv">151</span>, fish.mass])),</span>
+<span id="cb18-283"><a href="#cb18-283" aria-hidden="true" tabindex="-1"></a>        <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">col =</span> <span class="st">"grey"</span>)</span>
+<span id="cb18-284"><a href="#cb18-284" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], wastes[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">3</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
+<span id="cb18-285"><a href="#cb18-285" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(waterTemps[,<span class="st">"WT"</span>], respiration[,<span class="dv">151</span>, fish.mass], <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>) <span class="co">#min ration</span></span>
+<span id="cb18-286"><a href="#cb18-286" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-287"><a href="#cb18-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-288"><a href="#cb18-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-289"><a href="#cb18-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-290"><a href="#cb18-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-291"><a href="#cb18-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-292"><a href="#cb18-292" aria-hidden="true" tabindex="-1"></a></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

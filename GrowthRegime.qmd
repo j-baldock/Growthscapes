@@ -13,12 +13,14 @@ library(egg)
 
 Source dependencies
 ```{r include=FALSE}
+#| cache: false
 source("Habitat.R")
 source("Functions.R")
 ```
 
 Load pre-calculated growth
 ```{r}
+#| cache: false
 load("data/wt.growth.array.RData")
 ```
 
@@ -37,15 +39,18 @@ Derive a generic growth regime for a 10 gram fish, sensu Armstrong et al. (2021)
 Objects
 ```{r}
 waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
-rations <- seq(0.02, 0.17, 0.001)
-weights <- seq(1, 1500, 1)
+rations <- seq(0.001, 0.4, 0.001)
+weights <- seq(0.25, 1500, 0.25)
+
+length(rations)
+which(weights == 10)
 ```
 
 Get growth potential by temperature for a 10 gram fish, fed at ~max ration
 ```{r}
 # get relative growth rates for a 10 g fish across range of water temps
 grate_df <- tibble(temp = waterTemps[,2],
-                   grate_ggd = wt.growth[,151,10]) %>%
+                   grate_ggd = wt.growth[,400,40]) %>%
   mutate(temp = trimws(temp))
 
 # calculate growth potential (g/d/d) and cumulative growth (g) across warm and cold patches and for an "optimal mover"
@@ -139,156 +144,6 @@ growthregime_df %>%
   scale_fill_manual(values = c("cold" = 4, "warm" = 2)) +
   ylab("Cumulative growth accrued in cold vs. warm habitats (g)")
 ```
-
-
-
-
-## Realistic growth regime
-
-Here, I simulate the growth regime where growth potential is an additional function of fish mass to generate more realistic size trajectories.
-
-*Note that growth trajectories are super sensitive to ration size. Simulating growth under the highest ration size (0.17) generates very unrealistic growth outputs. In Armstrong et al. (2021), Fullerton's IBM simulations allowed ration to vary between 0.02 and 0.07 across river networks.*
-
-
-### Equal ration
-
-Ration size is equal between warm and cold habitat patches (0.10)
-```{r}
-# set up table
-growthregime_df_2 <- habitat_df %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(1))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(2))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(3))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(4))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(5))) %>%
-  mutate(grpot_warm = NA, grpot_cold = NA, weight_warm = NA, weight_cold = NA) %>%
-  mutate(temp_warm = trimws(temp_warm), temp_cold = trimws(temp_cold)) #%>%
-  # filter(date >= date("2024-06-01"))
-
-# set starting weight
-startweight <- 10
-
-# habitat specific ration
-ration_cold <- 0.10
-ration_warm <- 0.10
-
-
-for (i in 1:dim(growthregime_df_2)[1]) {
-  if (i == 1) {
-    grpot_warm <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_warm[i]),which(rations == ration_warm),startweight]
-    grpot_cold <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_cold[i]),which(rations == ration_cold),startweight]
-    weight_warm <- startweight + (startweight * grpot_warm)
-    weight_cold <- startweight + (startweight * grpot_cold)
-    
-    growthregime_df_2$grpot_warm[i] <- grpot_warm
-    growthregime_df_2$grpot_cold[i] <- grpot_cold
-    growthregime_df_2$weight_warm[i] <- weight_warm
-    growthregime_df_2$weight_cold[i] <- weight_cold
-  } else {
-    grpot_warm <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_warm[i]),which(rations == ration_warm),round(growthregime_df_2$weight_warm[i-1], digits = 0)]
-    grpot_cold <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_cold[i]),which(rations == ration_cold),round(growthregime_df_2$weight_cold[i-1], digits = 0)]
-    weight_warm <- growthregime_df_2$weight_warm[i-1] + (growthregime_df_2$weight_warm[i-1] * grpot_warm)
-    weight_cold <- growthregime_df_2$weight_cold[i-1] + (growthregime_df_2$weight_cold[i-1] * grpot_cold)
-    
-    growthregime_df_2$grpot_warm[i] <- grpot_warm
-    growthregime_df_2$grpot_cold[i] <- grpot_cold
-    growthregime_df_2$weight_warm[i] <- weight_warm
-    growthregime_df_2$weight_cold[i] <- weight_cold
-  }
-  # print(i)
-}
-
-
-p1 <- growthregime_df_2 %>% ggplot() +
-  geom_line(aes(x = date, y = grpot_warm), col = "red") +
-  geom_line(aes(x = date, y = grpot_cold), col = "blue") +
-  theme_bw() +
-  xlab("Date") +
-  ylab("Growth potential (g/g/day)")
-
-p2 <- growthregime_df_2 %>% ggplot() +
-  geom_line(aes(x = date, y = weight_warm), col = "red") +
-  geom_line(aes(x = date, y = weight_cold), col = "blue") +
-  # geom_line(aes(x = date, y = cumul_grpot_track), col = "purple", linetype = "dashed") +
-  theme_bw() +
-  xlab("Date") +
-  ylab("Cumulative growth potential (g)")
-
-ggarrange(p1, p2)
-```
-
-
-
-### Unequal ration
-
-Ration size is 30% lower in the cold habitat
-```{r}
-# set up table
-growthregime_df_2 <- habitat_df %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(1))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(2))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(3))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(4))) %>% 
-  # bind_rows(temp_df %>% mutate(date = date + years(5))) %>%
-  mutate(grpot_warm = NA, grpot_cold = NA, weight_warm = NA, weight_cold = NA) %>%
-  mutate(temp_warm = trimws(temp_warm), temp_cold = trimws(temp_cold)) #%>%
-  # filter(date >= date("2024-06-01"))
-
-# set starting weight
-startweight <- 10
-
-# habitat specific ration
-ration_cold <- 0.07
-ration_warm <- 0.10
-
-
-for (i in 1:dim(growthregime_df_2)[1]) {
-  if (i == 1) {
-    grpot_warm <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_warm[i]),which(rations == ration_warm),startweight]
-    grpot_cold <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_cold[i]),which(rations == ration_cold),startweight]
-    weight_warm <- startweight + (startweight * grpot_warm)
-    weight_cold <- startweight + (startweight * grpot_cold)
-    
-    growthregime_df_2$grpot_warm[i] <- grpot_warm
-    growthregime_df_2$grpot_cold[i] <- grpot_cold
-    growthregime_df_2$weight_warm[i] <- weight_warm
-    growthregime_df_2$weight_cold[i] <- weight_cold
-  } else {
-    grpot_warm <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_warm[i]),which(rations == ration_warm),round(growthregime_df_2$weight_warm[i-1], digits = 0)]
-    grpot_cold <- wt.growth[which(waterTemps[,2] == growthregime_df_2$temp_cold[i]),which(rations == ration_cold),round(growthregime_df_2$weight_cold[i-1], digits = 0)]
-    weight_warm <- growthregime_df_2$weight_warm[i-1] + (growthregime_df_2$weight_warm[i-1] * grpot_warm)
-    weight_cold <- growthregime_df_2$weight_cold[i-1] + (growthregime_df_2$weight_cold[i-1] * grpot_cold)
-    
-    growthregime_df_2$grpot_warm[i] <- grpot_warm
-    growthregime_df_2$grpot_cold[i] <- grpot_cold
-    growthregime_df_2$weight_warm[i] <- weight_warm
-    growthregime_df_2$weight_cold[i] <- weight_cold
-  }
-  # print(i)
-}
-
-
-p1 <- growthregime_df_2 %>% ggplot() +
-  geom_line(aes(x = date, y = grpot_warm), col = "red") +
-  geom_line(aes(x = date, y = grpot_cold), col = "blue") +
-  theme_bw() +
-  xlab("Date") +
-  ylab("Growth potential (g/g/day)")
-
-p2 <- growthregime_df_2 %>% ggplot() +
-  geom_line(aes(x = date, y = weight_warm), col = "red") +
-  geom_line(aes(x = date, y = weight_cold), col = "blue") +
-  # geom_line(aes(x = date, y = cumul_grpot_track), col = "purple", linetype = "dashed") +
-  theme_bw() +
-  xlab("Date") +
-  ylab("Cumulative growth potential (g)")
-
-ggarrange(p1, p2)
-```
-
-
-
-
 
 
 

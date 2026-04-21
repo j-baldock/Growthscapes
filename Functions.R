@@ -170,8 +170,9 @@ ConsumptionEQ2 <- function(W, TEMP, PP, PREY, CA, CB, CTM, CTO, CQ) {
 	return(list("CMAX" = CMAX, "CONS" = CONS, "CONSj" = CONSj))
 }
 
-# Consumption Equation #3: Temperature Dependence for cool-cold water species
+# Consumption Equation 3: Temperature Dependence for cool-cold water species
 ConsumptionEQ3 <- function(W, TEMP, PP, PREY, CA, CB, CK1, CTO, CQ, CK4, CTL, CTM) {
+  
 	G1 <- (1 / (CTO - CQ)) * (log((0.98 * (1 - CK1)) / (CK1 * 0.02)))
 	L1 <- exp(G1 * (TEMP - CQ))
 	KA <- (CK1 * L1) / (1 + CK1 * (L1 - 1))
@@ -179,16 +180,15 @@ ConsumptionEQ3 <- function(W, TEMP, PP, PREY, CA, CB, CK1, CTO, CQ, CK4, CTL, CT
 	L2 <- exp(G2 * (CTL - TEMP))
 	KB <- (CK4 * L2) / (1 + CK4 * (L2 - 1))
 	CMAX <- CA * (W ** CB)		#max specific feeding rate (g_prey/g_pred/d)
-	
 	CONS <- CMAX * PP * KA * KB		#specific consumption rate (g_prey/g_pred/d) - grams prey consumed per gram of predator mass per day
-	
 	CONSj <- CONS * PREY             #specific consumption rate (J/g_pred/d) - Joules consumed for each gram of predator for each day
 
 	return(list("CMAX" = CMAX, "CONS" = CONS, "CONSj" = CONSj))
 	}
 
-# Consumption Equation 3 that gives CONS based on RATION instead of PP
+# Consumption Equation 4: equation 3 but give CONS based on RATION instead of PP
 ConsumptionEQ4 <- function(W, TEMP, RATION, PREY, CA, CB, CK1, CTO, CQ, CK4, CTL, CTM) {
+  
   G1 <- (1 / (CTO - CQ)) * (log((0.98 * (1 - CK1)) / (CK1 * 0.02)))
   L1 <- exp(G1 * (TEMP - CQ))
   KA <- (CK1 * L1) / (1 + CK1 * (L1 - 1))
@@ -196,10 +196,8 @@ ConsumptionEQ4 <- function(W, TEMP, RATION, PREY, CA, CB, CK1, CTO, CQ, CK4, CTL
   L2 <- exp(G2 * (CTL - TEMP))
   KB <- (CK4 * L2) / (1 + CK4 * (L2 - 1))
   CMAX <- CA * (W ** CB)		#max specific feeding rate (g_prey/g_pred/d)
-  
   RATION[RATION >= CMAX] <- CMAX[RATION >= CMAX]
   CONS <- RATION * KA * KB  #specific consumption rate (g_prey/g_pred/d) - grams prey consumed per gram of predator mass per day
-  
   CONSj <- CONS * PREY  #specific consumption rate (J/g_pred/d) - Joules consumed for each gram of predator for each day
   
   return(list("CMAX" = CMAX, "CONS" = CONS, "CONSj" = CONSj))
@@ -210,7 +208,6 @@ ExcretionEQ1 <- function(CONS, CONSj, TEMP, PP, FA, UA) {
 
 	EG <- FA * CONS				# egestion (fecal waste) in g_waste/g_pred/d
 	U <- UA * (CONS - EG)	 			# excretion (nitrogenous waste) in g_waste/g_pred/d
-
 	EGj <- FA * CONSj				# egestion in J/g/d
 	Uj <- UA * (CONSj - EGj)			# excretion in J/g/d
 
@@ -222,7 +219,6 @@ ExcretionEQ2 <- function(CONS, CONSj, TEMP, PP, FA, UA, FB, FG, UB, UG) {
 
 	EG <- FA * TEMP ^ FB * exp(FG * PP) * CONS			# egestion (fecal waste) in g_waste/g_pred/d
 	U <- UA * TEMP ^ UB * exp(UG * PP) * (CONS - EG)			# excretion (nitrogenous waste) in g_waste/g_pred/d
-
 	EGj <- EG * CONSj / CONS					# egestion in J/g/d
 	Uj <- U * CONSj / CONS					# excretion in J/g/d
 
@@ -234,14 +230,10 @@ ExcretionEQ3 <- function(CONS, CONSj, TEMP, PP, FA, UA, FB, FG, UB, UG, PFF) {
 
 	#Note: In R, "F" means "FALSE", here we use EG as the variable name for egestion instead of F (as in the FishBioE 3.0 manual)
 	#Note:  PFF = 0 assumes prey are entirely digestible, making this essentially the same as Equation 2
-
 	PE <- FA * (TEMP ** FB) * exp(FG * PP)
-
 	PF <- ((PE - 0.1) / 0.9) * (1 - PFF) + PFF
-
 	EG <- PF * CONS					# egestion (fecal waste) in g_waste/g_pred/d
 	U <- UA * (TEMP ** UB) * (exp(UG * PP)) * (CONS - EG)	# excretion (nitrogenous waste) in g_waste/g_pred/d
-
 	EGj <- PF * CONSj				# egestion in J/g/d
 	Uj <- UA * (TEMP ** UB) * (exp(UG * PP)) * (CONSj - EGj)	# excretion in J/g/d
 
@@ -253,17 +245,12 @@ ExcretionEQ4 <- function(CONS, CONSj, TEMP, RATION, CMAX, FA, UA, FB, FG, UB, UG
   
   #Note: In R, "F" means "FALSE", here we use EG as the variable name for egestion instead of F (as in the FishBioE 3.0 manual)
   #Note:  PFF = 0 assumes prey are entirely digestible, making this essentially the same as Equation 2
-  
   RATION[RATION >= CMAX] <- CMAX[RATION >= CMAX]
   PP <- RATION / CMAX #calculating p-value based on ration and CMax inputs
-  
   PE <- FA * (TEMP ** FB) * exp(FG * PP)
-  
   PF <- ((PE - 0.1) / 0.9) * (1 - PFF) + PFF
-  
   EG <- PF * CONS					# egestion (fecal waste) in g_waste/g_pred/d
   U <- UA * (TEMP ** UB) * (exp(UG * PP)) * (CONS - EG)	# excretion (nitrogenous waste) in g_waste/g_pred/d
-  
   EGj <- PF * CONSj				# egestion in J/g/d
   Uj <- UA * (TEMP ** UB) * (exp(UG * PP)) * (CONSj - EGj)	# excretion in J/g/d
   
@@ -307,7 +294,7 @@ CalculateGrowth <- function(Constants, Input) {
   W <- array(rep(0, (Input$N.sites * (Input$N.steps + 1))), c(Input$N.steps + 1, Input$N.sites))
   W[1,] <- as.numeric(Input$Wstart[1:ncol(W)])
   Growth <- array(rep(0, Input$N.sites * Input$N.steps), c(Input$N.steps, Input$N.sites))
-  Growth_j <- Consumpt <- Consumpt_j <- Excret <- Excret_j <- Egest <- Egest_j <- Respirat <- Respirat_j <- S.resp <- Sj.resp <- Gg_WinBioE <- Gg_ELR <- Growth
+  Growth_j <- Consumpt <- Consumpt_j <- Consumpt_cmax <- Prop_cmax <- Excret <- Excret_j <- Egest <- Egest_j <- Respirat <- Respirat_j <- S.resp <- Sj.resp <- Gg_WinBioE <- Gg_ELR <- Growth
   TotalC <- rep(0, Input$N.sites)
   
   ##Start Looping Through Time - for Known Consumption, solving for Weight
@@ -330,6 +317,8 @@ CalculateGrowth <- function(Constants, Input) {
     # store daily consumption 
     Consumpt[t,] <- as.numeric(Cons$CONS)
     Consumpt_j[t,] <- as.numeric(Cons$CONSj)
+    Consumpt_cmax[t,] <- as.numeric(Cons$CMAX)
+    Prop_cmax[t,] <- as.numeric(Cons$CONS) / as.numeric(Cons$CMAX)
     
     
     ### Excretion / Egestion
@@ -366,18 +355,25 @@ CalculateGrowth <- function(Constants, Input) {
     
     ### Now calculate Growth
     
-    # growth in J/g/d - Joules allocated to growth for each gram of predator on each day
+    # specific growth in J/g/d - Joules allocated to growth for each gram of predator on each day
     Gj <- Cons$CONSj - Resp$Rj - ExcEgest$EGj - ExcEgest$Uj - Resp$Sj	
+    # specific growth in g/g/d - grams allocated to growth for each gram of predator on each day
     G <- Cons$CONS - Resp$R - ExcEgest$EG - ExcEgest$U - Resp$S
-    # growth in g/d - Grams of predator growth each day
-    Growth[t,] <- as.numeric(Gj * W[t,]) / pred
-    Growth_j[t,] <- as.numeric(Gj)
+    
+    ## This original code by Fullerton is a little weird, seemingly inefficient. 
+    ## Also the matrix naming scheme is a little wonky:
+    ##   - Growth[,]: absolute growth in g/d
+    ##   - Growth_j[,]: specific growth in J/g/d
+    ##   - Gg_WinBioE[,]: specific growth in g/g/d
+    # Growth_raw[t,] <- as.numeric(G) # g/g/d
+    
+    Growth[t,] <- as.numeric(Gj * W[t,]) / pred # g/d
+    Growth_j[t,] <- as.numeric(Gj) # J/g/d
     
     # growth in g/g/d (DailyWeightIncrement divided by fishWeight)
-    Gg_WinBioE[t,] <- as.numeric(Growth[t,] / W[t,])			
+    Gg_WinBioE[t,] <- as.numeric(Growth[t,] / W[t,])		# g/g/d
     
-    # growth in g/g/d (DailyWeightIncrement divided by average of fish start end weights)
-    Gg_ELR[t,] <- Growth[t,] / ((as.numeric(Input$Wstart[1:ncol(W)]) + W[t,]) / 2)		
+    # I would expect Growth_raw and Gg_WinBioE to be equal, as Gg_WinBioE is simply growth in g/g/d derived from growth in J/g/d. But they are not. Not entirely sure why this is. But like Fullerton's code, the FB4 code also derives growth in g/g/d from J/g/d. FB4 user manual also states that all calculations are done in J/g/d. Perhaps in the "G" equation (line 400), the individual components needs to be adjusted by some factor. Consumption is g_prey/g_pred/day, whereas the other terms are in g_waste/g_pred/day. Perhaps these two units are not directly comparable as I thought...maybe need to be adjust by respective energey densities?
     
     # Calculate absolute weight at time t+1
     W[t + 1,] <- W[t,] + Growth[t,]
@@ -393,8 +389,11 @@ CalculateGrowth <- function(Constants, Input) {
     "Gg_WinBioE" = Gg_WinBioE, 
     "Gg_ELR" = Gg_ELR,
     "Growth_j" = Growth_j,
+    # "Growth_raw" = Growth_raw,
     "Consumption" = Consumpt,
     "Consumption_j" = Consumpt_j,
+    "Consumption_max" = Consumpt_cmax,
+    "Pvalue" = Prop_cmax,
     "Excretion" = Excret,
     "Excretion_j" = Excret_j,
     "Egestion" = Egest,
@@ -409,7 +408,7 @@ CalculateGrowth <- function(Constants, Input) {
 
 BioE <- function (Input, Constants) {
 
-# for simulation method =1 (we have p-vals, and want to solve for weights
+# for simulation method = 1 (we have p-vals, and want to solve for weights
 if (Input$SimMethod == 1) {
   
 	# Method 1: Calculate Growth from p-values and Temperatures
@@ -477,8 +476,8 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
-  ra.seq <- seq(0.02, 0.17, 0.001)  # ration (151 values)
-  ma.seq <- seq(1, 1500, 1)         # fish mass (1500 values)
+  ra.seq <- seq(0.001, 0.4, 0.001)  # ration (400 values)
+  ma.seq <- seq(0.25, 1500, 0.25)         # fish mass (6000 values)
   
   if (any(is.na(PIDs))) {
     td <- fish[, c("pid", "weight", "ration", "patch")]  # all fish
@@ -496,7 +495,7 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
       wt.idx   <- which.min(abs(wt.seq - temp))              # nearest water temperature index
       ra.idx   <- which.min(abs(ra.seq - td[x, "ration"]))   # nearest ration index
       ma.idx   <- which.min(abs(ma.seq - td[x, "weight"]))   # nearest mass index
-      growth[x] <- wt.growth[wt.idx, ra.idx, ma.idx]
+      growth[x] <- wt.growth[wt.idx, ra.idx, ma.idx]         # growth rate in g/g/d
       watemp[x] <- wt.seq[wt.idx]
     }
     
@@ -525,8 +524,8 @@ fncGrowthPossible <- function(fweight, t, ration_warm, ration_cold) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
-  ra.seq <- seq(0.02, 0.17, 0.001)  # ration (151 values)
-  ma.seq <- seq(1, 1500, 1)         # fish mass (1500 values)
+  ra.seq <- seq(0.001, 0.4, 0.001)  # ration (400 values)
+  ma.seq <- seq(0.25, 1500, 0.25)         # fish mass (6000 values)
   
   fw     <- max(1, min(4500, round(fweight)))  # clamp weight to lookup range
   ma.idx <- which.min(abs(ma.seq - fw))
@@ -557,6 +556,50 @@ fncGrowthPossible <- function(fweight, t, ration_warm, ration_cold) {
   return(list(lookup = lookup, best_patch = best_patch))
   
 }
+
+
+fncTempDepend <- function(temp) {
+  # get bioenergetics constants
+  constants <- fncReadConstants() 
+  
+  # Model 3 for cool and coldwater species
+  G1 <- (1 / (constants$Consumption$CTO - constants$Consumption$CQ)) * (log((0.98 * (1 - constants$Consumption$CK1)) / (constants$Consumption$CK1 * 0.02)))
+  L1 <- exp(G1 * (temp - constants$Consumption$CQ))
+  KA <- (constants$Consumption$CK1 * L1) / (1 + constants$Consumption$CK1 * (L1 - 1))
+  G2 <- (1 / (constants$Consumption$CTL - constants$Consumption$CTM)) * (log((0.98 * (1 - constants$Consumption$CK4)) / (constants$Consumption$CK4 * 0.02)))
+  L2 <- exp(G2 * (constants$Consumption$CTL - temp))
+  KB <- (constants$Consumption$CK4 * L2) / (1 + constants$Consumption$CK4 * (L2 - 1))
+  return(KA * KB)
+}
+
+
+mytemps <- seq(from = 0.1, to = 25, by = 0.1)
+plot(fncTempDepend(temp = mytemps) ~ mytemps, type = "l", ylim = c(0,1), xlab = "Temperature (deg. C)", ylab = "f(T)", main = "Temperature dependence model 3")
+
+
+fncAllomCmax <- function(weight) {
+  # get bioenergetics constants
+  constants <- fncReadConstants() 
+  # calculate allometric cmax = CA * (mass^CB)
+  return(constants$Consumption$CA * (weight ^ constants$Consumption$CB))
+} 
+
+
+myweights <- seq(from = 0.5, to = 1000, by = 1)
+mycmax <- fncAllomCmax(weight = myweights)
+
+par(mfrow = c(1,2), mar = c(4.5,4.5,1,1))
+plot(mycmax ~ myweights, type = 'l', ylab = "Cmax (g/g/d)", xlab = "Fish mass (g)", ylim = c(0, max(mycmax)))
+plot(mycmax*myweights ~ myweights, type = 'l', ylab = "Cmax (g/d)", xlab = "Fish mass (g)")
+
+
+par(mar = c(4.5,4.5,1,1))
+# O. mykiss adults: Railsback and Rose 1999
+plot(0.628*(myweights^-0.3) ~ myweights, type = 'l', ylab = "Cmax (g/g/d)", xlab = "Fish mass (g)", ylim = c(0, max(mycmax)))
+# O. mykiss juveniles: Tyler and Bolduc 2008
+lines(0.178*(myweights^-0.297) ~ myweights, type = 'l', lty = 2)
+legend("topright", legend = c("Adults (Railsback and Rose 1999)", "Juveniles (Tyler and Bolduc 2008)"),
+       lty = c(1,2), bty = "n", cex = 0.9, y.intersp = 2)
 
 
 fncMoveSoftmax <- function(gwarm, gcold, tau = 0.001) {
@@ -954,7 +997,7 @@ fncDensityRation <- function(fish_pop, R_warm, R_cold, k_warm = 50, k_cold = 50)
     mutate(
       R_base = if_else(patch == "warm", R_warm, R_cold),
       k      = if_else(patch == "warm", k_warm, k_cold),
-      ration = R_base * k / (k + density)
+      ration = R_base * k / (k + density - 1)
     ) %>%
     select(-R_base, -k)
 }
@@ -971,7 +1014,7 @@ expand.grid(
 ) %>%
   mutate(
     R_base = if_else(patch == "warm", R_warm, R_cold),
-    ration = R_base * k / (k + density),
+    ration = R_base * k / (k + density - 1),
     k_lab  = factor(paste0("k = ", k), levels = paste0("k = ", sort(unique(k))))
   ) %>%
   ggplot(aes(x = density, y = ration, color = k_lab)) +
@@ -984,6 +1027,35 @@ expand.grid(
     color = "Half-saturation\ndensity (k)",
     title = "Density-dependent ration reduction",
     caption = "Dashed line = baseline ration (no density effect)"
+  )
+
+
+fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50) {
+  fish_pop %>%
+    mutate(
+      k         = if_else(patch == "warm", k_warm, k_cold),
+      dd_scalar = 1 * k / (k + density - 1),
+    ) %>%
+    select(-k)
+}
+
+
+expand.grid(
+  density = 1:200,
+  k       = c(10, 25, 50, 100, 200)
+) %>%
+  mutate(
+    dd_scalar = 1 * k / (k + density-1),
+    k_lab  = factor(paste0("k = ", k), levels = paste0("k = ", sort(unique(k))))
+  ) %>%
+  ggplot(aes(x = density, y = dd_scalar, color = k_lab)) +
+  geom_line() +
+  labs(
+    x     = "Fish density (N per patch)",
+    y     = "P_Cmax scalar",
+    color = "Half-saturation\ndensity (k)",
+    title = "Density-dependent consumption reduction",
+    caption = "Dashed line = baseline P_Cmax (no density effect)"
   )
 
 
@@ -1186,6 +1258,56 @@ ggplot(df_gap, aes(x = weight, y = gap, color = as_factor(b_interact))) +
   labs(color = "b_interact",
        title = "Seasonal survival gap between the fastest and slowest growing fish",
        subtitle = "Growth-driven survival gaps are greatest for small (but not the smallest) fish")
+
+
+fncSurviveSimp <- function(df, minprob = 0.96, b = 1){
+  # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
+  # minprob:     smallest probability any fish can have of dying in any time step
+  # b:           controls steepness of the base size-survival curve
+
+  # Weights
+  w <- df$weight # weight of fish that are alive at this time step
+  
+  # Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)
+  w_scale <- 1 - 1 / exp(b * w)
+  v <- minprob + (1 - minprob) * w_scale
+  
+  # Probability of survival
+  prb.srv <- v
+  prb.srv[prb.srv > 1] <- 1 # set upper bound at 1
+  
+  # Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step
+  survivors <- rbinom(n = nrow(df), size = 1, prob = prb.srv)
+  
+  return(list(prb.srv, survivors))
+  #return(survivors)
+}
+
+
+df <- expand_grid(
+  weight = seq(from = 0, to = 150, by = 0.1),
+  #pvals  = seq(from = 0, to = 1, by = 0.1)
+)
+
+surv.list <- fncSurviveSimp(df, b = 1)
+df <- df %>% mutate(prsurv = surv.list[[1]],
+                    survivors = surv.list[[2]])
+
+p1 <- df %>% #filter(pvals == 0.1) %>%
+  ggplot() +
+  geom_line(aes(x = weight, y = prsurv)) +
+  xlim(0,5) + theme_bw() +
+  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 0-5g", subtitle = "survival increases with fish size")
+
+p2 <- df %>% #filter(pvals == 0.1) %>%
+  ggplot() +
+  geom_line(aes(x = weight, y = prsurv)) +
+  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
+  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
+
+ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 
 
 # length in mm

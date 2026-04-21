@@ -19,8 +19,8 @@ doy <- as.numeric(format(dates, "%j")) # Day of year
 
 # 2. Simulate Stream Temperature (Sine wave + Noise)
 # Parameters: Midpoint, Amplitude, Offset
-base_temp <- 10        # Average annual temperature
-amplitude <- 12         # Seasonal fluctuation amplitude
+base_temp <- 11        # Average annual temperature
+amplitude <- 14         # Seasonal fluctuation amplitude
 # Peak temperature occurs late in the year (July/Aug)
 stream_temp <- base_temp + amplitude * sin(2 * pi * (doy - 100) / 365)
 
@@ -96,6 +96,46 @@ get_patchration <- function(t, patch) {
     habitat_df$ration_warm[habitat_df$doy == t]
   } else {
     habitat_df$ration_cold[habitat_df$doy == t]
+  }
+}
+
+
+# define habitat specific ration size
+pcmax_cold <- 0.5
+pcmax_warm <- 0.5
+
+# define random variation in ration size
+pcmax_sd <- 0.00 # no variation for simplicity
+
+# function to generate patch food availability at time t (stochastic)
+patch_pcmax <- function(patch) {
+  if (patch == "warm") {
+    max(0, min(1, rnorm(1, pcmax_warm, ration_sd)))
+  } else {
+    max(0, min(1, rnorm(1, pcmax_cold, ration_sd)))
+  }
+}
+
+# define food in habitat tibble
+habitat_df <- habitat_df %>% 
+  mutate(pcmax_warm = replicate(n = dim(.)[1], patch_pcmax("warm")),
+         pcmax_cold = replicate(n = dim(.)[1], patch_pcmax("cold")))
+
+# plot ration size
+habitat_df %>% ggplot() + 
+  geom_line(aes(x = date, y = pcmax_warm), color = "red") +
+  geom_line(aes(x = date, y = pcmax_cold), color = "blue") +
+  theme_bw() + 
+  xlab("Date") + 
+  ylab("Simulated daily P_Cmax")
+
+
+# function to retrieve ration in patch = patch and at doy/time = t
+get_patchpcmax <- function(t, patch) {
+  if (patch == "warm") {
+    habitat_df$pcmax_warm[habitat_df$doy == t]
+  } else {
+    habitat_df$pcmax_cold[habitat_df$doy == t]
   }
 }
 

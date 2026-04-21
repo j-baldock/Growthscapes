@@ -14,13 +14,17 @@ library(egg)
 
 *Notes:*
 
-* Habitat network is generalizable and can be expanded to include as many patches as needed.
-* Currently, the IBM is not designed to be spatially explicit. May have to shift to Fullerton IBM or HexSim if we want to do that. 
+* In theory, habitat network is generalizable and can be expanded to include as many patches as needed. But in doing so we will need to update the simulation to allow more than 2 patches. 
+* We can specify food available in one of two ways, ration size in g/g/d or proportion of maximum consumption (P_C~max~). Fullerton's IBM in Armstrong et al. (2021) sets a constant ration size (g/g/d) in each patch, and varies this from upstream to downstream. The problem with this is that is that it forces small fish to feed way below C~max~, but as fish grow and allometric C~max~ declines, fish feed much closer to or at C~max~. Therefore, growth rates are low and constraining for small fish, but increase as fish grow larger, such that fish are less constrained by food availability.
+  + Many researchers using bioenergetics models simply set a constant P_C~max~, then estimate growth from that. But the problem with this, as Railsback points out, is that under warmer conditions fish are able to attain higher ration sizes simply because of the temperature dependence function: C = Cmax * p * f(T). Thus, there is no way to separate ration size from habitat temperature using a constant P_C~max~. 
+  + Instead, we can simply modify the temperature dependence function to set some threshold P_C~max~. Basically, temperature acts on ration/consumption up to some threshold value of P_C~max~, above which body size alone limits consumption (via allometric C~max~). 
+
 
 *Current configuration:*
 
 * Temp: simple warm and cold patches...cold regime is simply 60% of daily warm regime values. No noise.
 * Ration: constant food availability, same in each patch. No noise.
+* P_Cmax: constant proportion of maximum consumption, same in each patch. No noise.
 
 
 ## Temperature
@@ -37,8 +41,8 @@ doy <- as.numeric(format(dates, "%j")) # Day of year
 
 # 2. Simulate Stream Temperature (Sine wave + Noise)
 # Parameters: Midpoint, Amplitude, Offset
-base_temp <- 10        # Average annual temperature
-amplitude <- 12         # Seasonal fluctuation amplitude
+base_temp <- 11        # Average annual temperature
+amplitude <- 14         # Seasonal fluctuation amplitude
 # Peak temperature occurs late in the year (July/Aug)
 stream_temp <- base_temp + amplitude * sin(2 * pi * (doy - 100) / 365)
 
@@ -118,6 +122,51 @@ get_patchration <- function(t, patch) {
     habitat_df$ration_warm[habitat_df$doy == t]
   } else {
     habitat_df$ration_cold[habitat_df$doy == t]
+  }
+}
+```
+
+
+## Proportion C~max~
+
+Simulate food availability as proportion of C~max~ (p-value) in each patch, over time.
+```{r}
+# define habitat specific ration size
+pcmax_cold <- 0.5
+pcmax_warm <- 0.5
+
+# define random variation in ration size
+pcmax_sd <- 0.00 # no variation for simplicity
+
+# function to generate patch food availability at time t (stochastic)
+patch_pcmax <- function(patch) {
+  if (patch == "warm") {
+    max(0, min(1, rnorm(1, pcmax_warm, ration_sd)))
+  } else {
+    max(0, min(1, rnorm(1, pcmax_cold, ration_sd)))
+  }
+}
+
+# define food in habitat tibble
+habitat_df <- habitat_df %>% 
+  mutate(pcmax_warm = replicate(n = dim(.)[1], patch_pcmax("warm")),
+         pcmax_cold = replicate(n = dim(.)[1], patch_pcmax("cold")))
+
+# plot ration size
+habitat_df %>% ggplot() + 
+  geom_line(aes(x = date, y = pcmax_warm), color = "red") +
+  geom_line(aes(x = date, y = pcmax_cold), color = "blue") +
+  theme_bw() + 
+  xlab("Date") + 
+  ylab("Simulated daily P_Cmax")
+
+
+# function to retrieve ration in patch = patch and at doy/time = t
+get_patchpcmax <- function(t, patch) {
+  if (patch == "warm") {
+    habitat_df$pcmax_warm[habitat_df$doy == t]
+  } else {
+    habitat_df$pcmax_cold[habitat_df$doy == t]
   }
 }
 ```

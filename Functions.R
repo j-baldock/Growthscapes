@@ -8,10 +8,10 @@ library(tidyverse)
 library(ggpubr)
 library(egg)
 
-
+#| cache: false
 source("Habitat.R")
 
-
+#| cache: false
 load("data/wt.growth.array.RData")
 
 
@@ -1308,6 +1308,179 @@ p2 <- df %>% #filter(pvals == 0.1) %>%
   labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
 
 ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
+
+
+expand_grid(
+  asymp = c(seq(from = 0.995, to = 0.999, by = 0.001), 0.9995, 0.9999),
+  days = seq(from = 0, to = 2500, by = 100)
+) %>% 
+  mutate(survival = asymp^days) %>%
+  ggplot(aes(x = days/365, y = survival, group = factor(asymp), color = factor(asymp))) +
+  geom_line() + 
+  theme_bw() + xlab("Years") + ylab("Survival probability")
+
+
+fncSurviveFixed <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01, g_range = c(-0.03, 0.03)){
+  # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
+  # minprob:     smallest probability any fish can have of dying in any time step
+  # b:           controls steepness of the base size-survival curve
+  # b_interact:  controls steepness of weight buffering on negative growth; smaller values = growth
+  #              effects persist to larger sizes. Default 0.03 means buffering is near-complete ~50g, i.e., no effect of growth >50g.
+  # rescale:     controls the relative effect of growth rates on survival. As minprob declines, you need a larger rescale value to generate meaningful variation in survival across the range of observed growth rates
+  # g_range:     fixed [min, max] instantaneous growth rate (g/g/d) used to rescale growth effects.
+  #              Unlike fncSurvive(), this is constant across days, so a fish growing slowly on a
+  #              day when all fish grow slowly is not penalized relative to its peers.
+
+  # Weights
+  w <- df$weight # weight of fish that are alive at this time step
+
+  # Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)
+  w_scale <- 1 - 1 / exp(b * w)
+  v <- minprob + (1 - minprob) * w_scale
+
+  # Growth during this time step that reflects recent conditions (i.e., a hungry/stressed fish may behave in ways that make it more vulnerable to predation, etc.)
+  g <- df$growth
+  # Clamp to fixed range before rescaling so extreme values don't extrapolate beyond [-rescale, rescale]
+  g_clamped <- pmax(pmin(g, g_range[2]), g_range[1])
+  g <- fncRescale(g_clamped, to = c(-rescale, rescale), from = g_range)
+
+  # Weight x growth interaction: larger fish are buffered from negative growth penalties
+  # (controlled independently from base curve via b_interact).
+  # Small fish bear the full cost of negative growth; positive growth benefits are size-independent.
+  w_buf    <- 1 - 1 / exp(b_interact * w)
+  g_effect <- ifelse(g < 0, g * (1 - w_buf), g)
+
+  # Probability of survival
+  prb.srv <- v + g_effect
+  prb.srv[prb.srv > 1] <- 1 # set upper bound at 1
+
+  # Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step
+  survivors <- rbinom(n = nrow(df), size = 1, prob = prb.srv)
+
+  return(list(prb.srv, survivors))
+}
+
+
+df <- expand_grid(
+  weight = seq(from = 0, to = 150, by = 0.1),
+  growth = seq(from = -0.03, to = 0.03, by = 0.005)#,
+  #pvals  = seq(from = 0, to = 1, by = 0.1)
+)
+
+surv.list <- fncSurviveFixed(df)
+df <- df %>% mutate(prsurv = surv.list[[1]],
+                    survivors = surv.list[[2]])
+
+p1 <- df %>% #filter(pvals == 0.1) %>%
+  ggplot() +
+  geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
+  xlim(0,5) + theme_bw() +
+  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 0-5g", subtitle = "survival increases with fish size")
+
+p2 <- df %>% #filter(pvals == 0.1) %>%
+  ggplot() +
+  geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
+  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
+  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
+  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
+
+ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
+
+
+fncSurviveTemp <- function(temp, T1 = 30, T9 = 25.8) {
+  # temp: numeric vector of water temperatures experienced by each fish (e.g., growth_df$WT.actual)
+  # T1:   temperature at which daily survival = 0.1 (near-lethal)
+  # T9:   temperature at which daily survival = 0.9 (onset of stress)
+  # Returns a probability vector (length = length(temp)); multiply with other survival probabilities before sampling.
+  T50 <- (T1 + T9) / 2
+  k   <- 2 * log(9) / (T1 - T9)
+  1 / (1 + exp(k * (temp - T50)))
+}
+
+
+data.frame(temp = seq(15, 35, by = 0.1)) |>
+  dplyr::mutate(p_survive = fncSurviveTemp(temp)) |>
+  ggplot(aes(x = temp, y = p_survive)) +
+  geom_line() +
+  geom_point(data = data.frame(temp = c(25.8, 30), p_survive = c(0.9, 0.1)),
+             size = 3, shape = 21, fill = "white") +
+  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
+  geom_vline(xintercept = c(25.8, 30),  linetype = "dashed", alpha = 0.4) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Temperature (°C)") + ylab("Daily survival probability") +
+  labs(title = "Temperature-based daily survival",
+       subtitle = "Anchor points: P = 0.9 at 25.8°C, P = 0.1 at 30°C")
+
+
+fncSurviveStarve <- function(condition, K9 = 0.75, K1 = 0.50) {
+  # condition: numeric vector of relative condition values (current_weight / peak_weight)
+  # K9:        condition at which daily survival = 0.9 (onset of starvation effects)
+  # K1:        condition at which daily survival = 0.1 (near-lethal)
+  # Returns a probability vector; multiply with other survival probabilities before sampling.
+  K50 <- (K1 + K9) / 2
+  k   <- 2 * log(9) / (K9 - K1)  # note: sign flipped vs. temperature — survival rises with condition
+  1 / (1 + exp(-k * (condition - K50)))
+}
+
+
+data.frame(condition = seq(0, 1, by = 0.01)) |>
+  dplyr::mutate(p_survive = fncSurviveStarve(condition)) |>
+  ggplot(aes(x = condition, y = p_survive)) +
+  geom_line() +
+  geom_point(data = data.frame(condition = c(0.75, 0.50), p_survive = c(0.9, 0.1)),
+             size = 3, shape = 21, fill = "white") +
+  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
+  geom_vline(xintercept = c(0.75, 0.50), linetype = "dashed", alpha = 0.4) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Relative condition (current weight / peak weight)") + ylab("Daily survival probability") +
+  labs(title = "Condition-based (starvation) daily survival",
+       subtitle = "Anchor points: P = 0.9 at K = 0.75, P = 0.1 at K = 0.50")
+
+
+candidate_params <- list(
+  "Default (K9=0.75, K1=0.50)"  = c(K9 = 0.75, K1 = 0.50),
+  "Moderate (K9=0.65, K1=0.40)" = c(K9 = 0.65, K1 = 0.40),
+  "Lenient (K9=0.55, K1=0.35)"  = c(K9 = 0.55, K1 = 0.35)
+)
+
+curve_df <- purrr::map_dfr(names(candidate_params), function(nm) {
+  p <- candidate_params[[nm]]
+  data.frame(
+    condition  = seq(0, 1, by = 0.01),
+    p_survive  = fncSurviveStarve(seq(0, 1, by = 0.01), K9 = p["K9"], K1 = p["K1"]),
+    params     = nm
+  )
+})
+
+# Observed condition density per strategy (rug-style summary)
+# cond_summary <- condition_long |>
+#   group_by(strategy) |>
+#   summarise(
+#     p05 = quantile(condition, 0.05, na.rm = TRUE),
+#     p25 = quantile(condition, 0.25, na.rm = TRUE),
+#     med = median(condition, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+
+ggplot(curve_df, aes(x = condition, y = p_survive, color = params)) +
+  geom_line(linewidth = 0.9) +
+  # Shade the range of typical cold-resident summer condition
+  annotate("rect", xmin = 0.63, xmax = 0.80, ymin = -Inf, ymax = Inf,
+           fill = "blue", alpha = 0.07) +
+  annotate("text", x = 0.715, y = 0.1, label = "Cold resident\nsummer range",
+           color = "blue", size = 3, hjust = 0.5) +
+  # Mark warm resident crash zone
+  annotate("rect", xmin = 0, xmax = 0.40, ymin = -Inf, ymax = Inf,
+           fill = "red", alpha = 0.07) +
+  annotate("text", x = 0.20, y = 0.1, label = "Warm resident\ncrash zone",
+           color = "red", size = 3, hjust = 0.5) +
+  scale_color_manual(values = c("black", "steelblue", "darkorange")) +
+  theme_bw() + theme(panel.grid = element_blank(), legend.position = "top") +
+  xlab("Relative condition (W / W_peak)") + ylab("Daily survival probability") +
+  labs(title = "Candidate starvation mortality curves",
+       subtitle = "Shaded regions: typical cold-resident summer condition (blue) and warm-resident crash zone (red)",
+       color = NULL)
 
 
 # length in mm

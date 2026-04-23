@@ -35,7 +35,7 @@ Simulate thermal regimes as annual sine waves. Cold vs. Warm using simple multip
 set.seed(123)
 
 # 1. Create a date range (1 year)
-dates <- seq(as.Date("2024-01-01"), as.Date("2024-12-31"), by="day")
+dates <- seq(as.Date("2024-05-01"), as.Date("2028-12-31"), by="day")
 n <- length(dates)
 doy <- as.numeric(format(dates, "%j")) # Day of year
 
@@ -59,25 +59,36 @@ simulated_temp_cold <- simulated_temp*0.6
 
 # 4. Create Data Frame
 habitat_df <- tibble(date = dates, 
-                     doy = 1:length(dates),#doy, 
+                     doy = doy, 
+                     dayofsim = 1:length(dates),
                      temp_warm = round(simulated_temp, digits = 1), 
                      temp_cold = round(simulated_temp_cold, digits = 1))
 
 # 5. Plot the simulation
-habitat_df %>% ggplot() + 
+summer_shading <- data.frame(
+  xmin = as.Date(paste0(unique(format(habitat_df$date, "%Y")), "-06-01")),
+  xmax = as.Date(paste0(unique(format(habitat_df$date, "%Y")), "-08-31")),
+  ymin = -Inf, ymax = Inf
+)
+
+habitat_df %>% ggplot() +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
   geom_line(aes(x = date, y = temp_warm), color = "red") +
   geom_line(aes(x = date, y = temp_cold), color = "blue") +
   theme_bw() + 
   xlab("Date") + 
-  ylab("Simulated daily stream temperature (deg C)")
+  ylab("Simulated daily stream temperature (deg C)") + 
+  labs(title = "Daily stream temperature with Jun-Aug shaded")
 
 
 # function to retrieve water temperature in patch = patch and at doy/time = t
 get_patchtemp <- function(t, patch) {
   if (patch == "warm") {
-    habitat_df$temp_warm[habitat_df$doy == t]
+    habitat_df$temp_warm[habitat_df$dayofsim == t]
   } else {
-    habitat_df$temp_cold[habitat_df$doy == t]
+    habitat_df$temp_cold[habitat_df$dayofsim == t]
   }
 }
 ```
@@ -119,9 +130,9 @@ habitat_df %>% ggplot() +
 # function to retrieve ration in patch = patch and at doy/time = t
 get_patchration <- function(t, patch) {
   if (patch == "warm") {
-    habitat_df$ration_warm[habitat_df$doy == t]
+    habitat_df$ration_warm[habitat_df$dayofsim == t]
   } else {
-    habitat_df$ration_cold[habitat_df$doy == t]
+    habitat_df$ration_cold[habitat_df$dayofsim == t]
   }
 }
 ```
@@ -164,9 +175,9 @@ habitat_df %>% ggplot() +
 # function to retrieve ration in patch = patch and at doy/time = t
 get_patchpcmax <- function(t, patch) {
   if (patch == "warm") {
-    habitat_df$pcmax_warm[habitat_df$doy == t]
+    habitat_df$pcmax_warm[habitat_df$dayofsim == t]
   } else {
-    habitat_df$pcmax_cold[habitat_df$doy == t]
+    habitat_df$pcmax_cold[habitat_df$dayofsim == t]
   }
 }
 ```

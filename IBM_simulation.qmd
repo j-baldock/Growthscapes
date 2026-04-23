@@ -63,14 +63,14 @@ load("data/wt.growth.array.RData")
   
 ***Notes:***
 
-* Currently, we just look-up growth from the precalculated growth array, but this is going to be less accurate for the IBM b/c precalculated growth rates are calculated over 1g mass increments, whereas growth in the IBM is continuous. Probably fine for now, but perhaps should borrow code from above/Fullerton IBM to increase accuracy.
+* Currently, we just look-up growth from the precalculated growth array, but this is going to be less accurate for the IBM b/c precalculated growth rates are calculated over 0.25g mass increments, whereas growth in the IBM is continuous. Probably fine for now, but perhaps should borrow code from above/Fullerton IBM to increase accuracy. My guess is that this will dramatically increase run times. 
 * If `sense_environment == "density_all"`, the density used for the alternative patch is the current pre-movement density (i.e., what the fish can observe before anyone decides to move that day). This is the most tractable approximation — computing post-movement density would require solving a joint decision problem. 
 * If using individual-level movement thresholds (i.e., boldness), residents can be given `move_threshold = Inf` to formally unify all three strategies under one mechanism, rather than branching by strategy label — keeps the code cleaner if we expand to more strategies later.
 
 
 ***To do:***
 
-* eventually, should probably collate all parameters into a single control script/page...that way we can see where all the sensitive/arbitrary parameters are 
+* eventually, should probably collate all parameters into a single control script/page...that way we can see where all the sensitive/arbitrary parameters are
 * stochasticity in movement: it probably makes sense to combine stochastic movement processes...e.g, probabilistic and individual thresholds, and perhaps even random noise as well
 * Size-at-maturity could probably be sampled probabilistically, with noise. Preliminary simulation will just set a specific size threshold. 
 * Same for timing of reproduction: rather than all mature fish reproducing on a single day, we could have them spread out over a given period, or make spawn timing size-dependent, with larger fish spawning first. Lots of empirical evidence for this. That would be very interesting because it would give the offspring of the larger/early spawners a competitive advantage over offspring of smaller/later spawners, likely magnifying the effect of size on reproductive success. 
@@ -105,14 +105,19 @@ sense_environment <- "density_current" # how omniscient are fish to temperature 
 			                  #   - "density_all" = Omniscient to density dependent GP in all habitats
 
 # misc. parameters
-n_fish_per_strat <- 50     # fish per strategy
-start_wt         <- 10     # initial weight (g)
-MaxDensity4Growth <- 50    # growth is not depressed further above this density (currently this is arbitary)
-movecost_c        <- 0.025 # movement cost allometric function: `c` = scaling constant; `
-movecost_b       <- 0.6      # movement cost allometric function `a` = decay exponent (higher = steeper drop-off)
-sigma_bold       <- 0.002  # SD of boldness distribution, for dispersal propensity (g/g/d units)
-tau              <- 0.001  # sensitivity to growth difference (for probabilistic/softmax variation in movement)
-K_warm <- K_cold <- 500    # For hyperbolic reduction, strength of density dependence/half-saturation density: fish density at which ration is halved
+n_fish_per_strat  <- 50      # fish per strategy
+start_wt          <- 0.5     # initial weight (g)
+wt_sd             <- 0.05    # SD of starting weight
+MaxDensity4Growth <- 50      # growth is not depressed further above this density (currently this is arbitary)
+movecost_c        <- 0.025   # movement cost allometric function: `c` = scaling constant; `
+movecost_b        <- 0.6     # movement cost allometric function `a` = decay exponent (higher = steeper drop-off)
+sigma_bold        <- 0.002   # SD of boldness distribution, for dispersal propensity (g/g/d units)
+tau               <- 0.001   # sensitivity to growth difference (for probabilistic/softmax variation in movement)
+T1_mort           <- 30      # temperature (°C) at which daily survival from thermal stress = 0.1
+T9_mort           <- 25.8    # temperature (°C) at which daily survival from thermal stress = 0.9
+K9_starv          <- 0.50    # relative condition (W_current/W_peak) at which starvation survival = 0.9
+K1_starv          <- 0.30    # relative condition at which starvation survival = 0.1
+K_warm <- K_cold  <- 500     # For hyperbolic reduction, strength of density dependence/half-saturation density: fish density at which ration is halved
 
 # Fullerton has movement cost coded slightly differently, where movement cost is a function of the instantaneous growth rate, distance moved, and a constant...rather than simply a fixed cost as is the case here. But because we only have two patches that are spatially implicit, we can ignore this more complex parameterization...at least for now.
 
@@ -126,11 +131,12 @@ ra_seq_ibm <- rations             # seq(0.001, 0.4, 0.001), 151 values
 # initialize fish
 fish_pop <- bind_rows(
   tibble(strategy = "resident_warm", patch = "warm",
-         weight = pmax(1, rnorm(n_fish_per_strat, start_wt, 2))),
+         weight = pmax(min(weights), rnorm(n_fish_per_strat, start_wt, wt_sd))),
   tibble(strategy = "resident_cold", patch = "cold",
-         weight = pmax(1, rnorm(n_fish_per_strat, start_wt, 2))),
-  tibble(strategy = "optimal_mover", patch = "warm",
-         weight = pmax(1, rnorm(n_fish_per_strat, start_wt, 2)))) %>%
+         weight = pmax(min(weights), rnorm(n_fish_per_strat, start_wt, wt_sd))),
+  # optimal movers are randomly placed into either warm or cold patches
+  tibble(strategy = "optimal_mover", patch = sample(c("warm", "cold"), size = n_fish_per_strat, replace = TRUE), #"warm",
+         weight = pmax(min(weights), rnorm(n_fish_per_strat, start_wt, wt_sd)))) %>%
   mutate(pid = row_number(),
          # ration = if_else(patch == "warm", ration_warm, ration_cold),
          # Rations are calculated in the loop as functions of temperature and body size
@@ -145,6 +151,7 @@ fish_pop <- bind_rows(
          # Negative = bold/prone to move (moves even when slightly disadvantaged)
          move_threshold = c(rep(Inf, n_fish_per_strat*2), # residents never move
                             rnorm(n_fish_per_strat, mean = 0, sd = sigma_bold)),
+         peak_weight = weight,  # track historical max weight for condition factor
          prob_surv = 1, survive = 1) %>%
   group_by(patch) %>% mutate(density = n()) %>% ungroup()
 fish_pop
@@ -174,11 +181,12 @@ pcmax_adj_matrix   <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # P_C
 pcmax_adjdd_matrix <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # P_Cmax adjusted for tempderature and density dependence
 func_temp_matrix   <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # Temperature dependence function
 ration_matrix      <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # ration size/consumption in g/d/d
+condition_matrix   <- matrix(NA_real_,      nrow = n_fish, ncol = n_days)  # relative condition (W_current / W_peak)
 switches           <- integer(n_fish)                                      # count patch switches per fish (indexed by pid)
 
 
 for (d in 1:n_days) {
-  t <- habitat_df$doy[d] # day of year
+  t <- habitat_df$dayofsim[d] # day of simulation
       
   # 1. GET/FIND PATCH TEMPERATURE AND RATION -----------------------------------------------------
   
@@ -285,7 +293,13 @@ for (d in 1:n_days) {
         )
     } else if (move_stochastic == "prob") {
       ### 2.B.2. Probabilistic (softmax) rule: Instead of a hard threshold, fish switch with a probability that increases with the growth advantage. One parameter: τ (sensitivity; small = nearly deterministic, large = nearly random).
-      p_warm <- fncMoveSoftmax(gwarm = g_warm_vec, gcold = g_cold_vec, tau = 0.001) # calculate probability of selecting warm habitat
+      # Use cost-adjusted net growth rates: staying is free, moving incurs move_cost_vec.
+      # g_stay     = growth in current patch (no cost)
+      # g_move_net = growth in alternate patch - move_cost_vec
+      # Re-map to warm/cold perspective for fncMoveSoftmax:
+      gwarm_eff <- ifelse(in_warm, g_stay, g_move_net) # effective growth if occupying warm patch
+      gcold_eff <- ifelse(in_warm, g_move_net, g_stay) # effective growth if occupying cold patch
+      p_warm <- fncMoveSoftmax(gwarm = gwarm_eff, gcold = gcold_eff, tau = tau) # calculate probability of selecting warm habitat
       choose_warm <- runif(length(mover_rows)) < p_warm # choose warm if p_warm exceeds a random number between 0 and 1
       fish_pop$patch[mover_rows] <- if_else(choose_warm, "warm", "cold") # update patch
     } else if (move_stochastic == "indiv") {
@@ -352,14 +366,40 @@ for (d in 1:n_days) {
   # Update weight: W_{t+1} = W_t + (growth_rate * W_t)
   fish_pop$weight <- fish_pop$weight + (growth_df$growth * fish_pop$weight)
   
+  # Update peak weight: ratchet up only, never down
+  fish_pop$peak_weight <- pmax(fish_pop$peak_weight, fish_pop$weight)
+  
   
   # 5. SURVIVAL BASED ON FISH WEIGHT AND GROWTH --------------------------------------------------
   
-  # Weight and growth dependent
-  surv.list <- fncSurvive(growth_df)
+  # Weight and growth dependent -- growth effect depends on range of growth rates experienced on any given day
+  # surv.list <- fncSurvive(growth_df)
+  # growth_df <- growth_df %>%
+  #   mutate(prob_surv = surv.list[[1]],
+  #          survive   = surv.list[[2]])
+  
+  # Weight and growth dependent -- growth effect is rescaled to a specific range
+  p_sg    <- fncSurviveSimp(growth_df)[[1]] # fncSurviveSimp(growth_df)[[1]]
+  
+  # Temperature-dependent survival: multiplied with size/growth probability so both act simultaneously
+  p_temp  <- fncSurviveTemp(growth_df$WT.actual, T1 = T1_mort, T9 = T9_mort)
+
+  # Condition-based (starvation) survival: relative condition = current / peak weight
+  condition <- fish_pop$weight / fish_pop$peak_weight
+  p_starv   <- fncSurviveStarve(condition, K9 = K9_starv, K1 = K1_starv)
+  
+  # Calculate combined daily survival rate
+  prb.srv   <- pmin(p_sg * p_temp * p_starv, 1)
+  
+  # Minimum weight floor: fish that drop below hatch weight die immediately (backstop)
+  prb.srv[fish_pop$weight < start_wt] <- 0
+  
+  survivors <- rbinom(n = nrow(growth_df), size = 1, prob = prb.srv)
+  
   growth_df <- growth_df %>%
-    mutate(prob_surv = surv.list[[1]],
-           survive   = surv.list[[2]])
+    mutate(prob_surv = prb.srv,
+           survive   = survivors)
+  
   # Weight dependent only --- the issue with this is that basically nobody dies. See GrowthScapes working notes in OneNote
   # surv.list <- fncSurviveSimp(growth_df)
   # growth_df <- growth_df %>% 
@@ -380,6 +420,7 @@ for (d in 1:n_days) {
   pcmax_adjdd_matrix[fish_pop$pid, d] <- fish_pop$pcmax_adjusted_dd 
   func_temp_matrix[fish_pop$pid, d]   <- fish_pop$func_temp
   ration_matrix[fish_pop$pid, d]      <- fish_pop$ration
+  condition_matrix[fish_pop$pid, d]   <- condition
   
   # Remove non-survivors — only living fish carry forward to next iteration
   fish_pop <- fish_pop[growth_df$survive == 1, ]
@@ -392,104 +433,112 @@ for (d in 1:n_days) {
 Collate results into long tibbles and summarized tibbles
 ```{r}
 # assign DOY column names
-colnames(mass_matrix)     <- as.character(habitat_df$doy)
-colnames(patch_matrix)    <- as.character(habitat_df$doy)
-colnames(temp_matrix)     <- as.character(habitat_df$doy)
-colnames(ggd_matrix)      <- as.character(habitat_df$doy)
-colnames(surv_matrix)     <- as.character(habitat_df$doy)
+colnames(mass_matrix)     <- as.character(habitat_df$dayofsim)
+colnames(patch_matrix)    <- as.character(habitat_df$dayofsim)
+colnames(temp_matrix)     <- as.character(habitat_df$dayofsim)
+colnames(ggd_matrix)      <- as.character(habitat_df$dayofsim)
+colnames(surv_matrix)     <- as.character(habitat_df$dayofsim)
 
-colnames(pcmax_base_matrix)    <- as.character(habitat_df$doy)
-colnames(pcmax_adj_matrix)     <- as.character(habitat_df$doy)
-colnames(pcmax_adjdd_matrix)   <- as.character(habitat_df$doy)
-colnames(func_temp_matrix)     <- as.character(habitat_df$doy)
-colnames(ration_matrix)        <- as.character(habitat_df$doy)
+colnames(pcmax_base_matrix)    <- as.character(habitat_df$dayofsim)
+colnames(pcmax_adj_matrix)     <- as.character(habitat_df$dayofsim)
+colnames(pcmax_adjdd_matrix)   <- as.character(habitat_df$dayofsim)
+colnames(func_temp_matrix)     <- as.character(habitat_df$dayofsim)
+colnames(ration_matrix)        <- as.character(habitat_df$dayofsim)
+colnames(condition_matrix)     <- as.character(habitat_df$dayofsim)
 
 
 # Convert weight matrix to long format, join with patch matrix
 # Use fish_pop_init to label rows — fish_pop at this point only contains survivors
 mass_long <- as_tibble(mass_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "weight") %>%
-  mutate(doy = as.integer(doy)) %>%
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "weight") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
   left_join(
     as_tibble(patch_matrix) %>%
       bind_cols(fish_pop_init %>% select(pid)) %>%
-      pivot_longer(-pid, names_to = "doy", values_to = "patch") %>%
-      mutate(doy = as.integer(doy)),
-    by = c("pid", "doy")
+      pivot_longer(-pid, names_to = "dayofsim", values_to = "patch") %>%
+      mutate(dayofsim = as.integer(dayofsim)),
+    by = c("pid", "dayofsim")
   ) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # Convert temp matrix to long format
 temp_long <- as_tibble(temp_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "temp") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "temp") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # convert standardized growth rate matrix to long format
 ggd_long <- as_tibble(ggd_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "ggd") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "ggd") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # convert survival matrix to long format (1 = survived, 0 = died, NA = already dead)
 surv_long <- as_tibble(surv_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "survived") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "survived") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # convert baseline P_Cmax matrix to long format
 pcmax_base_long <- as_tibble(pcmax_base_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "pcmax_base") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "pcmax_base") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # convert temp-adjusted P_Cmax matrix to long format
 pcmax_adj_long <- as_tibble(pcmax_adj_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "pcmax_adj") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "pcmax_adj") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # convert temp and density adjusted matrix to long format
 pcmax_adjdd_long <- as_tibble(pcmax_adjdd_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "pcmax_adjdd") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "pcmax_adjdd") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # convert survival matrix to long format (1 = survived, 0 = died, NA = already dead)
 func_temp_long <- as_tibble(func_temp_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "func_temp") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "func_temp") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # convert survival matrix to long format (1 = survived, 0 = died, NA = already dead)
 ration_long <- as_tibble(ration_matrix) %>%
   bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
-  pivot_longer(-c(pid, strategy), names_to = "doy", values_to = "ration") %>%
-  mutate(doy = as.integer(doy)) %>%
-  left_join(habitat_df %>% select(doy, date), by = "doy")
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "ration") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
+
+condition_long <- as_tibble(condition_matrix) %>%
+  bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "condition") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
 # bind all individual data
 ibm_long <- mass_long %>%
-  left_join(temp_long %>% select(-date), by = c("pid", "strategy", "doy")) %>%
-  left_join(ggd_long %>% select(-date),  by = c("pid", "strategy", "doy")) %>%
-  left_join(surv_long %>% select(-date), by = c("pid", "strategy", "doy")) %>%
-  left_join(pcmax_base_long %>% select(-date), by = c("pid", "strategy", "doy")) %>%
-  left_join(pcmax_adj_long %>% select(-date), by = c("pid", "strategy", "doy")) %>%
-  left_join(pcmax_adjdd_long %>% select(-date), by = c("pid", "strategy", "doy")) %>%
-  left_join(func_temp_long %>% select(-date), by = c("pid", "strategy", "doy")) %>%
-  left_join(ration_long %>% select(-date), by = c("pid", "strategy", "doy"))
+  left_join(temp_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(ggd_long %>% select(-date),  by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(surv_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(pcmax_base_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(pcmax_adj_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(pcmax_adjdd_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(func_temp_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(ration_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(condition_long %>% select(-date), by = c("pid", "strategy", "dayofsim"))
 
 # summarize by strategy
 ibm_summary <- ibm_long %>%
-  group_by(strategy, doy, date) %>%
+  group_by(strategy, dayofsim, date) %>%
   summarise(
     mean_weight      = mean(weight, na.rm = TRUE),
     sd_weight        = sd(weight,   na.rm = TRUE),
@@ -509,6 +558,8 @@ ibm_summary <- ibm_long %>%
     sd_func_temp     = sd(func_temp, na.rm = TRUE),
     mean_ration      = mean(ration, na.rm = TRUE),
     sd_ration        = sd(ration, na.rm = TRUE),
+    mean_condition   = mean(condition, na.rm = TRUE),
+    sd_condition     = sd(condition, na.rm = TRUE),
     .groups          = "drop"
   )
 
@@ -525,7 +576,7 @@ xs <- seq(from = min(ibm_long$weight, na.rm = TRUE), to = max(ibm_long$weight, n
 ys <- constants$Consumption$CA * (xs ^ constants$Consumption$CB)
 
 p1 <- ggplot() +
-  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(doy, patch) %>% mutate(density = n()) %>% ungroup(), 
+  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(dayofsim, patch) %>% mutate(density = n()) %>% ungroup(), 
              aes(x = weight, y = ration, color = strategy)) +
   # geom_line(aes(x = xs, y = ys), linetype = "dashed", color = "grey40") +
   geom_line(aes(x = xs, y = ys*0.5), linetype = "dashed", color = "black") +
@@ -533,7 +584,7 @@ p1 <- ggplot() +
   ylab("Ration size (g/g/d)") + xlab("Fish mass (g)")
 
 p2 <- ggplot() +
-  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(doy, patch) %>% mutate(density = n()) %>% ungroup(), 
+  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(dayofsim, patch) %>% mutate(density = n()) %>% ungroup(), 
              aes(x = weight, y = ration, color = temp)) +
   # geom_line(aes(x = xs, y = ys), linetype = "dashed", color = "grey40") +
   geom_line(aes(x = xs, y = ys*0.5), linetype = "dashed", color = "black") +
@@ -569,7 +620,7 @@ ggplot() +
 Now show P_cmax adjusted by both temperature and density: points should generally track temperature-dependence function, capped at baseline/threshold P_Cmax. Noise is due to variation in body size and density. Smaller fish feeding at higher densities typically experience more food limitation...this appears to occur more commonly in the warm habitat during late spring.  
 ```{r fig.width=8, fig.height=8}
 p1 <- ggplot() +
-  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(doy, patch) %>% mutate(density = n()) %>% ungroup(), 
+  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(dayofsim, patch) %>% mutate(density = n()) %>% ungroup(), 
              aes(x = temp, y = pcmax_adjdd, color = weight)) +
   geom_abline(slope = 0, intercept = 0.5, color = "grey40", linetype = "dashed") +
   # geom_line(aes(x = xs, y = ys), linetype = "dashed", color = "grey40") +
@@ -578,7 +629,7 @@ p1 <- ggplot() +
   ylab("Temperature and density adjusted P_Cmax") + xlab("Temperature (deg. C)")
 
 p2 <- ggplot() +
-  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(doy, patch) %>% mutate(density = n()) %>% ungroup(), 
+  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(dayofsim, patch) %>% mutate(density = n()) %>% ungroup(), 
              aes(x = temp, y = pcmax_adjdd, color = density)) +
   geom_abline(slope = 0, intercept = 0.5, color = "grey40", linetype = "dashed") +
   # geom_line(aes(x = xs, y = ys), linetype = "dashed", color = "grey40") +
@@ -587,7 +638,7 @@ p2 <- ggplot() +
   ylab("Temperature and density adjusted P_Cmax") + xlab("Temperature (deg. C)")
 
 p3 <- ggplot() +
-  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(doy, patch) %>% mutate(density = n()) %>% ungroup(), 
+  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(dayofsim, patch) %>% mutate(density = n()) %>% ungroup(), 
              aes(x = temp, y = pcmax_adjdd, color = patch)) +
   geom_abline(slope = 0, intercept = 0.5, color = "grey40", linetype = "dashed") +
   # geom_line(aes(x = xs, y = ys), linetype = "dashed", color = "grey40") +
@@ -596,8 +647,8 @@ p3 <- ggplot() +
   ylab("Temperature and density adjusted P_Cmax") + xlab("Temperature (deg. C)")
 
 p4 <- ggplot() +
-  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(doy, patch) %>% mutate(density = n()) %>% ungroup(), 
-             aes(x = temp, y = pcmax_adjdd, color = doy)) +
+  geom_point(data = ibm_long %>% filter(survived == 1) %>% group_by(dayofsim, patch) %>% mutate(density = n()) %>% ungroup(), 
+             aes(x = temp, y = pcmax_adjdd, color = dayofsim)) +
   geom_abline(slope = 0, intercept = 0.5, color = "grey40", linetype = "dashed") +
   # geom_line(aes(x = xs, y = ys), linetype = "dashed", color = "grey40") +
   # geom_line(aes(x = xs, y = ys*0.5), linetype = "dashed", color = "red") +
@@ -612,31 +663,105 @@ egg::ggarrange(p1, p2, p3, p4, nrow = 2, ncol = 2)
 
 ### Size trajectories
 
-weight trajectories by strategy (ribbon = ±1 SD across individuals). 
+Weight trajectories by strategy (ribbon = ±1 SD across individuals).
 
-*Uncertainty derives from variation in starting size (if allowed) and stochasticity in individual movement behavior (if configured).*
+*I wonder how realistic overwinter mass losses are...*
 ```{r}
 p1 <- ibm_summary %>%
-  ggplot(aes(x = date, color = strategy, fill = strategy)) +
-  geom_ribbon(aes(ymin = mean_weight - sd_weight, ymax = mean_weight + sd_weight),
+  ggplot() +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_ribbon(aes(x = date, color = strategy, fill = strategy, ymin = mean_weight - sd_weight, ymax = mean_weight + sd_weight),
               alpha = 0.15, color = NA) +
-  geom_line(aes(y = mean_weight)) +
+  geom_line(aes(x = date, color = strategy, fill = strategy, y = mean_weight)) +
   scale_color_manual(values = c(resident_warm = "red", 
                                 resident_cold = "blue", 
                                 optimal_mover = "darkgreen")) +
   scale_fill_manual(values  = c(resident_warm = "red", 
                                 resident_cold = "blue",
                                 optimal_mover = "darkgreen")) +
-  theme_bw() + #ylim(0,10000) +
+  theme_bw() + theme(panel.grid = element_blank()) +
   xlab("Date") + ylab("Mean weight ± SD (g)")
 
 p2 <- mass_long %>%
-  ggplot(aes(x = date, y = weight, color = strategy, group = pid)) +
-  geom_line(alpha = 0.5) +
+  ggplot() +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(aes(x = date, y = weight, color = strategy, group = pid), alpha = 0.5) +
   scale_color_manual(values = c(resident_warm = "red", 
                                 resident_cold = "blue", 
                                 optimal_mover = "darkgreen")) +
-  theme_bw() + #ylim(0,10000) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Date") + ylab("Individual weight (g)")
+
+ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE)
+```
+
+Now zoom into the beginning of the simulation, to look growth trajectories of early recruits
+```{r}
+p1 <- ibm_summary %>%
+  filter(date <= min(date) + days(100)) %>%
+  ggplot() +
+  geom_ribbon(aes(x = date, color = strategy, fill = strategy, ymin = mean_weight - sd_weight, ymax = mean_weight + sd_weight),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(x = date, color = strategy, fill = strategy, y = mean_weight)) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_fill_manual(values  = c(resident_warm = "red", 
+                                resident_cold = "blue",
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Date") + ylab("Mean weight ± SD (g)") +
+  geom_abline(slope = 0, intercept = 0, linetype = "dashed")
+
+p2 <- mass_long %>%
+  filter(date <= min(date) + days(100)) %>%
+  ggplot() +
+  geom_line(aes(x = date, y = weight, color = strategy, group = pid), alpha = 0.5) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Date") + ylab("Individual weight (g)") +
+  geom_abline(slope = 0, intercept = 0, linetype = "dashed")
+
+ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE)
+```
+
+Now just look at warm residents
+```{r}
+p1 <- ibm_summary %>%
+  filter(strategy == "resident_warm", !is.na(mean_weight)) %>%
+  ggplot() +
+  # geom_rect(data = summer_shading,
+  #           aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+  #           fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_ribbon(aes(x = date, color = strategy, fill = strategy, ymin = mean_weight - sd_weight, ymax = mean_weight + sd_weight),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(x = date, color = strategy, fill = strategy, y = mean_weight)) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_fill_manual(values  = c(resident_warm = "red", 
+                                resident_cold = "blue",
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Date") + ylab("Mean weight ± SD (g)")
+
+p2 <- mass_long %>%
+  filter(strategy == "resident_warm", !is.na(weight)) %>%
+  ggplot() +
+  # geom_rect(data = summer_shading,
+  #           aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+  #           fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(aes(x = date, y = weight, color = strategy, group = pid), alpha = 0.5) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  theme_bw() + theme(panel.grid = element_blank()) +
   xlab("Date") + ylab("Individual weight (g)")
 
 ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE)
@@ -649,24 +774,12 @@ ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE)
 
 Plot daily counts of survivors and overall survival by strategy (plots are the same, survival is standardized by number of initial fish per strategy)
 ```{r}
-p1 <- ibm_summary %>% 
-  ggplot(aes(x = date, y = n_alive, color = strategy)) +
-  geom_line() +
-  scale_color_manual(values = c(resident_warm = "red", 
-                                resident_cold = "blue", 
-                                optimal_mover = "darkgreen")) +
-  scale_y_continuous(limits = c(0, NA)) +
-  labs(
-    x     = "Date",
-    y     = "Number alive",
-    color = "Strategy",
-    title = "Population size by strategy"
-  ) +
-  theme_bw()
-
-p2 <- ibm_summary %>% 
-  ggplot(aes(x = date, y = n_alive / n_fish_per_strat, color = strategy)) +
-  geom_line() +
+ibm_summary %>% 
+  ggplot() +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(aes(x = date, y = n_alive / n_fish_per_strat, color = strategy)) +
   scale_color_manual(values = c(resident_warm = "red", 
                                 resident_cold = "blue", 
                                 optimal_mover = "darkgreen")) +
@@ -677,15 +790,15 @@ p2 <- ibm_summary %>%
     color = "Strategy",
     title = "Cumulative survival by strategy"
   ) +
-  theme_bw()
+  theme_bw() + theme(panel.grid = element_blank())
 
-ggpubr::ggarrange(p1, p2, common.legend = TRUE)
+# ggpubr::ggarrange(p1, p2, common.legend = TRUE)
 ```
 
 Summarize survival outcomes by strategy:
 ```{r}
 ibm_summary %>% 
-  filter(doy == n_days) %>%
+  filter(dayofsim == n_days) %>%
   mutate(survive_rate = n_alive / n_fish_per_strat) %>%
   select(strategy, n_alive, survive_rate)
 ```
@@ -702,9 +815,9 @@ ibm_summary %>%
 * `optimal_mover` has the highest overall survival (~96%), reflecting its growth advantage keeping individual survival probabilities near 1.0 most of the year.
 
 
-#### Investigate cause
+#### Context
 
-Check whether mortality is concentrated among the smallest or slowest-growing individuals within each strategy — e.g., plot final weight of survivors vs. non-survivors — to confirm size-selective mortality is operating as expected.
+When are fish dying and how large are they/how fast are they growing relative to the survivor mean?
 ```{r}
 n_days <- ncol(mass_matrix)
 
@@ -726,31 +839,31 @@ strategy_order <- c("resident_warm", "resident_cold", "optimal_mover")
 # Dying fish: weight and growth rate on their day of death (survived == 0)
 death_records <- ibm_long %>%
   filter(survived == 0) %>%
-  select(pid, strategy, doy, weight, ggd) %>%
+  select(pid, strategy, date, dayofsim, weight, ggd) %>%
   mutate(fate = "Died")
 
 # Death days across all strategies
-death_days <- death_records %>% distinct(doy)
+death_days <- death_records %>% distinct(dayofsim)
 
 # Surviving fish (those alive at end): weight and growth on those same death days
 survivor_pids <- fish_fate %>% filter(survived == "Survived") %>% pull(pid)
 
 survivor_records <- ibm_long %>%
   filter(pid %in% survivor_pids) %>%
-  inner_join(death_days, by = "doy") %>%
-  select(pid, strategy, doy, weight, ggd) %>%
+  inner_join(death_days, by = "dayofsim") %>%
+  select(pid, strategy, dayofsim, weight, ggd) %>%
   mutate(fate = "Survived")
 
 # Mean of ALL survivors (across strategies) on each death day
 survivor_means <- survivor_records %>%
-  group_by(doy) %>%
+  group_by(dayofsim) %>%
   summarise(mean_wt_surv  = mean(weight, na.rm = TRUE),
             mean_ggd_surv = mean(ggd,    na.rm = TRUE),
             .groups = "drop")
 
 # Difference: dying fish value minus all-survivor mean on same day
 df_diff <- death_records %>%
-  left_join(survivor_means, by = "doy") %>%
+  left_join(survivor_means, by = "dayofsim") %>%
   mutate(
     wt_diff  = weight - mean_wt_surv,
     ggd_diff = ggd    - mean_ggd_surv,
@@ -763,57 +876,61 @@ p_wt <- ggplot(df_diff, aes(x = strategy, y = wt_diff)) +
   geom_boxplot(width = 0.4, outlier.shape = NA, fill = "grey") +
   geom_jitter(width = 0.15, size = 2, alpha = 0.7) +
   labs(x = NULL, y = "Weight difference (g)",
-       title = "A: Dying fish weight minus mean survivor weight (same day)") +
-  theme_bw()
+       title = "Dying fish wt. minus mean survivor wt. (same day)") +
+  theme_bw() + theme(panel.grid = element_blank())
 
 p_ggd <- ggplot(df_diff, aes(x = strategy, y = ggd_diff)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_boxplot(width = 0.4, outlier.shape = NA, fill = "grey") +
   geom_jitter(width = 0.15, size = 2, alpha = 0.7) +
   labs(x = NULL, y = "Growth rate difference (g/g/d)",
-       title = "B: Dying fish growth rate minus mean survivor growth rate (same day)") +
-  theme_bw()
+       title = "Dying fish growth minus mean survivor growth (same day)") +
+  theme_bw() + theme(panel.grid = element_blank())
 
-p_days <- ggplot(death_records,
-                 aes(x = strategy, y = doy, color = strategy)) +
-  geom_jitter(width = 0.15, size = 2.5, alpha = 0.8) +
+p_days <- ggplot() +
+  geom_rect(data = summer_shading,
+            aes(ymin = xmin, ymax = xmax, xmin = ymin, xmax = ymax),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_jitter(data = death_records,
+              aes(x = strategy, y = date, color = strategy), 
+              width = 0.15, size = 2.5, alpha = 0.8) +
   scale_x_discrete(limits = strategy_order) +
   labs(x = NULL, y = "Day of death (day of year)",
-       title = "C: When did non-survivors die?") +
-  theme_bw() + theme(legend.position = "none") +
+       title = "When did non-survivors die?") +
+  theme_bw() + theme(legend.position = "none", panel.grid = element_blank()) +
   scale_color_manual(values = c(resident_warm = "red", 
                                 resident_cold = "blue", 
                                 optimal_mover = "darkgreen"))
 
 egg::ggarrange(p_wt, p_ggd, p_days, ncol = 1)
 ```
-Yes, overall, the survival function in behaving correctly: it's largely selecting against small, slow-growing fish in a biologically interpretable way.
+Yes, overall, the survival module is behaving correctly: it's largely selecting against small, slow-growing fish in a biologically interpretable way.
 
-`resident_warm` fish that die in summer are much lighter and slower-growing than the population-wide survivor mean on those same days — because by mid-summer the `optimal_mover` and `resident_cold` fish are substantially heavier, pulling the survivor mean up. The tight clustering near zero for `resident_cold` and `optimal_mover` reflects that deaths in those strategies tend to occur early in the year when fish are small and the all-strategy survivor mean hasn't yet diverged much.
+`resident_warm` fish that die in summer are smaller and actively losing mass relative to the population-wide survivor mean on those same days. The tight clustering near zero for `resident_cold` and `optimal_mover` reflects that deaths in those strategies tend to occur early in the year when fish are small and the all-strategy survivor mean hasn't yet diverged much.
 
 Timing of deaths (panel C) also makes biological sense:
-  + `resident_cold` deaths cluster early (~day 55–70)...the smallest/slowest fish that can't sustain themselves even in the cold patch
-  + `resident_warm` deaths cluster mid-summer as the warm patch becomes suboptimal
-  + `optimal_mover` deaths also cluster early...a few unlucky fish
+  + `resident_cold` deaths cluster early when fish are small and baseline survival is lowest, and fish are also experiencing negative growth due to low temps
+  + `optimal_mover` deaths also cluster early for the same reasons
+  + `resident_warm` deaths cluster mid-summer as the warm patch becomes suboptimal. Likely not as much early season mortality b/c growth potential is just a bit higher
 
 Now, let's investigate the context of `optimal_mover` mortalities. Where and when to they occur and what are the thermal and growth conditions that they experienced?
 ```{r fig.width=5, fig.height=8}
 mover_deaths <- ibm_long %>%
   filter(strategy == "optimal_mover", survived == 0) %>%
-  select(pid, doy, patch, weight, ggd)
+  select(pid, date, dayofsim, patch, weight, ggd)
 
-doy_max <- max(mover_deaths$doy) + 10
+dayofsim_max <- max(mover_deaths$dayofsim) + 10
 
 temps <- habitat_df %>%
-  filter(doy <= doy_max) %>%
-  select(doy, temp_warm, temp_cold) %>%
+  filter(dayofsim <= dayofsim_max) %>%
+  select(dayofsim, date, temp_warm, temp_cold) %>%
   pivot_longer(c(temp_warm, temp_cold), names_to = "patch", values_to = "temp") %>%
   mutate(patch = if_else(patch == "temp_warm", "warm", "cold"))
 
-p_temp <- ggplot(temps, aes(x = doy, y = temp, color = patch)) +
+p_temp <- ggplot(temps, aes(x = date, y = temp, color = patch)) +
   geom_line(linewidth = 0.8) +
   geom_rug(
-    data = mover_deaths, aes(x = doy, color = patch),
+    data = mover_deaths, aes(x = date, color = patch),
     sides = "b", linewidth = 1.2, length = unit(0.06, "npc"), inherit.aes = FALSE
   ) +
   scale_color_manual(values = c(warm = "tomato", cold = "steelblue")) +
@@ -821,25 +938,179 @@ p_temp <- ggplot(temps, aes(x = doy, y = temp, color = patch)) +
        title = "Optimal mover mortality: patch context and timing") +
   theme_bw() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 
-p_death <- ggplot(mover_deaths, aes(x = doy, y = ggd, color = patch, size = weight)) +
+p_death <- ggplot(mover_deaths, aes(x = date, y = ggd, color = patch, size = weight)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_point(alpha = 0.85) +
   scale_color_manual(values = c(warm = "tomato", cold = "steelblue")) +
   scale_size_continuous(range = c(3, 8), name = "Weight (g)") +
-  labs(x = "Day of year", y = "Growth rate at death (g/g/d)", color = "Patch") +
+  labs(x = "Date", y = "Growth rate at death (g/g/d)", color = "Patch") +
   theme_bw()
 
 egg::ggarrange(p_temp, p_death, ncol = 1, heights = c(1, 1.2))
 ```
-The early cluster of deaths is dominated by warm-patch fish with strongly negative growth rates and small body sizes — these fish are actively losing mass and dying. Temperatures in both patches are essentially identical and near-zero during this period, so the warm patch offers no thermal advantage, but movers are nonetheless ending up there and dying. The one cold-patch early death follows the same pattern.
+The early cluster of deaths is dominated by warm-patch fish with negative growth rates and small body sizes — these fish are actively losing mass and dying. Temperatures in both patches are essentially identical and near-zero during this period, so the warm patch offers no thermal advantage, but movers are nonetheless ending up there and dying. The one cold-patch early death follows the same pattern.
 
 The two late deaths (days ~123–133) are different in character: both have positive growth rates and are much larger, suggesting they're stochastic rather than condition-driven mortality.
 
 The key diagnostic question this raises: why are movers preferentially occupying the warm patch in early winter when temperatures are identical and growth is negative in both? That points to investigating the patch-choice logic at low temperatures — the growth potential lookup may not be differentiating between patches when temperatures are near-flat, leading to essentially arbitrary placement. This makes sense, especially when combined with the softmax/probabilistic stochasticity in patch choice...fish won't switch patches if the growth advantage is tiny...so they stay in the warm habitat where densities are ~high and 
 
 
+#### Drivers of survival
 
-### Patch occupancy
+Now, look at how the mechanisms of survival manifest over time, for each strategy.
+```{r fig.width=7, fig.height=7}
+# Build survival probability components for all fish across all alive days
+all_surv_df <- tibble(
+  pid       = rep(fish_pop_init$pid, n_days),
+  dayofsim  = rep(1:n_days, each = nrow(fish_pop_init)),
+  condition = as.vector(condition_matrix),
+  temp      = as.vector(temp_matrix),
+  weight    = as.vector(mass_matrix),
+  growth    = as.vector(ggd_matrix)
+) |>
+  filter(!is.na(condition)) |>
+  left_join(fish_pop_init |> select(pid, strategy), by = "pid") |>
+  mutate(
+    p_temp  = fncSurviveTemp(temp, T1 = T1_mort, T9 = T9_mort),
+    p_starv = fncSurviveStarve(condition, K9 = K9_starv, K1 = K1_starv),
+    p_sg    = fncSurviveFixed(pick(weight, growth))[[1]]
+  ) |>
+  left_join(habitat_df |> select(dayofsim, date), by = "dayofsim") |>
+  pivot_longer(c(p_temp, p_starv, p_sg),
+               names_to = "source", values_to = "p_survive") |>
+  mutate(
+    source   = recode(source,
+      p_temp  = "Temperature (p_temp)",
+      p_starv = "Starvation (p_starv)",
+      p_sg    = "Size/growth (p_sg)"),
+    strategy = factor(strategy,
+      levels = c("resident_warm", "resident_cold", "optimal_mover"))
+  )
+
+surv_source_colors <- c(
+  "Temperature (p_temp)" = "firebrick",
+  "Starvation (p_starv)" = "darkorange",
+  "Size/growth (p_sg)"   = "steelblue"
+)
+
+# Individual fish: one line per fish per mortality source, faceted by strategy
+# all_surv_df |>
+#   ggplot(aes(x = date, y = p_survive, color = source,
+#              group = interaction(pid, source))) +
+#   geom_rect(data = summer_shading,
+#             aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+#             fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+#   geom_line(alpha = 0.2, linewidth = 0.3) +
+#   scale_color_manual(values = surv_source_colors) +
+#   #scale_y_continuous(limits = c(0, 1)) +
+#   facet_wrap(~strategy, nrow = 3, scales = "free_y") +
+#   theme_bw() + theme(panel.grid = element_blank()) +
+#   xlab("Date") + ylab("Daily survival probability") +
+#   labs(title = "Mortality sources by strategy — individual fish",
+#        color = "Mortality source")
+
+# Group means: daily mean per mortality source, faceted by strategy
+all_surv_df |>
+  group_by(strategy, date, source) |>
+  summarise(mean_p = mean(p_survive), .groups = "drop") |>
+  ggplot(aes(x = date, y = mean_p, color = source)) +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = surv_source_colors) +
+  #scale_y_continuous(limits = c(0, 1)) +
+  facet_wrap(~strategy, nrow = 3, scales = "free_y") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Date") + ylab("Mean daily survival probability") +
+  labs(title = "Mortality sources by strategy — group means",
+       color = "Mortality source")
+```
+
+- *Warm residents*: Starvation (`p_starv`) is almost entirely responsible for warm resident mortality during summer. It remains at 1.0 through spring (fish growing well, condition = 1.0), then collapses rapidly in late June as the warm patch temperatures drive up metabolic costs faster than fish consume food — condition drops below `K9=0.50` and `p_starv` crashes to ~0.35 within a matter of days.
+  + Temperature (`p_temp`) plays almost no role. Because the warm patch peaks at 25°C — just below the `T9` threshold of 25.8°C — `p_temp` barely budges from 1.0 throughout the survival window.
+  + Relative to to `p_starv`, `p_sg` stays flat at ~1.0 throughout — by the time summer arrives, warm residents have grown large enough that size/growth survival is essentially at its ceiling. 
+- *Cold residents*: size dependent survival, `p_sg`, drives mortality among new recruits. `p_starv` drives mortality during subsequent winters. `p_temp` plays almost no role as temperatures in the cold habitat never approach lethal limits
+- *Optimate movers*: similar patterns as cold residents, but smaller effects of winter starvation b/c these fish occupy the warm habitat where slightly warmer temps all fish to feed at slightly rates, better meeting metabolic demands
+
+
+Condition is a one of the primary drivers or survival. Plot relative condition over time, for each strategy. 
+```{r}
+ibm_summary |>
+  # filter(strategy != "resident_warm") |>   # warm residents extinct early — plot separately
+  ggplot(aes(x = date, color = strategy, fill = strategy)) +
+  geom_rect(data = summer_shading,
+            aes(xmin=xmin, xmax=xmax, ymin=-Inf, ymax=Inf),
+            fill="grey", alpha=0.3, inherit.aes=FALSE) +
+  geom_ribbon(aes(ymin = mean_condition - sd_condition,
+                  ymax = mean_condition + sd_condition),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(y = mean_condition)) +
+  geom_hline(yintercept = c(0.50, 0.30), linetype="dashed", alpha=0.5) +
+  annotate("text", x = as.Date("2024-06-01"), y = 0.51, hjust=0,
+           label="K9 = 0.50", size=3, alpha=0.7) +
+  annotate("text", x = as.Date("2024-06-01"), y = 0.31, hjust=0,
+           label="K1 = 0.30", size=3, alpha=0.7) +
+  scale_color_manual(values=c(resident_warm = "red", resident_cold="blue", optimal_mover="darkgreen")) +
+  scale_fill_manual(values=c(resident_warm = "red", resident_cold="blue",  optimal_mover="darkgreen")) +
+  scale_y_continuous(limits=c(0,1)) +
+  theme_bw() + theme(panel.grid=element_blank()) +
+  xlab("Date") + ylab("Relative condition (W / W_peak)") +
+  labs(title="Mean condition ± SD by strategy over time",
+       subtitle="Dashed lines = starvation anchor points (K9, K1); shaded = June–Aug",
+       color="Strategy", fill="Strategy")
+```
+Optimal movers and cold residents maintain relatively high condition, and we only see mass loss during the winter when very cold temperatures limit physiological capacity. Neither strategy every approaches the starvation anchor points, meaning that the starvation mechanism is correctly not firing during ~normal seasonal weight loss. In contrast, condition for warm residents declines steeply during the first summer, when food limitations (threshold P_cmax) are insufficient to meet temperature-driven physiological demands. 
+
+
+### Abundance and biomass
+
+Plot abundance through time
+```{r}
+ibm_summary %>% 
+  ggplot() +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(aes(x = date, y = n_alive, color = strategy)) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(
+    x     = "Date",
+    y     = "Number alive",
+    color = "Strategy",
+    title = "Population size by strategy"
+  ) +
+  theme_bw() + theme(panel.grid = element_blank())
+```
+
+Plot biomass through time as abundance * mean weight
+```{r}
+ibm_summary %>% 
+  ggplot() +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(aes(x = date, y = (n_alive*mean_weight)/1000, color = strategy)) +
+  scale_color_manual(values = c(resident_warm = "red", 
+                                resident_cold = "blue", 
+                                optimal_mover = "darkgreen")) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(
+    x     = "Date",
+    y     = "Biomass (kg)",
+    color = "Strategy",
+    title = "Biomass by strategy"
+  ) +
+  theme_bw() + theme(panel.grid = element_blank())
+```
+
+
+### Movement
+
+#### Population means
 
 Patch occupancy for optimal movers — proportion in warm patch through the year.
 
@@ -856,7 +1127,134 @@ ibm_summary %>%
   geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
   theme_bw() +
   xlab("Date") + ylab("Proportion of optimal movers in warm patch")
+
+ibm_summary %>%
+  filter(strategy == "optimal_mover", date < as.Date("2024-12-31")) %>%
+  ggplot(aes(x = date, y = prop_warm)) +
+  geom_line() +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+  theme_bw() +
+  xlab("Date") + ylab("Proportion of optimal movers in warm patch")
 ```
+
+
+#### Individual movement patterns
+
+Build a long-form patch history for optimal movers:
+```{r}
+patch_long <- as_tibble(patch_matrix) |>
+  bind_cols(fish_pop_init |> select(pid, strategy)) |>
+  pivot_longer(-c(pid, strategy), names_to = "day", values_to = "patch") |>
+  mutate(dayofsim = as.integer(sub("V", "", day))) |>
+  left_join(habitat_df |> select(dayofsim, date), by = "dayofsim") |>
+  filter(!is.na(patch)) |>
+  select(-day)
+
+mover_patch <- patch_long |> filter(strategy == "optimal_mover")
+```
+
+**Plot 1 — Raster of all optimal movers.** Each row is one fish, each column is a day, fill = patch. Fish are ordered by their overall proportion of time in the warm patch. Synchronised individuals will produce horizontal bands switching at the same time; independent movers will produce a noisier mosaic.
+
+At seasonal and annual timescales, fish show similar movement patterns--tracking the primary gradient in growth potential and it shifts seasonally between warm and cold patches. But we also see individual variation at finer timescales, driven by stochasticity from the softmax patch selection function. Another observation is that the allometric scaling of the cost of movement appears to be working as expected. Early in the simulation, small fish switch infrequently (only when the benefit of switching is very large). But later on, larger fish switch more frequently, navigating smaller magnitude differences in density-dependent growth potential. 
+```{r}
+# Order fish by proportion of time spent in warm patch
+pid_order <- mover_patch |>
+  group_by(pid) |>
+  summarise(prop_warm = mean(patch == "warm"), .groups = "drop") |>
+  arrange(prop_warm)
+
+mover_patch |>
+  mutate(pid = factor(pid, levels = pid_order$pid)) |>
+  ggplot(aes(x = date, y = pid, fill = patch)) +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.4, inherit.aes = FALSE) +
+  geom_tile() +
+  scale_fill_manual(values = c(warm = "#d95f02", cold = "#1f78b4")) +
+  theme_bw() +
+  theme(panel.grid  = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  xlab("Date") + ylab("Individual fish (ordered by % time in warm)") +
+  labs(title = "Patch occupancy — all optimal movers",
+       subtitle = "Shaded = June–Aug; fish ordered bottom-to-top by increasing warm-patch use",
+       fill = "Patch")
+
+
+# mover_patch |>
+#   filter(date < as.Date("2024-06-01")) %>%
+#   mutate(pid = factor(pid, levels = pid_order$pid)) |>
+#   ggplot(aes(x = date, y = pid, fill = patch)) +
+#   # geom_rect(data = summer_shading,
+#   #           aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+#   #           fill = "grey", alpha = 0.4, inherit.aes = FALSE) +
+#   geom_tile() +
+#   scale_fill_manual(values = c(warm = "#d95f02", cold = "#1f78b4")) +
+#   theme_bw() +
+#   theme(panel.grid  = element_blank(),
+#         axis.text.y = element_blank(),
+#         axis.ticks.y = element_blank()) +
+#   xlab("Date") + ylab("Individual fish (ordered by % time in warm)") +
+#   labs(title = "Patch occupancy — zoomed to first month of simulation",
+#        subtitle = "Shaded = June–Aug; fish ordered bottom-to-top by increasing warm-patch use",
+#        fill = "Patch")
+```
+
+**Plot 2 — Individual traces for 10 randomly sampled movers.** Patch is encoded as a binary y-position (warm = 1, cold = 0) with a small per-fish y-offset to separate overlapping lines. A fish that moves independently of its peers will switch at a different time from the others.
+```{r}
+set.seed(4921)
+sample_pids <- sample(unique(mover_patch$pid), 10)
+
+mover_patch |>
+  filter(pid %in% sample_pids) |>
+  mutate(patch_y   = if_else(patch == "warm", 1, 0),
+         pid_label = factor(pid)) |>
+  ggplot(aes(x = date, y = patch_y, color = pid_label, group = pid_label)) +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_step(alpha = 0.8, linewidth = 0.6) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("Cold", "Warm")) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Date") + ylab("Patch") +
+  labs(title = "Patch occupancy — 10 randomly sampled optimal movers",
+       subtitle = "Each line is one fish; divergence between lines = independent decision-making",
+       color = "Fish ID")
+```
+
+**Plot 3 — Switch event timing.** For each fish, record every day a patch switch occurs and plot as a rug. Vertical clustering = synchronised switching; diffuse scatter = independent behaviour.
+```{r}
+switch_events <- mover_patch |>
+  arrange(pid, date) |>
+  group_by(pid) |>
+  mutate(switched = patch != lag(patch)) |>
+  filter(switched) |>
+  ungroup()
+
+switch_events |>
+  mutate(to_patch = patch) |>
+  ggplot(aes(x = date, y = factor(pid))) +
+  geom_rect(data = summer_shading,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(aes(color = to_patch), size = 1.2, alpha = 0.7) +
+  scale_color_manual(values = c(warm = "#d95f02", cold = "#1f78b4")) +
+  theme_bw() +
+  theme(panel.grid   = element_blank(),
+        axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank()) +
+  xlab("Date") + ylab("Individual fish") +
+  labs(title = "Patch switch events — optimal movers",
+       subtitle = "Each dot = a switch; colour = destination patch. Vertical alignment = synchronised switching",
+       color = "Destination")
+```
+
+
+Fish are generally acting similarly at seasonal and annual timescales, but on any given day fish are largely acting independently. To introduce additional variation in movement strategies, consider the following:
+
+- Inrease `tau`, the sensitivity to growth differences specified by the softmax function (steepness). Increasing `tau` would make all fish more randomly noisy in their decisions (similar to if we add simple random variation) but also may have the unintended consequence of making fish more reluctant to move (i.e., fish need a larger growth benefit to initiate a movement). But `tau` also applies identically to every fish...so any reduced synchrony in movement decisions would be entirely stochastic, rather than biologically meaningful individual variation
+- To generate structured among-individual differences in movement, we need to give each fish a persistent, individual-specific response to the same environment. `move_stochastic = "indiv"` with `sigma_bold` is the mechanism for this. Each fish draws a fixed movement threshold from a distribution, so some fish are consistently "bold" (move even when the gain is marginal) and others are consistently "reluctant" (only move when the growth advantage is large). That creates genuine individual variation in movement decisions that persists through time — not just day-to-day noise.
+
 
 
 ### Experienced temperature

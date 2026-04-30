@@ -1413,7 +1413,7 @@ data.frame(temp = seq(15, 35, by = 0.1)) |>
        subtitle = "Anchor points: P = 0.9 at 25.8°C, P = 0.1 at 30°C")
 
 
-fncSurviveStarve <- function(condition, K9 = 0.75, K1 = 0.50) {
+fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
   # condition: numeric vector of relative condition values (current_weight / peak_weight)
   # K9:        condition at which daily survival = 0.9 (onset of starvation effects)
   # K1:        condition at which daily survival = 0.1 (near-lethal)
@@ -1428,10 +1428,10 @@ data.frame(condition = seq(0, 1, by = 0.01)) |>
   dplyr::mutate(p_survive = fncSurviveStarve(condition)) |>
   ggplot(aes(x = condition, y = p_survive)) +
   geom_line() +
-  geom_point(data = data.frame(condition = c(0.75, 0.50), p_survive = c(0.9, 0.1)),
+  geom_point(data = data.frame(condition = c(0.55, 0.45), p_survive = c(0.9, 0.1)),
              size = 3, shape = 21, fill = "white") +
   geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
-  geom_vline(xintercept = c(0.75, 0.50), linetype = "dashed", alpha = 0.4) +
+  geom_vline(xintercept = c(0.55, 0.45), linetype = "dashed", alpha = 0.4) +
   theme_bw() + theme(panel.grid = element_blank()) +
   xlab("Relative condition (current weight / peak weight)") + ylab("Daily survival probability") +
   labs(title = "Condition-based (starvation) daily survival",
@@ -1439,9 +1439,9 @@ data.frame(condition = seq(0, 1, by = 0.01)) |>
 
 
 candidate_params <- list(
-  "Default (K9=0.75, K1=0.50)"  = c(K9 = 0.75, K1 = 0.50),
-  "Moderate (K9=0.65, K1=0.40)" = c(K9 = 0.65, K1 = 0.40),
-  "Lenient (K9=0.55, K1=0.35)"  = c(K9 = 0.55, K1 = 0.35)
+  "Stringent (K9=0.6, K1=0.5)"  = c(K9 = 0.7, K1 = 0.6),
+  "Default (K9=0.5, K1=0.4)" = c(K9 = 0.55, K1 = 0.45),
+  "Lenient (K9=0.4, K1=0.3)"  = c(K9 = 0.4, K1 = 0.3)
 )
 
 curve_df <- purrr::map_dfr(names(candidate_params), function(nm) {
@@ -1481,6 +1481,43 @@ ggplot(curve_df, aes(x = condition, y = p_survive, color = params)) +
   labs(title = "Candidate starvation mortality curves",
        subtitle = "Shaded regions: typical cold-resident summer condition (blue) and warm-resident crash zone (red)",
        color = NULL)
+
+
+fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99) {
+  # age:        numeric vector of fish ages in years (pass d / 365 from the IBM loop)
+  # age_thresh: age (years) at which senescent mortality begins (default 5)
+  # lambda:     scale parameter; larger = faster approach to p_min (default 0.25)
+  # k:          Weibull shape exponent; k > 1 gives a slow initial decline that
+  #             accelerates with age — the mirror of the concave-down rise in fncSurvive().
+  #             k = 1 reduces to a simple exponential (fast drop, decelerating). Default 2.
+  # p_min:      asymptotic daily survival floor for very old fish (default 0.99)
+  # Returns a probability vector: 1.0 at/below threshold, declining with increasing age above.
+  # Default parameters: onset ~age 5, annual survival from aging alone approaches ~0 by age 8.
+  excess <- pmax(0, age - age_thresh)
+  p_min + (1 - p_min) * exp(-lambda * excess^k)
+}
+
+
+age_seq <- seq(0, 10, by = 0.05)
+
+data.frame(
+  age      = age_seq,
+  p_daily  = fncSurviveAge(age_seq),
+  p_annual = fncSurviveAge(age_seq)^365
+) |>
+  tidyr::pivot_longer(c(p_daily, p_annual), names_to = "metric", values_to = "p") |>
+  dplyr::mutate(metric = dplyr::recode(metric,
+    p_daily  = "Daily survival probability",
+    p_annual = "Annual survival (aging only)"
+  )) |>
+  ggplot(aes(x = age, y = p)) +
+  geom_vline(xintercept = c(5, 8), linetype = "dashed", alpha = 0.4) +
+  geom_line(linewidth = 0.9) +
+  facet_wrap(~ metric, scales = "free_y") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Age (years)") + ylab("Survival probability") +
+  labs(title = "Senescence-based daily survival (age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99)",
+       subtitle = "Dashed lines: onset age (5) and near-zero survival target (8)")
 
 
 # length in mm

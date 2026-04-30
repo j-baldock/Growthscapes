@@ -8,6 +8,7 @@ execute:
 library(tidyverse)
 library(ggpubr)
 library(egg)
+library(RColorBrewer)
 ```
 
 **Purpose:** construct an individual based model to simulate how fish move to track temperature-based growth opportunities across a habitat network, the resulting effects on growth, and the implications for long-term population dynamics.
@@ -115,8 +116,8 @@ sigma_bold        <- 0.002   # SD of boldness distribution, for dispersal propen
 tau               <- 0.001   # sensitivity to growth difference (for probabilistic/softmax variation in movement)
 T1_mort           <- 30      # temperature (°C) at which daily survival from thermal stress = 0.1
 T9_mort           <- 25.8    # temperature (°C) at which daily survival from thermal stress = 0.9
-K9_starv          <- 0.50    # relative condition (W_current/W_peak) at which starvation survival = 0.9
-K1_starv          <- 0.30    # relative condition at which starvation survival = 0.1
+K9_starv          <- 0.55    # relative condition (W_current/W_peak) at which starvation survival = 0.9
+K1_starv          <- 0.45    # relative condition at which starvation survival = 0.1
 K_warm <- K_cold  <- 500     # For hyperbolic reduction, strength of density dependence/half-saturation density: fish density at which ration is halved
 
 # Fullerton has movement cost coded slightly differently, where movement cost is a function of the instantaneous growth rate, distance moved, and a constant...rather than simply a fixed cost as is the case here. But because we only have two patches that are spatially implicit, we can ignore this more complex parameterization...at least for now.
@@ -152,6 +153,7 @@ fish_pop <- bind_rows(
          move_threshold = c(rep(Inf, n_fish_per_strat*2), # residents never move
                             rnorm(n_fish_per_strat, mean = 0, sd = sigma_bold)),
          peak_weight = weight,  # track historical max weight for condition factor
+         age_days = 0L,         # age in days, incremented each iteration independent of d
          prob_surv = 1, survive = 1) %>%
   group_by(patch) %>% mutate(density = n()) %>% ungroup()
 fish_pop
@@ -182,12 +184,14 @@ pcmax_adjdd_matrix <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # P_C
 func_temp_matrix   <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # Temperature dependence function
 ration_matrix      <- matrix(NA_integer_,   nrow = n_fish, ncol = n_days)  # ration size/consumption in g/d/d
 condition_matrix   <- matrix(NA_real_,      nrow = n_fish, ncol = n_days)  # relative condition (W_current / W_peak)
+age_matrix         <- matrix(NA_real_,      nrow = n_fish, ncol = n_days)  # age
 switches           <- integer(n_fish)                                      # count patch switches per fish (indexed by pid)
 
 
 for (d in 1:n_days) {
   t <- habitat_df$dayofsim[d] # day of simulation
-      
+  fish_pop$age_days <- fish_pop$age_days + 1L  # increment age for all living fish
+
   # 1. GET/FIND PATCH TEMPERATURE AND RATION -----------------------------------------------------
   
   # Temperature indices for this day — shared by all fish
@@ -345,7 +349,7 @@ for (d in 1:n_days) {
     fish_pop <- fish_pop %>%
       mutate(
         k                 = if_else(patch == "warm", K_warm, K_cold),
-        pcmax_adjusted_dd = pcmax_adjusted * (K_warm / (K_warm + n_warm - 1)),
+        pcmax_adjusted_dd = pcmax_adjusted * (k / (k + density - 1)),
         ration            = cmax_allometric * pcmax_adjusted_dd
       ) %>%
       select(-k)
@@ -388,8 +392,11 @@ for (d in 1:n_days) {
   condition <- fish_pop$weight / fish_pop$peak_weight
   p_starv   <- fncSurviveStarve(condition, K9 = K9_starv, K1 = K1_starv)
   
+  # Age-based survival (senescence): survival probability declines past 5 years old, fish older than 8 have ~0 chance of survival.
+  p_age <- fncSurviveAge(fish_pop$age_days / 365)
+  
   # Calculate combined daily survival rate
-  prb.srv   <- pmin(p_sg * p_temp * p_starv, 1)
+  prb.srv   <- pmin(p_sg * p_temp * p_starv * p_age, 1)
   
   # Minimum weight floor: fish that drop below hatch weight die immediately (backstop)
   prb.srv[fish_pop$weight < start_wt] <- 0
@@ -413,6 +420,7 @@ for (d in 1:n_days) {
   mass_matrix[fish_pop$pid, d]  <- fish_pop$weight
   patch_matrix[fish_pop$pid, d] <- fish_pop$patch
   surv_matrix[fish_pop$pid, d]  <- growth_df$survive
+  age_matrix[fish_pop$pid, d]  <- fish_pop$age_days/365 # store age in years
   
   # Secondary: store bioenergetics inputs
   pcmax_base_matrix[fish_pop$pid, d]  <- fish_pop$pcmax_baseline
@@ -424,6 +432,9 @@ for (d in 1:n_days) {
   
   # Remove non-survivors — only living fish carry forward to next iteration
   fish_pop <- fish_pop[growth_df$survive == 1, ]
+  
+  # exit loop if all fish have died
+  if (nrow(fish_pop) == 0) break
 }
 ```
 
@@ -438,6 +449,7 @@ colnames(patch_matrix)    <- as.character(habitat_df$dayofsim)
 colnames(temp_matrix)     <- as.character(habitat_df$dayofsim)
 colnames(ggd_matrix)      <- as.character(habitat_df$dayofsim)
 colnames(surv_matrix)     <- as.character(habitat_df$dayofsim)
+colnames(age_matrix)      <- as.character(habitat_df$dayofsim)
 
 colnames(pcmax_base_matrix)    <- as.character(habitat_df$dayofsim)
 colnames(pcmax_adj_matrix)     <- as.character(habitat_df$dayofsim)
@@ -524,6 +536,12 @@ condition_long <- as_tibble(condition_matrix) %>%
   mutate(dayofsim = as.integer(dayofsim)) %>%
   left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
 
+age_long <- as_tibble(age_matrix) %>%
+  bind_cols(fish_pop_init %>% select(pid, strategy)) %>%
+  pivot_longer(-c(pid, strategy), names_to = "dayofsim", values_to = "age") %>%
+  mutate(dayofsim = as.integer(dayofsim)) %>%
+  left_join(habitat_df %>% select(dayofsim, date), by = "dayofsim")
+
 # bind all individual data
 ibm_long <- mass_long %>%
   left_join(temp_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
@@ -534,7 +552,8 @@ ibm_long <- mass_long %>%
   left_join(pcmax_adjdd_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
   left_join(func_temp_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
   left_join(ration_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
-  left_join(condition_long %>% select(-date), by = c("pid", "strategy", "dayofsim"))
+  left_join(condition_long %>% select(-date), by = c("pid", "strategy", "dayofsim")) %>%
+  left_join(age_long %>% select(-date), by = c("pid", "strategy", "dayofsim"))
 
 # summarize by strategy
 ibm_summary <- ibm_long %>%
@@ -560,6 +579,8 @@ ibm_summary <- ibm_long %>%
     sd_ration        = sd(ration, na.rm = TRUE),
     mean_condition   = mean(condition, na.rm = TRUE),
     sd_condition     = sd(condition, na.rm = TRUE),
+    # mean_age         = mean(age, na.rm = TRUE),
+    # sd_age           = sd(age, na.rm = TRUE),
     .groups          = "drop"
   )
 
@@ -966,31 +987,36 @@ all_surv_df <- tibble(
   condition = as.vector(condition_matrix),
   temp      = as.vector(temp_matrix),
   weight    = as.vector(mass_matrix),
-  growth    = as.vector(ggd_matrix)
+  growth    = as.vector(ggd_matrix),
+  age       = as.vector(age_matrix)
 ) |>
   filter(!is.na(condition)) |>
   left_join(fish_pop_init |> select(pid, strategy), by = "pid") |>
   mutate(
     p_temp  = fncSurviveTemp(temp, T1 = T1_mort, T9 = T9_mort),
     p_starv = fncSurviveStarve(condition, K9 = K9_starv, K1 = K1_starv),
-    p_sg    = fncSurviveFixed(pick(weight, growth))[[1]]
+    p_sg    = fncSurviveFixed(pick(weight, growth))[[1]],
+    p_age   = fncSurviveAge(age)
   ) |>
   left_join(habitat_df |> select(dayofsim, date), by = "dayofsim") |>
-  pivot_longer(c(p_temp, p_starv, p_sg),
+  pivot_longer(c(p_temp, p_starv, p_sg, p_age),
                names_to = "source", values_to = "p_survive") |>
   mutate(
     source   = recode(source,
       p_temp  = "Temperature (p_temp)",
       p_starv = "Starvation (p_starv)",
-      p_sg    = "Size/growth (p_sg)"),
+      p_sg    = "Size/growth (p_sg)",
+      p_age   = "Age (p_age)"),
     strategy = factor(strategy,
       levels = c("resident_warm", "resident_cold", "optimal_mover"))
   )
 
+mycols <- brewer.pal(4, "Set2")
 surv_source_colors <- c(
-  "Temperature (p_temp)" = "firebrick",
-  "Starvation (p_starv)" = "darkorange",
-  "Size/growth (p_sg)"   = "steelblue"
+  "Temperature (p_temp)" = mycols[1],
+  "Starvation (p_starv)" = mycols[2],
+  "Size/growth (p_sg)"   = mycols[3],
+  "Age (p_age)"          = mycols[4]
 )
 
 # Individual fish: one line per fish per mortality source, faceted by strategy
@@ -1034,7 +1060,7 @@ all_surv_df |>
 - *Optimate movers*: similar patterns as cold residents, but smaller effects of winter starvation b/c these fish occupy the warm habitat where slightly warmer temps all fish to feed at slightly rates, better meeting metabolic demands
 
 
-Condition is a one of the primary drivers or survival. Plot relative condition over time, for each strategy. 
+Condition/starvation is a one of the primary drivers or survival. Plot relative condition over time, for each strategy. 
 ```{r}
 ibm_summary |>
   # filter(strategy != "resident_warm") |>   # warm residents extinct early — plot separately
@@ -1061,6 +1087,39 @@ ibm_summary |>
        color="Strategy", fill="Strategy")
 ```
 Optimal movers and cold residents maintain relatively high condition, and we only see mass loss during the winter when very cold temperatures limit physiological capacity. Neither strategy every approaches the starvation anchor points, meaning that the starvation mechanism is correctly not firing during ~normal seasonal weight loss. In contrast, condition for warm residents declines steeply during the first summer, when food limitations (threshold P_cmax) are insufficient to meet temperature-driven physiological demands. 
+
+
+### Age and weight-at-age
+
+Plot histograms of maximum age by strategy
+```{r, fig.width=5, fig.height=6}
+max_age_df <- ibm_long |>
+  dplyr::filter(survived == 1) |>
+  dplyr::group_by(strategy, pid) |>
+  dplyr::summarize(max_age = max(age), .groups = "drop")
+
+strategy_colors <- c(resident_warm = "red", resident_cold = "blue", optimal_mover = "darkgreen")
+
+ggplot(max_age_df, aes(x = max_age, fill = strategy)) +
+  geom_histogram(binwidth = 0.25, color = "white", linewidth = 0.2) +
+  scale_fill_manual(values = strategy_colors) +
+  facet_wrap(~ strategy, ncol = 1, scales = "free_y") +
+  theme_bw() + theme(panel.grid = element_blank(), legend.position = "none") +
+  xlab("Maximum age (years)") + ylab("Number of fish") +
+  labs(title = "Maximum age by strategy")
+```
+
+
+Plot weight at age
+```{r}
+ibm_long %>% filter(age %in% c(0:10)) %>%
+  ggplot(aes(x = age, y = weight, color = strategy, fill = strategy, group = pid)) +
+  geom_line() +
+  scale_color_manual(values=c(resident_warm = "red", resident_cold="blue", optimal_mover="darkgreen")) +
+  scale_fill_manual(values=c(resident_warm = "red", resident_cold="blue",  optimal_mover="darkgreen")) +
+  labs(title = "Individual weight-at-age by strategy", x = "Age (years)", y = "Weight (g)", color="Strategy", fill="Strategy") +
+  theme_bw() + theme(panel.grid=element_blank())
+```
 
 
 ### Abundance and biomass

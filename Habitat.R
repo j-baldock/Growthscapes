@@ -13,7 +13,7 @@ library(egg)
 set.seed(123)
 
 # 1. Create a date range (1 year)
-dates <- seq(as.Date("2024-05-01"), as.Date("2034-12-31"), by="day")
+dates <- seq(as.Date("2001-05-01"), as.Date("2020-12-31"), by="day")
 n <- length(dates)
 doy <- as.numeric(format(dates, "%j")) # Day of year
 

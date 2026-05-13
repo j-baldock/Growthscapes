@@ -443,7 +443,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Create a date range (1 year)</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">as.Date</span>(<span class="st">"2024-05-01"</span>), <span class="fu">as.Date</span>(<span class="st">"2034-12-31"</span>), <span class="at">by=</span><span class="st">"day"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">as.Date</span>(<span class="st">"2001-05-01"</span>), <span class="fu">as.Date</span>(<span class="st">"2020-12-31"</span>), <span class="at">by=</span><span class="st">"day"</span>)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">length</span>(dates)</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>doy <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">format</span>(dates, <span class="st">"%j"</span>)) <span class="co"># Day of year</span></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
@@ -628,16 +628,16 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(habitat_df)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>tibble [3,897 × 9] (S3: tbl_df/tbl/data.frame)
- $ date       : Date[1:3897], format: "2024-05-01" "2024-05-02" ...
- $ doy        : num [1:3897] 122 123 124 125 126 127 128 129 130 131 ...
- $ dayofsim   : int [1:3897] 1 2 3 4 5 6 7 8 9 10 ...
- $ temp_warm  : num [1:3897] 16.2 16.4 16.6 16.8 17.1 17.3 17.5 17.7 17.9 18.1 ...
- $ temp_cold  : num [1:3897] 9.7 9.8 10 10.1 10.2 10.4 10.5 10.6 10.7 10.9 ...
- $ ration_warm: num [1:3897] 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ...
- $ ration_cold: num [1:3897] 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ...
- $ pcmax_warm : num [1:3897] 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 ...
- $ pcmax_cold : num [1:3897] 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 ...</code></pre>
+<pre><code>tibble [7,185 × 9] (S3: tbl_df/tbl/data.frame)
+ $ date       : Date[1:7185], format: "2001-05-01" "2001-05-02" ...
+ $ doy        : num [1:7185] 121 122 123 124 125 126 127 128 129 130 ...
+ $ dayofsim   : int [1:7185] 1 2 3 4 5 6 7 8 9 10 ...
+ $ temp_warm  : num [1:7185] 16 16.2 16.4 16.6 16.8 17.1 17.3 17.5 17.7 17.9 ...
+ $ temp_cold  : num [1:7185] 9.6 9.7 9.8 10 10.1 10.2 10.4 10.5 10.6 10.7 ...
+ $ ration_warm: num [1:7185] 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ...
+ $ ration_cold: num [1:7185] 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ...
+ $ pcmax_warm : num [1:7185] 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 ...
+ $ pcmax_cold : num [1:7185] 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 ...</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
@@ -647,12 +647,12 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <pre><code># A tibble: 6 × 9
   date         doy dayofsim temp_warm temp_cold ration_warm ration_cold
   &lt;date&gt;     &lt;dbl&gt;    &lt;int&gt;     &lt;dbl&gt;     &lt;dbl&gt;       &lt;dbl&gt;       &lt;dbl&gt;
-1 2024-05-01   122        1      16.2       9.7         0.1         0.1
-2 2024-05-02   123        2      16.4       9.8         0.1         0.1
-3 2024-05-03   124        3      16.6      10           0.1         0.1
-4 2024-05-04   125        4      16.8      10.1         0.1         0.1
-5 2024-05-05   126        5      17.1      10.2         0.1         0.1
-6 2024-05-06   127        6      17.3      10.4         0.1         0.1
+1 2001-05-01   121        1      16         9.6         0.1         0.1
+2 2001-05-02   122        2      16.2       9.7         0.1         0.1
+3 2001-05-03   123        3      16.4       9.8         0.1         0.1
+4 2001-05-04   124        4      16.6      10           0.1         0.1
+5 2001-05-05   125        5      16.8      10.1         0.1         0.1
+6 2001-05-06   126        6      17.1      10.2         0.1         0.1
 # ℹ 2 more variables: pcmax_warm &lt;dbl&gt;, pcmax_cold &lt;dbl&gt;</code></pre>
 </div>
 </div>
@@ -1186,7 +1186,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
 <span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Create a date range (1 year)</span></span>
-<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">as.Date</span>(<span class="st">"2024-05-01"</span>), <span class="fu">as.Date</span>(<span class="st">"2034-12-31"</span>), <span class="at">by=</span><span class="st">"day"</span>)</span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">as.Date</span>(<span class="st">"2001-05-01"</span>), <span class="fu">as.Date</span>(<span class="st">"2020-12-31"</span>), <span class="at">by=</span><span class="st">"day"</span>)</span>
 <span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">length</span>(dates)</span>
 <span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>doy <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">format</span>(dates, <span class="st">"%j"</span>)) <span class="co"># Day of year</span></span>
 <span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a></span>

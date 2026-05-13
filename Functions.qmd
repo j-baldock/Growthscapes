@@ -6,6 +6,7 @@ title: "Functions"
 library(tidyverse)
 library(ggpubr)
 library(egg)
+library(patchwork)
 ```
 
 ***if any changes are made, need to re-run qmd_to_r_script() function at end, in console***
@@ -638,15 +639,16 @@ fncTempDepend <- function(temp) {
 ```
 
 Plot temperature function
+
 ```{r}
 mytemps <- seq(from = 0.1, to = 25, by = 0.1)
 plot(fncTempDepend(temp = mytemps) ~ mytemps, type = "l", ylim = c(0,1), xlab = "Temperature (deg. C)", ylab = "f(T)", main = "Temperature dependence model 3")
 ```
 
-
 ### Allometric C~max~
 
 Calculate allometric C~max~ based on body size alone
+
 ```{r}
 fncAllomCmax <- function(weight) {
   # get bioenergetics constants
@@ -657,6 +659,7 @@ fncAllomCmax <- function(weight) {
 ```
 
 Plot C~max~ by body size
+
 ```{r}
 myweights <- seq(from = 0.5, to = 1000, by = 1)
 mycmax <- fncAllomCmax(weight = myweights)
@@ -667,6 +670,7 @@ plot(mycmax*myweights ~ myweights, type = 'l', ylab = "Cmax (g/d)", xlab = "Fish
 ```
 
 Note that FB4 provides different parameter sets for adult vs. juvenile *O. mykiss*.
+
 ```{r}
 par(mar = c(4.5,4.5,1,1))
 # O. mykiss adults: Railsback and Rose 1999
@@ -676,7 +680,6 @@ lines(0.178*(myweights^-0.297) ~ myweights, type = 'l', lty = 2)
 legend("topright", legend = c("Adults (Railsback and Rose 1999)", "Juveniles (Tyler and Bolduc 2008)"),
        lty = c(1,2), bty = "n", cex = 0.9, y.intersp = 2)
 ```
-
 
 ## Movement decision
 
@@ -817,7 +820,6 @@ Plot.plot({
   title: `Softmax patch selection  (τ = ${tau.toFixed(3)})`
 })
 ```
-
 
 #### Boldness
 
@@ -1225,6 +1227,122 @@ ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
   guides(color = guide_legend(ncol = 1))
 ```
 
+How do movement costs under different parameter sets actually compare to differences in growth between habitats, for different sized fish?
+```{r fig.width=8, fig.height=5}
+sizes <- c(0.5, 1.0, 2.0)
+
+growth_diff_df <- habitat_df |>
+  filter(dayofsim <= 200) |>
+  select(date, dayofsim, temp_warm, temp_cold) |>
+  crossing(weight = sizes) |>
+  rowwise() |>
+  mutate(
+    wt_idx_w  = which.min(abs(wt_seq_ibm - temp_warm)),
+    wt_idx_c  = which.min(abs(wt_seq_ibm - temp_cold)),
+    pcmax_w   = min(fncTempDepend(temp_warm), get_patchpcmax(dayofsim, "warm")),
+    pcmax_c   = min(fncTempDepend(temp_cold), get_patchpcmax(dayofsim, "cold")),
+    cmax      = fncAllomCmax(weight),
+    ra_idx_w  = pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - cmax * pcmax_w)))),
+    ra_idx_c  = pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - cmax * pcmax_c)))),
+    ma_idx    = pmax(1L, pmin(4500L, round(weight + 1e-9))),  # avoid banker's rounding at 0.5
+    g_warm    = wt.growth[wt_idx_w, ra_idx_w, ma_idx],
+    g_cold    = wt.growth[wt_idx_c, ra_idx_c, ma_idx],
+    move_cost = fncMoveCost_allometric(weight, c = 0.1, b = 0.3),
+    `Cold → Warm` = g_warm - g_cold,
+    `Warm → Cold` = g_cold - g_warm
+  ) |>
+  ungroup()
+
+
+# Parameter combinations to evaluate
+param_grid <- tribble(
+  ~c_val, ~b_val, ~label,
+  0.025,  0.60,  "c=0.025, b=0.60 (current)",
+  0.050,  0.60,  "c=0.050, b=0.60",
+  0.100,  0.60,  "c=0.100, b=0.60",
+  0.050,  0.40,  "c=0.050, b=0.40",
+  0.100,  0.40,  "c=0.100, b=0.40"
+)
+
+# Cost threshold for each (weight × param combo)
+cost_grid <- param_grid |>
+  crossing(weight = c(0.5, 1.0, 2.0)) |>
+  mutate(
+    move_cost = fncMoveCost_allometric(weight, c = c_val, b = b_val),
+    size_lab  = paste0(weight, " g fish")
+  )
+
+# Growth difference data (already computed)
+gdiff_long <- growth_diff_df |>
+  mutate(size_lab = paste0(weight, " g fish")) |>
+  pivot_longer(c(`Cold → Warm`, `Warm → Cold`),
+               names_to = "direction", values_to = "g_diff")
+
+ggplot() +
+  geom_line(data = gdiff_long,
+            aes(x = date, y = g_diff, color = direction), linewidth = 0.8) +
+  geom_hline(data = cost_grid,
+             aes(yintercept = move_cost, linetype = label),
+             linewidth = 0.7, color = "black") +
+  geom_hline(yintercept = 0, color = "grey60", linewidth = 0.3) +
+  facet_wrap(~size_lab, nrow = 1) +
+  scale_color_manual(values = c("Cold → Warm" = "#d95f02", "Warm → Cold" = "#1f78b4")) +
+  scale_linetype_manual(
+    values = c(
+      "c=0.025, b=0.60 (current)" = "solid",
+      "c=0.050, b=0.60"           = "longdash",
+      "c=0.100, b=0.60"           = "dashed",
+      "c=0.050, b=0.40"           = "dotdash",
+      "c=0.100, b=0.40"           = "dotted"
+    )
+  ) +
+  labs(
+    x = NULL, y = "Growth difference (g/g/d)",
+    color    = "Movement direction",
+    linetype = "Movement cost parameters",
+    title    = "Growth potential difference vs. movement cost — parameter sensitivity",
+    subtitle = "Fish should move when the coloured line exceeds the cost threshold (black)"
+  ) +
+  theme_bw() +
+  theme(panel.grid.minor  = element_blank(),
+        legend.position   = "bottom",
+        legend.box        = "vertical")
+```
+
+`c = 0.100` and `b = 0.40` seems like a good place to start b/c the cost is super high for small fish. While the growth advantage of being in cold does exceed the cost by mid-summer, fish should have grown out of the "small fish" threshold where we would expect movement capacity to be limited.
+
+Compare this to some other parameter sets
+```{r}
+cost_df <- tibble(weight = w_seq) |>
+  mutate(
+    `Allometric (c=0.100, b=0.3)`   = fncMoveCost_allometric(weight, c=0.1, b=0.3),
+    `Allometric (c=0.100, b=0.4)`   = fncMoveCost_allometric(weight, c=0.1, b=0.4),
+    `Allometric (c=0.025, b=0.6)`   = fncMoveCost_allometric(weight, c=0.025, b=0.6)
+  ) |>
+  pivot_longer(-weight, names_to = "option", values_to = "cost")
+
+ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
+  # Shade <1g region (essentially immobile zone)
+  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  # annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
+  #          size = 2.8, color = "grey40", hjust = 0.5) +
+  geom_line(linewidth = 0.9) +
+  scale_y_log10() + 
+  scale_color_brewer(palette = "Dark2") +
+  # scale_y_continuous(limits = c(0, 0.065)) +
+  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
+  labs(
+    x     = "Fish weight (g)",
+    y     = "Movement cost (g/g/d)",
+    color = NULL
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1))
+```
+
+
 ## Density dependence
 
 Create functions to represent density-dependent food availability. I.e., reduce ration size in patches by patch density.
@@ -1304,10 +1422,10 @@ expand.grid(
 -   k = 50–100: Moderate competition; ration is meaningfully reduced at realistic densities (50–150 fish/patch), which is likely the right range to start with given your n_fish_per_strat setup.
 -   k = 200: Very mild — food limitation only kicks in at very high densities.
 
-
 ### Hyperbolic reduction (scalar)
 
-This is the same as above but instead of passing the function a baseline ration, pass it the rations we computed based on temperature-based P_C~max~ and size-based C~max~. *Subtract 1 from density so that density-dependence only kicks in when N > 1*
+This is the same as above but instead of passing the function a baseline ration, pass it the rations we computed based on temperature-based P_C~max~ and size-based C~max~. *Subtract 1 from density so that density-dependence only kicks in when N \> 1*
+
 ```{r}
 fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50) {
   fish_pop %>%
@@ -1319,7 +1437,8 @@ fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50) {
 }
 ```
 
-Visualize how P_C~max~ scales with density under different values of k to help calibrate the parameter. 
+Visualize how P_C~max~ scales with density under different values of k to help calibrate the parameter.
+
 ```{r}
 expand.grid(
   density = 1:200,
@@ -1339,7 +1458,6 @@ expand.grid(
     caption = "Dashed line = baseline P_Cmax (no density effect)"
   )
 ```
-
 
 ```{ojs}
 viewof k = Inputs.range([1, 500], {
@@ -1376,7 +1494,6 @@ Plot.plot({
   height: 350
 })
 ```
-
 
 ### Linear dilution
 
@@ -1421,9 +1538,9 @@ fish_pop %>%
 
 ## Survival
 
-### Size and growth 
+### Size and growth
 
-#### Daily growth dependence
+#### Variable growth effect
 
 Fish experience mortality based on their size (cumulative experience) and instantaneous growth rate (measure of current experience). Smaller fish with lower growth rates more likely to die (sampled probabilistically at each time step). However, the effect of growth on survival diminishes as fish increase in size, i.e., survival for larger fish is less sensitive to growing conditions. Letcher et al. (2025, CJFAS) showed that the probability of negative growth strongly increased with fish age and size. They suggest that larger fish are more likely to recover from periods of mass loss, whereas smaller individuals may incur mortality.
 
@@ -1442,7 +1559,7 @@ Fish experience mortality based on their size (cumulative experience) and instan
 -   Default `b_interact` is 0.03
 
 ```{r}
-fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01){
+fncSurviveVari <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01){
   # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
   # minprob:     smallest probability any fish can have of dying in any time step
   # b:           controls steepness of the base size-survival curve
@@ -1484,6 +1601,7 @@ fncSurvive <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0
 ```
 
 As an example, plot daily survival probabilities based on fish size and instantaneous growth
+
 ```{r}
 df <- expand_grid(
   weight = seq(from = 0, to = 150, by = 0.1),
@@ -1491,7 +1609,7 @@ df <- expand_grid(
   #pvals  = seq(from = 0, to = 1, by = 0.1)
 )
 
-surv.list <- fncSurvive(df)
+surv.list <- fncSurviveVari(df)
 df <- df %>% mutate(prsurv = surv.list[[1]],
                     survivors = surv.list[[2]])
 
@@ -1522,7 +1640,7 @@ df_comp <- expand_grid(
   b_interact  = c(0.01, 0.05, 0.1, 0.5, 1.0)
 ) %>%
   group_by(b_interact) %>%
-  mutate(prsurv = fncSurvive(
+  mutate(prsurv = fncSurviveVari(
     tibble(weight = weight, growth = growth),
     minprob = 0.96, b = 1, b_interact = unique(b_interact)
   )[[1]]) %>%
@@ -1563,7 +1681,7 @@ df_comp <- expand_grid(
   b_interact  = c(0.01, 0.05, 0.1, 0.5, 1.0)
 ) %>%
   group_by(b_interact) %>%
-  mutate(prsurv = fncSurvive(
+  mutate(prsurv = fncSurviveVari(
     tibble(weight = weight, growth = growth),
     minprob = 0.96, b = 1, b_interact = unique(b_interact)
   )[[1]]) %>%
@@ -1615,29 +1733,32 @@ ggplot(df_gap, aes(x = weight, y = gap, color = as_factor(b_interact))) +
        subtitle = "Growth-driven survival gaps are greatest for small (but not the smallest) fish")
 ```
 
-
 #### No growth effect
 
-Write function: simple size-dependent survival
+`minprob`--the minimum daily probability of survival, which is experienced by the smallest fish--should probably be based on some empirical estimates. Elliott (1993, Fisheries Research) puts this a bit lower for BNT: mean daily mortality rate during the critical period is 6.4% (`minprob = 0.936`). Maybe also see Elliott (1989, Journal of Animal Ecology).
+
+Write simple, size-dependent survival function: daily survival probability increases with size.
+
 ```{r}
-fncSurviveSimp <- function(df, minprob = 0.96, b = 1){
-  # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
-  # minprob:     smallest probability any fish can have of dying in any time step
-  # b:           controls steepness of the base size-survival curve
+fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, b = 1){
+  # weight:      numeric vector of fish weights
+  # minprob:     daily survival probability for the smallest fish (asymptote at w = 0)
+  # maxprob:     daily survival probability asymptote for very large fish (default 1)
+  # b:           controls steepness of the size-survival curve
 
   # Weights
-  w <- df$weight # weight of fish that are alive at this time step
+  w <- weight # weight of fish that are alive at this time step
   
   # Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)
   w_scale <- 1 - 1 / exp(b * w)
-  v <- minprob + (1 - minprob) * w_scale
+  v <- minprob + (maxprob - minprob) * w_scale
   
   # Probability of survival
   prb.srv <- v
   prb.srv[prb.srv > 1] <- 1 # set upper bound at 1
   
   # Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step
-  survivors <- rbinom(n = nrow(df), size = 1, prob = prb.srv)
+  survivors <- rbinom(n = length(weight), size = 1, prob = prb.srv)
   
   return(list(prb.srv, survivors))
   #return(survivors)
@@ -1645,16 +1766,15 @@ fncSurviveSimp <- function(df, minprob = 0.96, b = 1){
 ```
 
 Plot daily survival probabilities based on fish size alone
+
 ```{r}
-df <- expand_grid(
-  weight = seq(from = 0, to = 150, by = 0.1),
-  #pvals  = seq(from = 0, to = 1, by = 0.1)
-)
+myweights <- seq(from = 0, to = 150, by = 0.1)
 
-surv.list <- fncSurviveSimp(df, b = 1)
-df <- df %>% mutate(prsurv = surv.list[[1]],
-                    survivors = surv.list[[2]])
-
+surv.list <- fncSurviveSize(myweights, b = 1)
+df <- tibble(weight = myweights,
+             prsurv = surv.list[[1]],
+             survivors = surv.list[[2]])
+  
 p1 <- df %>% #filter(pvals == 0.1) %>%
   ggplot() +
   geom_line(aes(x = weight, y = prsurv)) +
@@ -1672,7 +1792,8 @@ p2 <- df %>% #filter(pvals == 0.1) %>%
 ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 ```
 
-Could changing the asymptotic survival be used as a way to induce senescence/limits on life span?
+Changing the asymptotic survival probability could be used as a way to induce senescence/limits on life span
+
 ```{r}
 expand_grid(
   asymp = c(seq(from = 0.995, to = 0.999, by = 0.001), 0.9995, 0.9999),
@@ -1684,13 +1805,29 @@ expand_grid(
   theme_bw() + xlab("Years") + ylab("Survival probability")
 ```
 
+Sporadic review of literature suggests that annual survival probabilities of trout in streams averages 0.5, but this is super variable. Annual survival = 0.5 corresponds to `maxprob = 0.998`. Alternatively, `maxprob = 0.9994` yields an annual survival probability of \~0.8.
 
+```{r}
+tibble(maxprob = seq(from = 0.995, to = 1, by = 0.0001)) %>% mutate(annsurv = maxprob^365) %>%
+  ggplot(aes(x = maxprob, y = annsurv)) + geom_line() + 
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Maximum daily survival probability") + ylab("Annual survival probability") +
+  geom_abline(slope = 0, intercept = 0.54, color = "grey50", linetype = "dashed") + 
+  annotate("text", x = 0.995, y = 0.54+0.03, label = "Bonneville CT (Budy et al., 2007, TAFS)", hjust = 0, color = "grey50") +
+  geom_abline(slope = 0, intercept = 0.6, color = "grey50", linetype = "dashed") + 
+  annotate("text", x = 0.995, y = 0.6+0.03, label = "Bull trout (Al-Chokhachy and Budy, 2008, TAFS)", hjust = 0, color = "grey50") +
+  geom_abline(slope = 0, intercept = 0.34, color = "grey50", linetype = "dashed") + 
+  annotate("text", x = 0.995, y = 0.34+0.03, label = "Brook trout (Kanno et al., 2014, CJFAS)", hjust = 0, color = "grey50") +
+  geom_abline(slope = 0, intercept = 0.41, color = "grey50", linetype = "dashed") + 
+  annotate("text", x = 0.995, y = 0.41+0.03, label = "Yellowstone CT (Uthe et al., 2016, NAJFM)", hjust = 0, color = "grey50")
+```
 
 #### Fixed growth effect
 
-The problem with `fncSurvive()` as specified above is that the effect of growth on survival is rescaled relative to the range of growth rates experienced on that day. So how well a fish survives is relative to growth experienced by all peers. This is a little odd because even if growth rates are positive for all fish, there will always be some fish (the slowest growers) that experienced reduced survival probability. In practice, what ends up happening is that cold residents experience very high mortality at the beginning of our "simple/test" simulation because growth rates are slightly higher in the warm habitat, despite growth being very similar and temps being just 0.2 C colder. So instead of rescaling the growth effect relative to growth of peers on that day, we can rescale it to a fixed range of growth rates that we might typically experience in our simulation. 
+The problem with `fncSurvive()` as specified above is that the effect of growth on survival is rescaled relative to the range of growth rates experienced on that day. So how well a fish survives is relative to growth experienced by all peers. This is a little odd because even if growth rates are positive for all fish, there will always be some fish (the slowest growers) that experienced reduced survival probability. In practice, what ends up happening is that cold residents experience very high mortality at the beginning of our "simple/test" simulation because growth rates are slightly higher in the warm habitat, despite growth being very similar and temps being just 0.2 C colder. So instead of rescaling the growth effect relative to growth of peers on that day, we can rescale it to a fixed range of growth rates that we might typically experience in our simulation.
 
-Re-write the weight and growth dependent survival functions, but rescale the effect of growth on survival according to a fixed range, rather than the range of growth rates experienced on the day in question. 
+Re-write the weight and growth dependent survival functions, but rescale the effect of growth on survival according to a fixed range, rather than the range of growth rates experienced on the day in question.
+
 ```{r}
 fncSurviveFixed <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01, g_range = c(-0.03, 0.03)){
   # df:          data frame of fish table with only the survivors, e.g., fish[fish$survive == 1, c("weight", "growth")]
@@ -1733,7 +1870,8 @@ fncSurviveFixed <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescal
 }
 ```
 
-Plot daily survival probabilities: this should look the same as the example above, b/c above I used the same range of growth rates. 
+Plot daily survival probabilities: this should look the same as the example above, b/c above I used the same range of growth rates.
+
 ```{r}
 df <- expand_grid(
   weight = seq(from = 0, to = 150, by = 0.1),
@@ -1762,15 +1900,14 @@ p2 <- df %>% #filter(pvals == 0.1) %>%
 ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 ```
 
-
 ### High temperature exposure
 
-This mortality source represents the acute breakdown of physiological processes at  high temperatures. It does not represent chronic effects of high temperatures on  bioenergetics. The equation below is lifted from the InStream7 user manual (Railsback et al. 2023).
+This mortality source represents the acute breakdown of physiological processes at high temperatures. It does not represent chronic effects of high temperatures on bioenergetics. The equation below is lifted from the InStream7 user manual (Railsback et al. 2023).
 
 `fncSurviveTemp()` returns the daily survival probability due to high-temperature stress alone, using a logistic model fit to two anchor points:
 
-- `T9`: temperature at which daily survival = 0.9 (onset of stress)
-- `T1`: temperature at which daily survival = 0.1 (near-lethal)
+-   `T9`: temperature at which daily survival = 0.9 (onset of stress)
+-   `T1`: temperature at which daily survival = 0.1 (near-lethal)
 
 The logistic midpoint `T50` and slope `k` are derived analytically from these anchors:
 
@@ -1791,6 +1928,7 @@ fncSurviveTemp <- function(temp, T1 = 30, T9 = 25.8) {
 ```
 
 Plot the curve across a biologically relevant temperature range:
+
 ```{r}
 data.frame(temp = seq(15, 35, by = 0.1)) |>
   dplyr::mutate(p_survive = fncSurviveTemp(temp)) |>
@@ -1808,21 +1946,16 @@ data.frame(temp = seq(15, 35, by = 0.1)) |>
 
 ### Starvation
 
-`fncSurviveStarve()` applies elevated mortality to fish in poor energetic condition. Condition is
-defined as the ratio of current weight to the fish's historical peak weight:
+`fncSurviveStarve()` applies elevated mortality to fish in poor energetic condition. Condition is defined as the ratio of current weight to the fish's historical peak weight:
 
 $$K_{\text{rel}} = \frac{W_{\text{current}}}{W_{\text{peak}}}$$
 
-A fish that has never lost mass has $K_{\text{rel}} = 1$; a fish that has lost 40% of its peak mass
-has $K_{\text{rel}} = 0.6$. Survival probability declines logistically below a threshold, using the
-same two-anchor parameterisation as `fncSurviveTemp`:
+A fish that has never lost mass has $K_{\text{rel}} = 1$; a fish that has lost 40% of its peak mass has $K_{\text{rel}} = 0.6$. Survival probability declines logistically below a threshold, using the same two-anchor parameterisation as `fncSurviveTemp`:
 
-- `K9`: condition at which daily survival = 0.9 (onset of starvation effects; default 0.60)
-- `K1`: condition at which daily survival = 0.1 (near-lethal condition; default 0.40)
+-   `K9`: condition at which daily survival = 0.9 (onset of starvation effects; default 0.60)
+-   `K1`: condition at which daily survival = 0.1 (near-lethal condition; default 0.40)
 
 Letcher *et al.* (1996, TAFS) provides the strong support for parameterizing mortality due to starvation in this way. In that paper, they show that proportional mass loss until starvation was indepenent of body size, but did depend on feeding history. Fish fed continuously before starvation died after losing 55% of body mass, but intermittent feeders died when they were slightly heavier (51-46% mass loss). Note that this study was conducted on yellow perch.
-
-
 
 ```{r}
 fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
@@ -1837,6 +1970,7 @@ fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
 ```
 
 Plot the curve to check the anchor points:
+
 ```{r}
 data.frame(condition = seq(0, 1, by = 0.01)) |>
   dplyr::mutate(p_survive = fncSurviveStarve(condition)) |>
@@ -1853,6 +1987,7 @@ data.frame(condition = seq(0, 1, by = 0.01)) |>
 ```
 
 Plot the curve under a few candidate parameter sets to explore how the resulting curves relate to observed condition factors/mass loss from the IBM
+
 ```{r}
 candidate_params <- list(
   "Stringent (K9=0.6, K1=0.5)"  = c(K9 = 0.7, K1 = 0.6),
@@ -1901,10 +2036,9 @@ ggplot(curve_df, aes(x = condition, y = p_survive, color = params)) +
 
 *The shaded regions above were generated from a previous simulation run. Current ranges of conditions between the strategies should be compared to survival curve used to make sure they are reasonable.*
 
-* **Default (K9=0.55, K1=0.45)**: K9 sits right at the lower edge of cold-resident winter condition, meaning most cold residents are spared but fish at their seasonal worst (~0.63) face mild pressure. This is probably the most biologically defensible — seasonal mass loss is survivable, but persistent severe loss is not.
-* **Lenient (K9=0.4, K1=0.3)**: Cold residents mostly escape the starvation mortality entirely (their winter minimum ~0.63 sits above K9). The starvation mechanism only catches fish that have lost >65% of peak mass — reserved for genuinely catastrophic deficit.
-* **Stringent (K9=0.6, K1=0.5)**: The inflection point falls within the blue shaded cold-resident summer range — starvation mortality would fire hard on cold residents every winter during normal seasonal mass loss. Too aggressive.
-
+-   **Default (K9=0.55, K1=0.45)**: K9 sits right at the lower edge of cold-resident winter condition, meaning most cold residents are spared but fish at their seasonal worst (\~0.63) face mild pressure. This is probably the most biologically defensible — seasonal mass loss is survivable, but persistent severe loss is not.
+-   **Lenient (K9=0.4, K1=0.3)**: Cold residents mostly escape the starvation mortality entirely (their winter minimum \~0.63 sits above K9). The starvation mechanism only catches fish that have lost \>65% of peak mass — reserved for genuinely catastrophic deficit.
+-   **Stringent (K9=0.6, K1=0.5)**: The inflection point falls within the blue shaded cold-resident summer range — starvation mortality would fire hard on cold residents every winter during normal seasonal mass loss. Too aggressive.
 
 ### Senescence
 
@@ -1912,21 +2046,20 @@ ggplot(curve_df, aes(x = condition, y = p_survive, color = params)) +
 
 The function uses a Weibull-form exponential with shape parameter `k`:
 
-- For fish at or below `age_thresh`, the function returns 1.0 (no aging penalty).
-- Past the threshold, daily survival initially declines very slowly, then accelerates with further age. Setting `k > 2` ensures the derivative at the threshold is exactly zero — no abrupt onset — and the rate of mortality increase grows linearly with time past threshold.
+-   For fish at or below `age_thresh`, the function returns 1.0 (no aging penalty).
+-   Past the threshold, daily survival initially declines very slowly, then accelerates with further age. Setting `k > 2` ensures the derivative at the threshold is exactly zero — no abrupt onset — and the rate of mortality increase grows linearly with time past threshold.
 
 $$
 p_{\text{age}} = p_{\min} + (1 - p_{\min})\,e^{-\lambda\,\max(0,\; \text{age} - \text{age\_thresh})^k}
 $$
 
-Parameters: default values are tuned so that risk of senescent mortality kicks in past age 5, but fish have basically zero change of survival past age 8. 
+Parameters: default values are tuned so that risk of senescent mortality kicks in past age 5, but fish have basically zero change of survival past age 8.
 
-- `age`: numeric vector of fish ages **in years**. In the IBM loop, pass `d / 365` (or track cohort birth day and compute elapsed years).
-- `age_thresh`: age (years) at which senescent mortality begins; default 5.
-- `lambda`: scale parameter; larger values bring `p_min` closer in age.
-- `k`: Weibull shape exponent; `k > 1` gives the desired slow-then-accelerating decline. Default 3.
-- `p_min`: asymptotic daily survival floor for very old fish; default 0.99.
-
+-   `age`: numeric vector of fish ages **in years**. In the IBM loop, pass `d / 365` (or track cohort birth day and compute elapsed years).
+-   `age_thresh`: age (years) at which senescent mortality begins; default 5.
+-   `lambda`: scale parameter; larger values bring `p_min` closer in age.
+-   `k`: Weibull shape exponent; `k > 1` gives the desired slow-then-accelerating decline. Default 3.
+-   `p_min`: asymptotic daily survival floor for very old fish; default 0.99.
 
 ```{r}
 fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99) {
@@ -1971,9 +2104,13 @@ data.frame(
 
 ## Reproduction
 
+### Fecundity
+
+#### Transform method
+
 Because our bioenergetics-based IBM tracks fish size in terms of weight, we first need a function to convert weight to length, then another function to convert length to fecundity (number of eggs). We are making the simplifying assumption that the number of eggs laid is the number of fry hatching out of the gravel. Then we allow the size/growth based daily survival to thin the population.
 
-### Length-weight
+##### Length-weight
 
 First, we need a length-weight relationship to back calculate length from weight (b/c fecundity by body size relationships are typically parameterized in terms of length). Equation from Simpkins and Hubert (1996, Journal of Freshwater Ecology), but add random noise (`sigma`):
 
@@ -2030,7 +2167,7 @@ expand_grid(
 
 Setting `sigma`somewhere between `0.05` and `0.1` is probably most biologically plausible.
 
-### Fecundity-length
+##### Fecundity-length
 
 The relationship between fecundity (the number of eggs) and body size (length) is given by the following equation:
 
@@ -2072,7 +2209,7 @@ fncFecund <- function (lengths, sigma = 0) {
 }
 ```
 
-Show length -\> weight for several sigma values
+Show length -\> fecundity for several sigma values
 
 ```{r}
 expand_grid(
@@ -2099,7 +2236,518 @@ expand_grid(
 
 Setting `sigma`somewhere between `0.1` and `0.15` is probably most biologically plausible...most literature shows pretty noisy relationships.
 
-### Size at maturity
+Show what this would look like in terms of fecundity by weight
+
+```{r}
+tibble(weight_g = seq(300, 2000, by = 10)) %>%
+  mutate(eggs = 0.002*((10^((log10(weight_g) + 5.023) / 3.024)))^2.25) %>%
+  ggplot(aes(x = weight_g, y = eggs)) +
+  geom_line()
+```
+
+
+#### Fecundity-Weight
+
+Alternatively, we can parameterize fecundity\~weight relationship directly, following Bromage et al. (1990).
+
+Show stock-specific relationships, black line is the combined mean reported in the paper:
+```{r}
+mydat <- bind_rows(tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.57, f_b = 0.446, stock = 1),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.32, f_b = 0.393, stock = 2),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.46, f_b = 0.481, stock = 3),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.53, f_b = 0.465, stock = 4),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.36, f_b = 0.536, stock = 5),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.44, f_b = 0.554, stock = 6),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.48, f_b = 0.516, stock = 7),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.54, f_b = 0.574, stock = 8),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.40, f_b = 0.702, stock = 9),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.61, f_b = 0.626, stock = 10),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.54, f_b = 0.468, stock = 11),
+          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.50, f_b = 0.650, stock = 12)
+          ) %>%
+  mutate(eggs = 10^(f_a + f_b*log10(weight_g/1000)), stock = as.factor(stock)) 
+
+p1 <- mydat %>%
+  ggplot() + 
+  geom_line(aes(x = log10(weight_g), y = log10(eggs), color = stock), linewidth = 0.9) +
+  geom_line(data = tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.461, f_b = 0.504, stock = "Mean") %>% mutate(eggs = 10^(f_a + f_b*log10(weight_g/1000))),
+            aes(x = log10(weight_g), y = log10(eggs)), color = "black", linewidth = 1, linetype = "dashed") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("log10(Weight, g)") + ylab("log10(Fecundity, number of eggs)")
+
+p2 <- mydat %>%
+  ggplot() + 
+  geom_line(aes(x = (weight_g), y = (eggs), color = stock), linewidth = 0.9) +
+  geom_line(data = tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.461, f_b = 0.504, stock = "Mean") %>% mutate(eggs = 10^(f_a + f_b*log10(weight_g/1000))),
+            aes(x = (weight_g), y = (eggs)), color = "black", linewidth = 1, linetype = "dashed") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Weight (g)") + ylab("Fecundity (number of eggs)")
+
+ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
+```
+
+
+Reconstruct the 95% confidence interval using the information provided in Bromage et al. (1990).
+```{r}
+# Parameters and SEs (95% CI = mean ± 1.96 * SE)
+a_mean <- 3.461;  a_se <- 0.015 / 1.96
+b_mean <- 0.504;  b_se <- 0.040 / 1.96
+
+# Weight range in kg — adjust to match your species
+wt_kg  <- seq(0.3, 2, length.out = 300)
+log_wt <- log10(wt_kg)
+
+# Monte Carlo: draw (a, b) pairs from their marginal distributions
+set.seed(8314)
+n_draws  <- 20000
+a_draws  <- rnorm(n_draws, a_mean, a_se)
+b_draws  <- rnorm(n_draws, b_mean, b_se)
+
+# Predicted log10(fecundity) matrix: rows = weight values, cols = draws
+pred_mat <- 10^(outer(log_wt, b_draws) + outer(rep(1, length(log_wt)), a_draws))
+
+# Summarise across draws
+plot_df <- tibble(
+  wt_kg = wt_kg,
+  wt_g  = wt_kg*1000,
+  mean  = rowMeans(pred_mat),
+  lower = apply(pred_mat, 1, quantile, 0.025),
+  upper = apply(pred_mat, 1, quantile, 0.975)
+)
+
+ggplot(plot_df, aes(x = wt_g)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.25) +
+  geom_line(aes(y = mean), linewidth = 0.8) +
+  labs(
+    x = "Weight (g)",
+    y = "Fecundity (number of eggs)"
+  ) +
+  theme_bw() + theme(panel.grid = element_blank())
+```
+
+
+Now compare this with what we would have gotten by transforming weight to length and then calculating fecundity ([red line]{style="color: red;"})
+```{r}
+ggplot(plot_df, aes(x = wt_g)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.25) +
+  geom_line(aes(y = mean), linewidth = 0.8) +
+  labs(
+    x = "Weight (g)",
+    y = "Fecundity (number of eggs)"
+  ) +
+  theme_bw() + theme(panel.grid = element_blank()) + 
+  geom_line(data = tibble(weight_g = seq(300, 2000, by = 10)) %>% mutate(eggs = 0.002*((10^((log10(weight_g) + 5.023) / 3.024)))^2.25),
+            aes(x = weight_g, y = eggs), color = "red")
+```
+Importantly, the slope of the lines are basically the same (i.e., the relative reproductive benefit of large body size is the same for each method). While the intercepts (absolute egg production at a given size) differ, this shouldn't matter in the IBM as size-specific and density-dependent (starvation) mortality is stochastic/random and the effect of body size on reproductive success should therefore be maintained.
+
+Write as a function. `survival` represents the proportion of eggs that survive to emergence, defaults to 1. 
+```{r}
+fncFecundBromage <- function (weights, sigma = 0, survival = 1) {
+  n <- length(weights)
+  noise <- rnorm(n, mean = 0, sd = sigma)
+  10^(3.461 + 0.504*log10(weights/1000) + noise) * survival
+}
+```
+
+**Tune sigma.** Predict fecundity under varying sigma, then calculate R2 values from the linearized form and ~match to Bromage. Bromage reports an R2 of 0.614; sigma of 0.085 seems to provide a reasonable approximation of the uncertainty.
+```{r}
+simdat <- expand_grid(
+  weight_g  = seq(300, 2000, by = 5),
+  sigma     = seq(0.01, 0.15, by = 0.01)
+) |>
+  # Replicate each combo a few times to show scatter
+  slice(rep(1:n(), each = 5)) |>
+  rowwise() |>
+  mutate(eggs = fncFecundBromage(weight_g, sigma = sigma)) |>
+  ungroup()
+
+mysigs <- unique(simdat$sigma)
+myr2s <- c()
+
+for(i in 1:length(mysigs)) {
+  model <- lm(log10(eggs) ~ log10(weight_g), simdat %>% filter(sigma == mysigs[i]))
+  myr2s[i] <- summary(model)$r.squared
+}
+
+par(mar = c(4.5,4.5,1,1))
+plot(myr2s ~ mysigs, type = "l", xlab = "Sigma", ylab = "R squared")
+abline(h = 0.614, lty = 2, col = "grey50")
+abline(v = 0.085, lty = 2, col = "red")
+legend("topright", legend = c("R2 = 0.614, Bromage et al.",
+                              "sigma = 0.085"), lty = 2, col = c("grey50", "red"), bty = "n")
+```
+
+Now show the relationship with random noise.
+```{r}
+expand_grid(
+  weight_g = seq(300, 2000, by = 5),
+  sigma     = c(0.085)
+) |>
+  # Replicate each combo a few times to show scatter
+  slice(rep(1:n(), each = 5)) |>
+  rowwise() |>
+  mutate(eggs = fncFecundBromage(weight_g, sigma = sigma)) |>
+  ungroup() |>
+  ggplot(aes(x = weight_g, y = eggs)) +
+  geom_point(alpha = 0.15, size = 0.8) +
+  geom_line(
+    data = tibble(weight_g = seq(300, 2000, by = 1),
+                  eggs  = fncFecundBromage(weights = seq(300, 2000, by = 1), sigma = 0)),
+    color = "firebrick2", linewidth = 0.8
+  ) +
+  facet_wrap(~ paste0("sigma = ", sigma)) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Weight (g)") + ylab("Fecundity (number of eggs)") +
+  labs(title = "Weight-fecundity relationships with log-scale noise (red = deterministic mean)")
+```
+
+
+**Tune survival.** Tune the egg-to-fry survival parameter to better match empirical reproductive success data. E.g., see Baldock et al. (2023, Oikos). For redds that were not superimposed, we found no relationship between maternal parent size and reproductive success, but sample size and the range of fish size are extremely limited.
+```{r}
+oikos_tib <- tibble(momlen = c(381,441,390,344,442,385,415,361,335,NA,396,400),
+                    cohort = c(106,55,119,86,159,49,76,164,224,29,288,132)) 
+
+p1 <- oikos_tib %>%
+  ggplot(aes(x = momlen, y = cohort)) +
+  geom_point() + geom_smooth(method = "lm") +
+  xlab("Maternal parent length (mm)") + ylab("Reproductive success (number of offspring") +
+  theme_bw() + theme(panel.grid = element_blank()) + ylim(0,300)
+
+p2 <- oikos_tib %>%
+  ggplot(aes(y = cohort)) +
+  geom_boxplot(fill = "grey90") +
+  xlab("") + ylab("") +
+  theme_bw() + theme(panel.grid = element_blank(), 
+                     axis.title.x = element_blank(), axis.title.y = element_blank(),
+                     axis.text.x = element_blank(), axis.text.y = element_blank(),
+                     axis.ticks.x = element_blank()) + 
+  ylim(0,300)
+
+ggarrange(p1, p2, nrow = 1)
+```
+
+Show the the weight-fecundity relation ship with varying values for `survival` compares to the distribution of reproductive success values from Baldock et al. (2023).
+```{r}
+expand_grid(
+  weight_g  = seq(300, 2000, by = 5),
+  survival     = seq(0.1, 1, by = 0.1)
+) |>
+  mutate(eggs = fncFecundBromage(weight_g, survival = survival)) %>%
+  ggplot() +
+  geom_rect(aes(xmin = -Inf, xmax = Inf, 
+                ymin = quantile(oikos_tib$cohort, probs = 0.025), 
+                ymax = quantile(oikos_tib$cohort, probs = 0.975)),
+            fill = "grey90", inherit.aes = FALSE) +
+  geom_rect(aes(xmin = -Inf, xmax = Inf, 
+                ymin = quantile(oikos_tib$cohort, probs = 0.25), 
+                ymax = quantile(oikos_tib$cohort, probs = 0.75)),
+            fill = "grey70", inherit.aes = FALSE) +
+  geom_abline(intercept = quantile(oikos_tib$cohort, probs = 0.5), slope = 0, linetype = "dashed") +
+  geom_line(aes(x = weight_g, y = eggs, group = survival, color = survival)) +
+  scale_color_viridis_c() +
+  theme_bw() + theme(panel.grid = element_blank()) + 
+  xlab("Weight (g)") + ylab("Fecundity (number of eggs)")
+```
+
+The plot above suggests that egg-to-fry survival rates are extremely low (<0.1), but note different species (RBT vs. YCT). Also, this "survival" parameter encapsulates many different processes, including egg retention, fertilization rate, and direct mortality due to sedimentation, scour, disease, scour, low/high temperature, desiccation, and superimposition. Literature on egg-to-fry survival rates (or similar) is incredibly varied:
+
+* Railsback et al. (2023) use a fixed value (0.8) to represent egg viability (fertilization success), and mortality due to scour, temperature, and desiccation are dealt with separately. 
+* Hedger et al. (2013, Ecological Modelling) apply a fixed, "density-independent swim-up probability of mortality" of 0.2; but actual recruitment is calculated as function of swim-up density and a density-dependent function (i.e., the population is thinned). 
+* Roberts and White (1992, NAJFM) found mortality rates for control groups (fertilization to emergence, no wading treatment) could exceed 50%, but this varied considerably among species and was conducted in a laboratory setting (i.e., eggs were planted).
+* Ward and Slaney (1993, Canadian Special Publication) reports that average survial rate from egg to fry for winter-run steelhead was 6.5%. 
+* Peterson et al. (2010, EcoApps) assumes natural egg-to-fry mortality rates of 0.6 (low), 0.81 (moderate), and 0.95 (high) in a matrix population model simulation for WCT (survival = 0.05-0.4). 
+
+Seems like the best approach will be to tune this parameter according to emergent properties of the simulated population. We should consider experiments that altering this parameter to explicitly account for differences in habitat or reproductive success among habitats or through time. E.g., an "invest in *X* habitat" scenario could have a higher egg-to-fry survival rate representing spawning gravel enhancement projects. 
+
+
+### Cost of reproduction
+
+Spawners incur a weight loss that represents the energetic cost of spawning: principally, the mass allocated to egg production. See page 127 of Railsback et al. (2023, *USDA*). 
+
+Explore the energetic cost of reproduction for different body sizes and egg weights, given the weight-fecundity relationship specified above (Bromage et al. 1990). 
+```{r}
+mydf <- expand_grid(
+  weight_g = seq(300, 2000, by = 5),
+  egg_wt = seq(0.05, 0.09, by = 0.01)
+) |>
+  # Replicate each combo a few times to show scatter
+  mutate(eggs = fncFecundBromage(weight_g, sigma = 0),
+         mass_loss = eggs * egg_wt,
+         rel_mass_loss = mass_loss / weight_g,
+         egg_wt_lab = paste("Egg wt. = ", egg_wt, " g", sep = "")) 
+
+
+p1 <- mydf %>% ggplot() +
+  geom_line(aes(x = weight_g, y = mass_loss)) +
+  facet_wrap(~egg_wt_lab, nrow = 1) +
+  theme_bw() + xlab("Spawner weight (g)") + ylab("Total mass loss (g)")
+
+p2 <- mydf %>% ggplot() +
+  geom_line(aes(x = weight_g, y = rel_mass_loss)) +
+  facet_wrap(~egg_wt_lab, nrow = 1) +
+  geom_abline(intercept = 0.18, slope = 0, color = "red", linetype = "dashed") +
+  theme_bw() + xlab("Spawner weight (g)") + ylab("Proportional mass loss")
+
+egg::ggarrange(p1 + theme(axis.title.x = element_blank()), 
+               p2, 
+               nrow = 2, top = "Energetic cost of reproduction")
+```
+
+The relationships above indicate declining investment in reproduction with increasing body size. But in addition to producing more eggs, larger females also produce larger eggs with greater energy content (Barneche et al. 2018, *Science*). Also see Bromage et al. (1990), Hutchings et al. (1994), McCann and Shuter (1997), Aparicio et al (2023), and others. This would seem suggest that older, larger fish invest proportionally more energy reserves to reproduction, the opposite of the relationships shown on the bottom row (or perhaps a flat relationship???).
+
+Railsback et al. (2023) assumes that a fixed proportion of mass is lost to reproduction: 20% following Hayes et al. (2000) and Liens (1978). Perhaps this is a reasonable approach for now (fixed mass loss), as it strikes a reasonable balance between the strongly negative relationships shown above and the likely positive (but uncertain) relationship proposed by Barneche et al. However, it could be very interesting to incorporate the positive effects of female mass on egg size and energy density (which could be represented by a positive effect of parent mass on offspring starting weight). 
+
+
+```{r}
+tibble(mass = seq(300, 2000, by = 5)) %>%
+  mutate(eggs = 2.93 * (mass^1.18)) %>%
+  ggplot() + geom_line(aes(x = mass, y = eggs))
+
+tibble(mass = seq(300, 2000, by = 5)) %>%
+  mutate(eggvolume = 0.15 * (mass^0.14)) %>%
+  ggplot() + geom_line(aes(x = mass, y = eggvolume))
+
+tibble(eggvolume = seq(0.3, 0.5, by = 0.01)) %>%
+  mutate(energydensity = 2.15 * (eggvolume^0.77)) %>%
+  ggplot() + geom_line(aes(x = eggvolume, y = energydensity))
+
+```
+
+
+
+### Maturation/spawning
+
+Maturity (i.e., readiness to spawn) is a function of size (fish need to reach a minimum size), condition (only fish in reasonably good condition can spawn), and date (fish can only spawn within a given period), following the general framework of Railsback et al. (2023, InSTREAM7 user manual).
+
+#### Size
+
+Probability of maturity is a logistic function of size. Onset of maturity is anchored to 300 g, the ~minimum weight of mature RBT inferred from Figure 2 of Bromage et al. (1990).
+```{r}
+fncMaturitySize <- function(weight, K1 = 300, K9 = 500, w_min = 200) {
+  # weight:    numeric vector of fish weights
+  # K1:        weight at which daily probability of maturity = 0.1 (onset of maturity)
+  # K9:        weight at which daily probability of maturity = 0.9 (totally ready)
+  # w_min:     minimum weight considered (below this, probability is 0)
+  # Returns a probability vector; multiply with other survival probabilities before sampling.
+  K50 <- (K1 + K9) / 2
+  k   <- 2 * log(9) / (K9 - K1)
+  p   <- 1 / (1 + exp(-k * (weight - K50)))
+  p[weight < w_min] <- 0
+  p
+}
+```
+
+Show daily probability of maturation as a function of size
+```{r}
+data.frame(weight = seq(100, 1000, by = 10)) |>
+  dplyr::mutate(p_mature = fncMaturitySize(weight)) |>
+  ggplot(aes(x = weight, y = p_mature)) +
+  geom_line() +
+  geom_point(data = data.frame(weight = c(500, 300), p_mature = c(0.9, 0.1)),
+             size = 3, shape = 21, fill = "white") +
+  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
+  geom_vline(xintercept = c(300, 500), linetype = "dashed", alpha = 0.4) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Weight (g)") + ylab("Daily maturation probability") +
+  labs(title = "Size-based daily maturity",
+       subtitle = "Anchor points: P = 0.1 at K = 300, P = 0.9 at K = 500")
+```
+
+Visualize the cumulative probability of spawning over a given period of time, for fish of different sizes
+```{r}
+# Fish sizes to show and time horizon
+sizes   <- seq(100, 600, by = 100)
+days    <- 1:30
+
+# For each size, daily p is fixed; cumulative prob of having spawned by day t
+expand_grid(weight = sizes, day = days) |>
+  mutate(
+    p_daily = fncMaturitySize(weight),
+    p_cum   = 1 - (1 - p_daily)^day,
+    weight  = factor(paste0(weight, " g"), levels = paste0(sizes, " g"))
+  ) |>
+  ggplot(aes(x = day, y = p_cum, colour = weight)) +
+  geom_line(linewidth = 0.8) +
+  scale_colour_viridis_d(option = "plasma", end = 0.9, name = "Weight") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  labs(
+    x = "Day",
+    y = "Cumulative probability of spawning",
+    title = "Cumulative probability of spawning over time by fish size"
+  )
+```
+The plot shows the contrasting dynamics clearly — at 500–600 g a fish has a near-certain chance of spawning within just a few days, while at 100 g the cumulative probability barely reaches ~4% over a full month (because the daily probability is ~0.001).
+
+
+#### Condition
+
+Probability of maturity is a logistic function of condition: only fish in reasonably good condition are allowed to spawn. Onset of maturity is anchored to condition = 0.7. Minimum condition values coming out of winter (from previous simulation runs) dip down to ~0.7, we want to make sure fish in this poor energetic state are not allowed to spawn until condition improves. 
+```{r}
+fncMaturityCondition <- function(condition, K1 = 0.7, K9 = 0.9, c_min = 0.6) {
+  # condition: numeric vector of relative condition values (current_weight / peak_weight)
+  # K1:        condition at which daily maturity probability = 0.1 (onset of spawning)
+  # K9:        condition at which daily maturity probability = 0.9 (spawning is almost guaranteed)
+  # c_min:     minimum condition below which probability is exactly 0 (biologically implausible to spawn)
+  # Returns a probability vector; multiply with other survival probabilities before sampling.
+  K50 <- (K1 + K9) / 2
+  k   <- 2 * log(9) / (K9 - K1)  # note: sign flipped vs. temperature — survival rises with condition
+  p   <- 1 / (1 + exp(-k * (condition - K50)))
+  p[condition < c_min] <- 0
+  p
+}
+```
+
+Show daily probability of maturation as a function of condition
+```{r}
+data.frame(condition = seq(0, 1, by = 0.01)) |>
+  dplyr::mutate(p_mature = fncMaturityCondition(condition)) |>
+  ggplot(aes(x = condition, y = p_mature)) +
+  geom_line() +
+  geom_point(data = data.frame(condition = c(0.7, 0.9), p_mature = c(0.1, 0.9)),
+             size = 3, shape = 21, fill = "white") +
+  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
+  geom_vline(xintercept = c(0.7, 0.9), linetype = "dashed", alpha = 0.4) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Relative condition (current weight / peak weight)") + ylab("Daily maturation probability") +
+  labs(title = "Condition-based daily maturity",
+       subtitle = "Anchor points: P = 0.1 at K = 0.7, P = 0.9 at K = 0.9")
+```
+
+Visualize the cumulative probability of spawning over a given period of time, for fish of different conditions
+```{r}
+# Fish sizes to show and time horizon
+conditions   <- seq(0.5, 1, by = 0.1)
+days    <- 1:30
+
+# For each size, daily p is fixed; cumulative prob of having spawned by day t
+expand_grid(condition = conditions, day = days) |>
+  mutate(
+    p_daily = fncMaturityCondition(condition),
+    p_cum   = 1 - (1 - p_daily)^day,
+    condition  = factor(condition)
+  ) |>
+  ggplot(aes(x = day, y = p_cum, colour = condition)) +
+  geom_line(linewidth = 0.8) +
+  scale_colour_viridis_d(option = "plasma", end = 0.9, name = "Condition") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  labs(
+    x = "Day",
+    y = "Cumulative probability of spawning",
+    title = "Cumulative probability of spawning over time by fish condition"
+  )
+```
+At conditions exceeding 0.7, a fish has a near-certain chance of spawning within just a few days, but at <0.6 the cumulative probability is <25% even after full month.
+
+
+#### Day of year
+
+Probability of maturity is a function of time/day of year. This follows a normal distribution, where probability peaks at some date (`peak_doy`), the drops off on either side (earlier and later). Note that we reproduction/recruitment is instantaneous; i.e., we assume that offspring are produced as free-swimming fish on the day of spawning...so really this represents day of emergence.
+
+* `peak_doy`: the day of maximum spawning probability (defaults to day 121 ≈ May 1, which is reasonable for emergence timing rainbow trout).
+* `duration`: the approximate length of the spawning season in days, defined as ±2 SD from the peak — so it spans ~95% of the probability mass. sigma = duration / 4.
+* `p_max`: ceiling on daily probability at the peak. Defaults to 1, making this a pure shape multiplier that can be combined with the size and condition functions (e.g. p_size * p_condition * p_date).
+
+```{r}
+fncMaturityDate <- function(doy, peak_doy = 121, duration = 15, p_max = 1) {
+  # doy:       numeric vector of day-of-year values (1–365)
+  # peak_doy:  day of year at which daily spawning probability is highest
+  # duration:  approximate spawning season width in days; defined as the span
+  #            covering ~95% of the probability mass (i.e., ±2 SD from peak),
+  #            so sigma = duration / 4
+  # p_max:     maximum daily spawning probability, reached at peak_doy
+  # Returns a probability vector scaled to [0, p_max]
+  sigma <- duration / 4
+  p_max * exp(-0.5 * ((doy - peak_doy) / sigma)^2)
+}
+
+```
+
+Show daily probability of maturation as a function of day of year and duration of spawning
+```{r}
+# --- Visualise: vary duration, fix peak ---
+expand_grid(
+  doy      = 50:150,
+  duration = c(5, 10, 20, 40)
+) |>
+  mutate(
+    p        = fncMaturityDate(doy, peak_doy = 90, duration = duration),
+    duration = factor(paste0(duration, " days"), levels = paste0(c(5, 10, 20, 40), " days"))
+  ) |>
+  ggplot(aes(x = doy, y = p, colour = duration)) +
+  geom_line(linewidth = 0.8) +
+  scale_x_continuous(
+    breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
+    labels = month.abb
+  ) +
+  scale_colour_viridis_d(option = "plasma", end = 0.85, name = "Duration") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  labs(
+    x = "Day of year",
+    y = "Daily spawning probability",
+    title = "Date-based daily spawning (reproduction/emergence) probability",
+    subtitle = "Peak day = May 1 (day 121); p_max = 1"
+  )
+```
+
+
+#### Combined effects
+
+Visualize the combined daily spawning probability (size × condition × date) to see how the three components interact.
+```{r}
+# --- Panel A: heatmap of p_combined over doy × weight, condition fixed at 0.85
+p_heat <- expand_grid(
+  doy    = 1:200,
+  weight = seq(100, 600, by = 5)
+) |>
+  mutate(
+    p_date  = fncMaturityDate(doy, peak_doy = 90, duration = 60),
+    p_size  = fncMaturitySize(weight),
+    p_cond  = fncMaturityCondition(0.85),
+    p_comb  = p_date * p_size * p_cond
+  ) |>
+  ggplot(aes(x = doy, y = weight, fill = p_comb)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", name = "P(spawn)", limits = c(0, 1)) +
+  scale_x_continuous(
+    breaks = c(1, 32, 60, 91, 121, 152),
+    labels = month.abb[1:6],
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  labs(x = "Day of year", y = "Weight (g)",
+       title = "A: Size × Date  (condition = 0.85, fixed)")
+
+# --- Panel B: lines over doy for different conditions, weight fixed at 400g
+p_cond_lines <- expand_grid(
+  doy       = 1:200,
+  condition = c(0.70, 0.80, 0.85, 0.90, 1.00)
+) |>
+  mutate(
+    p_date = fncMaturityDate(doy, peak_doy = 90, duration = 60),
+    p_size = fncMaturitySize(400),
+    p_cond = fncMaturityCondition(condition),
+    p_comb = p_date * p_size * p_cond,
+    condition = factor(condition)
+  ) |>
+  ggplot(aes(x = doy, y = p_comb, colour = condition)) +
+  geom_line(linewidth = 0.8) +
+  scale_colour_viridis_d(option = "mako", end = 0.85, name = "Condition") +
+  scale_x_continuous(
+    breaks = c(1, 32, 60, 91, 121, 152, 182),
+    labels = month.abb[1:7]
+  ) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  labs(x = "Day of year", y = "P(spawn)",
+       title = "B: Condition × Date  (weight = 400 g, fixed)")
+
+p_heat / p_cond_lines
+```
+**Panel A (size × date):** The size gate is the dominant bottleneck for small fish — even at the peak spawning date, fish below ~300 g have essentially zero probability. The "hot spot" (yellow) requires both the right time of year and sufficient size. Above ~500 g, the size gate is nearly fully open and the date window becomes the controlling factor.
+
+**Panel B (condition × date):** At 400 g (a mid-range fish), condition strongly scales the peak but doesn't shift the timing. A fish at condition 0.7 (poor, coming out of winter) has its peak probability suppressed to ~5% even at the optimal date, while a fish at condition 1.0 reaches ~50%. This means poor-condition fish are effectively excluded from spawning even if they're the right size and time of year.
+
 
 ## Write R file
 

@@ -559,7 +559,8 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
       weight   = td[, "weight"],
       ration   = td[, "ration"],
       patch    = td[, "patch"],
-      WT.actual = sapply(td[, "patch"], function(p) get_patchtemp(t, p)),
+      WT.actual = sapply(td[, "patch"], function(p) 
+        temp(t, p)),
       WT       = watemp,
       growth   = growth
     )
@@ -827,7 +828,7 @@ Each fish could have a unique threshold for movement, representing individual va
 
 Plot the distribution of `move_threshold` values against the distribution of daily `g_move - g_stay` values to check that `sigma_bold` creates meaningful variation rather than all fish behaving identically or randomly.
 
-```{r fig.width=7, fig.height=6}
+```{r fig.width=7, fig.height=6, eval=FALSE}
 
 rations <- seq(0.02, 0.17, 0.001)
 waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
@@ -1229,18 +1230,24 @@ ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
 
 How do movement costs under different parameter sets actually compare to differences in growth between habitats, for different sized fish?
 ```{r fig.width=8, fig.height=5}
+rations <- seq(0.02, 0.17, 0.001)
+waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
+
+wt_seq_ibm <- waterTemps[, "WT"]  # seq(0.1, 25, 0.1), 250 values       
+ra_seq_ibm <- rations             # seq(0.02, 0.17, 0.001), 151 values
+
 sizes <- c(0.5, 1.0, 2.0)
 
 growth_diff_df <- habitat_df |>
   filter(dayofsim <= 200) |>
-  select(date, dayofsim, temp_warm, temp_cold) |>
+  select(date, dayofsim, temp_warm, temp_cold, pcmax_warm, pcmax_cold) |>
   crossing(weight = sizes) |>
   rowwise() |>
   mutate(
     wt_idx_w  = which.min(abs(wt_seq_ibm - temp_warm)),
     wt_idx_c  = which.min(abs(wt_seq_ibm - temp_cold)),
-    pcmax_w   = min(fncTempDepend(temp_warm), get_patchpcmax(dayofsim, "warm")),
-    pcmax_c   = min(fncTempDepend(temp_cold), get_patchpcmax(dayofsim, "cold")),
+    pcmax_w   = min(fncTempDepend(temp_warm), pcmax_warm),
+    pcmax_c   = min(fncTempDepend(temp_cold), pcmax_cold),
     cmax      = fncAllomCmax(weight),
     ra_idx_w  = pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - cmax * pcmax_w)))),
     ra_idx_c  = pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - cmax * pcmax_c)))),
@@ -1345,28 +1352,11 @@ ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
 
 ## Density dependence
 
-Create functions to represent density-dependent food availability. I.e., reduce ration size in patches by patch density.
+Create functions to represent density-dependent consumption/food availability.
 
-### Fullerton approach
+### Hyperbolic reduction (scalar)
 
-Ration size decreases linearly with fish density, up to some threshold above which there is no effect of there is no effect of density of ration size. Fullerton uses 1 fish per m\^2 of as the upper threshold. Here, I use an arbitrary *MaxDensity4Growth*, but we can change this to a value that makes sense for our model. Fullerton's IBM calculates this scalar, then multiplies by densities after movement to compute experienced/realized ration.
-
-```{r}
-MaxDensity4Growth <- 50 # growth is not depressed further above this density (currently this is arbitary)
-fdens_raw <- fdens <- seq(from = 1, to = 100, by = 1) # create sequence of fish density
-fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth # high densities cap out at MaxDensity4Growth
-density.effect <- fncRescale((1 - c(fdens, 0.01, MaxDensity4Growth)), c((0.5),1)) # calculate density effect scalar
-density.effect <- density.effect[-c(length(density.effect), (length(density.effect) - 1))] #remove the last 2 temporary values
-
-par(mar = c(4.5,4.5,1,1))
-plot(density.effect ~ fdens_raw, type = "l", xlab = "Fish density", ylab = "Density effect on ration (multiplier)")
-abline(v = MaxDensity4Growth, col = "red", lty = 2)
-legend("topright", legend = c("Density effect", "Density threshold"), col = c("black", "red"), lty = c(1,2), bty = "n")
-```
-
-### Hyperbolic reduction
-
-Hyperbolic (Beverton-Holt style) reduction in food availability, i.e., scramble competition. This function can allow the strength of competition to differ among habitats.
+Hyperbolic (Beverton-Holt style) reduction in consumption/food availability, i.e., scramble competition. This function can allow the strength of competition to differ among habitats.
 
 -   k = half-saturation density: fish density at which ration is halved
     -   At N = 0, ration = R (no reduction when alone)
@@ -1376,64 +1366,20 @@ Hyperbolic (Beverton-Holt style) reduction in food availability, i.e., scramble 
 
 **Choice of K should depend on range of possible densities... K is the sensitive parameter and will substantially affect results.**
 
+This is the same as above but instead of passing the function a baseline ration, pass it the rations we computed based on temperature- and size-based P_C~max~. `eff_density` is the per-unit-area effective competitor density (self excluded), so no `-1` correction is needed.
 ```{r}
-fncDensityRation <- function(fish_pop, R_warm, R_cold, k_warm = 50, k_cold = 50) {
+fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50,
+                                    A_warm = 1, A_cold = 1) {
   fish_pop %>%
+    group_by(patch) %>%
     mutate(
-      R_base = if_else(patch == "warm", R_warm, R_cold),
-      k      = if_else(patch == "warm", k_warm, k_cold),
-      ration = R_base * k / (k + density - 1)
+      A_patch     = if_else(first(patch) == "warm", A_warm, A_cold),
+      k           = if_else(first(patch) == "warm", k_warm, k_cold),
+      eff_density = (fncEffDensity(weight, beta = 0) - 1) / A_patch,  # beta=0: pure scramble for summary use
+      dd_scalar   = k / (k + eff_density)
     ) %>%
-    select(-R_base, -k)
-}
-```
-
-Visualize how ration scales with density under different values of k to help calibrate the parameter. *Both patches have the same baseline ration, so curves are identical*
-
-```{r}
-# Use actual R_warm and R_cold from the session as the baseline
-R_warm      <- get_patchration(1, "warm")
-R_cold      <- get_patchration(1, "cold")
-
-expand.grid(
-  density = 1:200,
-  k       = c(10, 25, 50, 100, 200),
-  patch   = c("warm", "cold")
-) %>%
-  mutate(
-    R_base = if_else(patch == "warm", R_warm, R_cold),
-    ration = R_base * k / (k + density - 1),
-    k_lab  = factor(paste0("k = ", k), levels = paste0("k = ", sort(unique(k))))
-  ) %>%
-  ggplot(aes(x = density, y = ration, color = k_lab)) +
-  geom_line() +
-  geom_hline(aes(yintercept = R_base), linetype = "dashed", color = "grey50") +
-  facet_wrap(~ patch, labeller = label_both) +
-  labs(
-    x     = "Fish density (N per patch)",
-    y     = "Realized ration (g)",
-    color = "Half-saturation\ndensity (k)",
-    title = "Density-dependent ration reduction",
-    caption = "Dashed line = baseline ration (no density effect)"
-  )
-```
-
--   k = 10–25: Severe food limitation even at low densities (ration halved by \~10–25 fish). Probably too strong unless you're modeling highly food-limited systems.
--   k = 50–100: Moderate competition; ration is meaningfully reduced at realistic densities (50–150 fish/patch), which is likely the right range to start with given your n_fish_per_strat setup.
--   k = 200: Very mild — food limitation only kicks in at very high densities.
-
-### Hyperbolic reduction (scalar)
-
-This is the same as above but instead of passing the function a baseline ration, pass it the rations we computed based on temperature-based P_C~max~ and size-based C~max~. *Subtract 1 from density so that density-dependence only kicks in when N \> 1*
-
-```{r}
-fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50) {
-  fish_pop %>%
-    mutate(
-      k         = if_else(patch == "warm", k_warm, k_cold),
-      dd_scalar = 1 * k / (k + density - 1),
-    ) %>%
-    select(-k)
+    ungroup() %>%
+    select(-A_patch, -k, -eff_density)
 }
 ```
 
@@ -1495,46 +1441,119 @@ Plot.plot({
 })
 ```
 
-### Linear dilution
 
-Here is a simpler formulation, where ration size is distributed evenly across all individuals (pure scramble competition) and food supply within a patch is fixed. I.e., ration size of 0.1 g is evenly distributed among all fish in a patch. If we use this, it would probably make sense to define sub-patches (feeding stations) within the larger patches.
+### Size-based dominance
+
+Size-based dominance hierarchies are common in salmonids, typically mediating consumption and growth rate. See Chapman (1966, Am. Nat.), Cutts et al. (1999, Oikos), Nakano (1996, J. Anim. Ecol.), Young (2003, Behav. Ecol.), and a review by Grossman and Simon (2019, Ecol. Fresh. Fish). 
+
+`fncEffDensity` replaces the single patch-level density value (used identically for all fish in the standard hyperbolic scalar) with an individual-specific **effective density** that reflects each fish's competitive rank within its patch. Large, dominant fish experience a lower effective density than small, subordinate fish at the same total abundance — and therefore receive a less severe P_C~max~ penalty.
+
+The dominance kernel is controlled by a single parameter **β**:
+
+-   **β = 0**: pure scramble — all fish receive the same effective density (= N); recovers the standard hyperbolic scalar exactly.
+-   **β = 1**: linear size-based dominance — a competitor at half the focal fish's mass imposes half the competitive cost.
+-   **β → ∞**: pure contest — only fish larger than the focal fish impose any cost; fish smaller than it are effectively invisible as competitors.
+
+Write the function:
+```{r}
+# Dominance-weighted effective density for a vector of fish weights within a patch.
+# For focal fish i, effective density = sum_j(alpha_ij) + 1 (for self), where:
+#   alpha_ij = 1              if m_j >= m_i  (competitor j is dominant — full competitive cost)
+#   alpha_ij = (m_j/m_i)^beta if m_j <  m_i  (focal fish dominates j — reduced cost)
+# beta = 0 → pure scramble (all competitors equivalent, recovers standard hyperbolic scalar)
+# beta = 1 → linear size-based dominance
+# beta → Inf → pure contest (only larger fish impose any cost)
+fncEffDensity <- function(weights, beta = 1) {
+  n <- length(weights)
+  if (n == 1L) return(1)
+  ratio_mat      <- outer(weights, weights, FUN = function(mi, mj) ifelse(mj >= mi, 1, (mj / mi)^beta))
+  diag(ratio_mat) <- 0   # exclude self from competitor sum
+  rowSums(ratio_mat) + 1 # +1 to count focal fish in effective density
+}
+```
+
+
+**Plot 1 — Effective density gradient by β.** Uses a fixed, realistic log-normal size distribution (N = 60; modal weight ≈ 2 g with a larger-fish tail). Each point is one fish; the dashed line is raw patch abundance.
 
 ```{r}
-fncDensityRation_ld <- function(fish_pop, R_warm, R_cold) {
-  fish_pop %>%
-    mutate(food   = if_else(patch == "warm", R_warm, R_cold),
-           ration = food / density
-           ) %>%
-    select(-food)
-}
+set.seed(8823)
+n_fish_demo <- 60
+weights_demo <- c(
+  rlnorm(45, meanlog = log(2),  sdlog = 0.5),
+  rlnorm(15, meanlog = log(12), sdlog = 0.4)
+)
+# weights_demo <- seq(0.5, 50, length.out = n_fish_demo)
+# weights_demo <- c(seq(1,5,length.out = 30),seq(21,25,length.out = 30))
 
+beta_vals_demo <- c(0, 0.5, 1, Inf)
 
-# set up objects as they would appear in the simulation loop
-R_warm      <- get_patchration(1, "warm")
-R_cold      <- get_patchration(1, "cold")
-fish_pop <- bind_rows(
-  tibble(strategy = "resident_warm", 
-         patch = "warm",
-         weight = pmax(1, rnorm(100, 0.1, 0)),
-         density = c(1:100)),
-  tibble(strategy = "resident_cold", 
-         patch = "cold",
-         weight = pmax(1, rnorm(100, 0.1, 0)),
-         density = c(1:100))) %>%
-  mutate(pid = row_number(),
-         ration = if_else(patch == "warm", ration_warm, ration_cold))
-# fish_pop
-
-# for example, competition more intense in warm habitat
-fish_pop <- fncDensityRation_ld(fish_pop, R_warm, R_cold)
-fish_pop %>%
-  ggplot(aes(x = density, y = ration, color = patch)) +
-  geom_line() +
-  scale_color_manual(values = c("warm" = 2, "cold" = 4)) +
-  theme_bw() +
-  xlab("Fish density") +
-  ylab("Ration")
+map_dfr(beta_vals_demo, function(b) {
+  tibble(
+    weight      = weights_demo,
+    eff_density = fncEffDensity(weights_demo, beta = b),
+    beta_lab    = factor(paste0("β = ", b),
+                         levels = paste0("β = ", beta_vals_demo))
+  )
+}) |>
+  ggplot(aes(x = weight, y = eff_density)) +
+  geom_hline(yintercept = n_fish_demo, linetype = "dashed", color = "grey60") +
+  geom_point(alpha = 0.55, size = 1.8) +
+  facet_wrap(~beta_lab, nrow = 1) +
+  labs(
+    x       = "Body weight (g)",
+    y       = "Effective density",
+    title   = "Dominance-weighted effective density by body size",
+    caption = paste0(
+      "Dashed line = raw patch abundance (N = ", n_fish_demo, "). ",
+      "β = 0 recovers pure scramble; larger β strengthens dominance asymmetry."
+    )
+  ) +
+  theme_bw()
 ```
+
+**Plot 2 — Realized P_C~max~ scalar by body size, K, and β.** The scalar actually experienced by each fish is `K / (K + eff_density − 1)`. The dominant–subordinate spread in this scalar — and therefore the growth advantage of large fish — depends jointly on β (how steep the dominance gradient is) and K (how strongly density depresses consumption overall). The dashed line in each panel is the pure-scramble scalar at N = `r n_fish_demo`.
+
+```{r}
+K_vals_demo   <- c(50, 100, 500, 1000)
+beta_show     <- c(0, 0.5, 1, Inf)
+
+expand.grid(K = K_vals_demo, beta = beta_show) |>
+  as_tibble() |>
+  mutate(data = map2(K, beta, function(K, b) {
+    ed <- fncEffDensity(weights_demo, beta = b)
+    tibble(
+      weight    = weights_demo,
+      dd_scalar = K / (K + ed - 1),
+      scramble  = K / (K + n_fish_demo - 1)
+    )
+  })) |>
+  unnest(data) |>
+  mutate(
+    K_lab    = factor(paste0("K = ", K),    levels = paste0("K = ", K_vals_demo)),
+    beta_lab = factor(paste0("β = ", beta), levels = paste0("β = ", beta_show))
+  ) |>
+  ggplot(aes(x = weight, y = dd_scalar, color = beta_lab)) +
+  geom_hline(aes(yintercept = scramble), linetype = "dashed", color = "grey60") +
+  geom_point(alpha = 0.45, size = 1.3) +
+  facet_wrap(~K_lab, nrow = 1) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    x       = "Body weight (g)",
+    y       = "P_Cmax scalar",
+    color   = "β (dominance)",
+    title   = "Realized P_Cmax scalar by body size, K, and β",
+    caption = paste0(
+      "Dashed line = pure-scramble scalar (β = 0) at N = ", n_fish_demo, ". \n",
+      "Spread between dominant and subordinate fish is negligible at K = 1000 ",
+      "but substantial at K = 50–100."
+    )
+  ) +
+  theme_bw() + theme(plot.caption = element_text(hjust = 0))
+```
+
+-   At **K = 50–100** (density dependence is active at realistic abundances), varying β produces a meaningful scalar spread across the size distribution — large dominant fish feed near their physiological cap while small subordinates are substantially suppressed.
+-   At **K = 500–1000** (weak density dependence), the dominance gradient exists but its bioenergetic consequence is small regardless of β. **Dominance only matters when K is calibrated to a range where the hyperbolic scalar is substantially less than 1 at typical patch abundances.**
+
 
 ## Survival
 
@@ -2755,4 +2774,125 @@ For sourcing later
 
 ```{r eval=FALSE}
 #quarto::qmd_to_r_script("Functions.qmd")
+```
+
+
+
+## OLD
+
+### Fullerton approach
+
+Ration size decreases linearly with fish density, up to some threshold above which there is no effect of there is no effect of density of ration size. Fullerton uses 1 fish per m\^2 of as the upper threshold. Here, I use an arbitrary *MaxDensity4Growth*, but we can change this to a value that makes sense for our model. Fullerton's IBM calculates this scalar, then multiplies by densities after movement to compute experienced/realized ration.
+
+```{r eval=FALSE}
+MaxDensity4Growth <- 50 # growth is not depressed further above this density (currently this is arbitary)
+fdens_raw <- fdens <- seq(from = 1, to = 100, by = 1) # create sequence of fish density
+fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth # high densities cap out at MaxDensity4Growth
+density.effect <- fncRescale((1 - c(fdens, 0.01, MaxDensity4Growth)), c((0.5),1)) # calculate density effect scalar
+density.effect <- density.effect[-c(length(density.effect), (length(density.effect) - 1))] #remove the last 2 temporary values
+
+par(mar = c(4.5,4.5,1,1))
+plot(density.effect ~ fdens_raw, type = "l", xlab = "Fish density", ylab = "Density effect on ration (multiplier)")
+abline(v = MaxDensity4Growth, col = "red", lty = 2)
+legend("topright", legend = c("Density effect", "Density threshold"), col = c("black", "red"), lty = c(1,2), bty = "n")
+```
+
+### Hyperbolic reduction
+
+Hyperbolic (Beverton-Holt style) reduction in food availability, i.e., scramble competition. This function can allow the strength of competition to differ among habitats.
+
+-   k = half-saturation density: fish density at which ration is halved
+    -   At N = 0, ration = R (no reduction when alone)
+    -   At N = K, ration = R/2
+-   Separate k allowed per patch to reflect differences in habitat productivity
+-   Asymptotes to 0 at very high density
+
+**Choice of K should depend on range of possible densities... K is the sensitive parameter and will substantially affect results.**
+
+```{r eval=FALSE}
+fncDensityRation <- function(fish_pop, R_warm, R_cold, k_warm = 50, k_cold = 50) {
+  fish_pop %>%
+    mutate(
+      R_base = if_else(patch == "warm", R_warm, R_cold),
+      k      = if_else(patch == "warm", k_warm, k_cold),
+      ration = R_base * k / (k + density - 1)
+    ) %>%
+    select(-R_base, -k)
+}
+```
+
+Visualize how ration scales with density under different values of k to help calibrate the parameter. *Both patches have the same baseline ration, so curves are identical*
+
+```{r eval=FALSE}
+# Use actual R_warm and R_cold from the session as the baseline
+R_warm      <- get_patchration(1, "warm")
+R_cold      <- get_patchration(1, "cold")
+
+expand.grid(
+  density = 1:200,
+  k       = c(10, 25, 50, 100, 200),
+  patch   = c("warm", "cold")
+) %>%
+  mutate(
+    R_base = if_else(patch == "warm", R_warm, R_cold),
+    ration = R_base * k / (k + density - 1),
+    k_lab  = factor(paste0("k = ", k), levels = paste0("k = ", sort(unique(k))))
+  ) %>%
+  ggplot(aes(x = density, y = ration, color = k_lab)) +
+  geom_line() +
+  geom_hline(aes(yintercept = R_base), linetype = "dashed", color = "grey50") +
+  facet_wrap(~ patch, labeller = label_both) +
+  labs(
+    x     = "Fish density (N per patch)",
+    y     = "Realized ration (g)",
+    color = "Half-saturation\ndensity (k)",
+    title = "Density-dependent ration reduction",
+    caption = "Dashed line = baseline ration (no density effect)"
+  )
+```
+
+-   k = 10–25: Severe food limitation even at low densities (ration halved by \~10–25 fish). Probably too strong unless you're modeling highly food-limited systems.
+-   k = 50–100: Moderate competition; ration is meaningfully reduced at realistic densities (50–150 fish/patch), which is likely the right range to start with given your n_fish_per_strat setup.
+-   k = 200: Very mild — food limitation only kicks in at very high densities.
+
+
+### Linear dilution
+
+Here is a simpler formulation, where ration size is distributed evenly across all individuals (pure scramble competition) and food supply within a patch is fixed. I.e., ration size of 0.1 g is evenly distributed among all fish in a patch. If we use this, it would probably make sense to define sub-patches (feeding stations) within the larger patches.
+
+```{r eval=FALSE}
+fncDensityRation_ld <- function(fish_pop, R_warm, R_cold) {
+  fish_pop %>%
+    mutate(food   = if_else(patch == "warm", R_warm, R_cold),
+           ration = food / density
+           ) %>%
+    select(-food)
+}
+
+
+# set up objects as they would appear in the simulation loop
+R_warm      <- get_patchration(1, "warm")
+R_cold      <- get_patchration(1, "cold")
+fish_pop <- bind_rows(
+  tibble(strategy = "resident_warm", 
+         patch = "warm",
+         weight = pmax(1, rnorm(100, 0.1, 0)),
+         density = c(1:100)),
+  tibble(strategy = "resident_cold", 
+         patch = "cold",
+         weight = pmax(1, rnorm(100, 0.1, 0)),
+         density = c(1:100))) %>%
+  mutate(pid = row_number(),
+         ration = if_else(patch == "warm", ration_warm, ration_cold))
+# fish_pop
+
+# for example, competition more intense in warm habitat
+fish_pop <- fncDensityRation_ld(fish_pop, R_warm, R_cold)
+fish_pop %>%
+  ggplot(aes(x = density, y = ration, color = patch)) +
+  geom_line() +
+  scale_color_manual(values = c("warm" = 2, "cold" = 4)) +
+  theme_bw() +
+  xlab("Fish density") +
+  ylab("Ration")
 ```

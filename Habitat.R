@@ -9,13 +9,19 @@ library(ggpubr)
 library(egg)
 
 
-# Set seed for reproducibility
-set.seed(123)
+nyears_burnin <- 20
+nyears_experiment <- 20
 
-# 1. Create a date range (1 year)
-dates <- seq(as.Date("2001-05-01"), as.Date("2020-12-31"), by="day")
+mindate <- as.Date("2001-05-01")
+maxdate <- mindate + years(nyears_burnin) + years(nyears_experiment)
+
+dates <- seq(mindate, maxdate, by="day")
 n <- length(dates)
 doy <- as.numeric(format(dates, "%j")) # Day of year
+
+
+# Set seed for reproducibility
+set.seed(123)
 
 # 2. Simulate Stream Temperature (Sine wave + Noise)
 # Parameters: Midpoint, Amplitude, Offset
@@ -71,84 +77,117 @@ get_patchtemp <- function(t, patch) {
 }
 
 
-# define habitat specific ration size
-ration_cold <- 0.10
-ration_warm <- 0.10
+# --- Maximum proportion of maximum consumption ---
+pcmax_warm_val <- 0.5
+pcmax_cold_val <- 0.5
 
-# define random variation in ration size
-ration_sd <- 0.00 # no variation for simplicity
+# --- Patch area (arbitrary units; keep at 1.0 to preserve default behaviour) ---
+A_warm_val <- 1.0
+A_cold_val <- 1.0
 
-# function to generate patch food availability at time t (stochastic)
-patch_food <- function(patch) {
-  if (patch == "warm") {
-    max(0, min(1, rnorm(1, ration_warm, ration_sd)))
-  } else {
-    max(0, min(1, rnorm(1, ration_cold, ration_sd)))
+# --- Half-saturation density for hyperbolic ration reduction ---
+# Competitor density (fish per unit area) at which ration is halved
+K_warm_val <- 500
+K_cold_val <- 500
+
+# --- Maximum daily survival probability (size-based survival ceiling) ---
+S_max_warm_val <- 0.9994
+S_max_cold_val <- 0.9994
+
+# Append as time-invariant columns (replace with time-varying vectors to simulate change)
+habitat_df <- habitat_df %>%
+  mutate(
+    pcmax_warm = pcmax_warm_val,
+    pcmax_cold = pcmax_cold_val,
+    A_warm     = A_warm_val,
+    A_cold     = A_cold_val,
+    K_warm     = K_warm_val,
+    K_cold     = K_cold_val,
+    S_max_warm = S_max_warm_val,
+    S_max_cold = S_max_cold_val
+  )
+
+
+# First row of the experiment period
+exp_start_date <- mindate + lubridate::years(nyears_burnin)
+d_exp_start    <- which(habitat_df$date == exp_start_date)
+
+# --- Target values for each parameter (NA = no change) ---
+pcmax_warm_target  <- NA
+pcmax_cold_target  <- NA
+A_warm_target      <- 2
+A_cold_target      <- 0
+K_warm_target      <- NA
+K_cold_target      <- NA
+S_max_warm_target  <- NA
+S_max_cold_target  <- NA
+
+# --- Transition: 0 = step change; > 0 = linear ramp over this many years ---
+ramp_years <- nyears_experiment
+
+# Linearly ramps col from its end-of-burn-in value to target_val over ramp_yrs years,
+# then holds target_val for the remainder of the experiment period.
+apply_ramp <- function(col, d_start, target_val, ramp_yrs) {
+  baseline  <- col[d_start - 1]
+  n_ramp    <- max(round(ramp_yrs * 365.25), 1)  # min 1 to avoid /0
+  exp_idx   <- d_start:length(col)
+  ramp_frac <- pmin(seq_along(exp_idx) / n_ramp, 1)
+  col[exp_idx] <- baseline + (target_val - baseline) * ramp_frac
+  col
+}
+
+params_to_change <- list(
+  pcmax_warm = pcmax_warm_target,
+  pcmax_cold = pcmax_cold_target,
+  A_warm     = A_warm_target,
+  A_cold     = A_cold_target,
+  K_warm     = K_warm_target,
+  K_cold     = K_cold_target,
+  S_max_warm = S_max_warm_target,
+  S_max_cold = S_max_cold_target
+)
+
+for (param in names(params_to_change)) {
+  target <- params_to_change[[param]]
+  if (!is.na(target)) {
+    habitat_df[[param]] <- apply_ramp(habitat_df[[param]], d_exp_start, target, ramp_years)
   }
 }
 
-# define food in habitat tibble
-habitat_df <- habitat_df %>% 
-  mutate(ration_warm = replicate(n = dim(.)[1], patch_food("warm")),
-         ration_cold = replicate(n = dim(.)[1], patch_food("cold")))
 
-# plot ration size
-habitat_df %>% ggplot() + 
-  geom_line(aes(x = date, y = ration_warm), color = "red") +
-  geom_line(aes(x = date, y = ration_cold), color = "blue") +
-  theme_bw() + 
-  xlab("Date") + 
-  ylab("Simulated daily ration size")
-
-
-# function to retrieve ration in patch = patch and at doy/time = t
-get_patchration <- function(t, patch) {
-  if (patch == "warm") {
-    habitat_df$ration_warm[habitat_df$dayofsim == t]
-  } else {
-    habitat_df$ration_cold[habitat_df$dayofsim == t]
-  }
-}
-
-
-# define habitat specific ration size
-pcmax_cold <- 0.5
-pcmax_warm <- 0.5
-
-# define random variation in ration size
-pcmax_sd <- 0.00 # no variation for simplicity
-
-# function to generate patch food availability at time t (stochastic)
-patch_pcmax <- function(patch) {
-  if (patch == "warm") {
-    max(0, min(1, rnorm(1, pcmax_warm, ration_sd)))
-  } else {
-    max(0, min(1, rnorm(1, pcmax_cold, ration_sd)))
-  }
-}
-
-# define food in habitat tibble
-habitat_df <- habitat_df %>% 
-  mutate(pcmax_warm = replicate(n = dim(.)[1], patch_pcmax("warm")),
-         pcmax_cold = replicate(n = dim(.)[1], patch_pcmax("cold")))
-
-# plot ration size
-habitat_df %>% ggplot() + 
+p1 <- habitat_df %>% ggplot() +
+  geom_vline(xintercept = exp_start_date, linetype = "dashed", color = "grey40") +
   geom_line(aes(x = date, y = pcmax_warm), color = "red") +
   geom_line(aes(x = date, y = pcmax_cold), color = "blue") +
-  theme_bw() + 
-  xlab("Date") + 
-  ylab("Simulated daily P_Cmax")
+  theme_bw() +
+  xlab("Date") +
+  ylab("Maximum P_Cmax")
 
+p2 <- habitat_df %>% ggplot() +
+  geom_vline(xintercept = exp_start_date, linetype = "dashed", color = "grey40") +
+  geom_line(aes(x = date, y = A_warm), color = "red") +
+  geom_line(aes(x = date, y = A_cold), color = "blue") +
+  theme_bw() +
+  xlab("Date") +
+  ylab("Patch area (unitless)")
 
-# function to retrieve ration in patch = patch and at doy/time = t
-get_patchpcmax <- function(t, patch) {
-  if (patch == "warm") {
-    habitat_df$pcmax_warm[habitat_df$dayofsim == t]
-  } else {
-    habitat_df$pcmax_cold[habitat_df$dayofsim == t]
-  }
-}
+p3 <- habitat_df %>% ggplot() +
+  geom_vline(xintercept = exp_start_date, linetype = "dashed", color = "grey40") +
+  geom_line(aes(x = date, y = K_warm), color = "red") +
+  geom_line(aes(x = date, y = K_cold), color = "blue") +
+  theme_bw() +
+  xlab("Date") +
+  ylab("Strength of density-dependence\n(half-saturation density)")
+
+p4 <- habitat_df %>% ggplot() +
+  geom_vline(xintercept = exp_start_date, linetype = "dashed", color = "grey40") +
+  geom_line(aes(x = date, y = S_max_warm), color = "red") +
+  geom_line(aes(x = date, y = S_max_cold), color = "blue") +
+  theme_bw() +
+  xlab("Date") +
+  ylab("Maximum probability of survival")
+
+egg::ggarrange(p1, p2, p3, p4, nrow = 2, ncol = 2)
 
 
 str(habitat_df)

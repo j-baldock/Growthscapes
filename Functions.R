@@ -1,5 +1,5 @@
 #' ---
-#' title: Functions
+#' title: Mechanistic Functions
 #' ---
 #' 
 
@@ -473,7 +473,7 @@ return(Results)
 # PIDs: vector of fish IDs, or NA for all fish
 # fish: data frame with columns pid, weight, ration, patch ("warm" or "cold")
 # t: current day of year
-fncGrowthFish <- function(PIDs = NA, fish, t) {
+fncGrowthFish <- function(PIDs = NA, fish, T_warm, T_cold) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
@@ -492,7 +492,7 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
     growth <- watemp <- vector(length = n)
     
     for (x in 1:n) {
-      temp     <- get_patchtemp(t, td[x, "patch"])           # temperature at fish's current patch
+      temp     <- if (td[x, "patch"] == "warm") T_warm else T_cold  # temperature at fish's current patch
       wt.idx   <- which.min(abs(wt.seq - temp))              # nearest water temperature index
       ra.idx   <- which.min(abs(ra.seq - td[x, "ration"]))   # nearest ration index
       ma.idx   <- which.min(abs(ma.seq - td[x, "weight"]))   # nearest mass index
@@ -505,8 +505,7 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
       weight   = td[, "weight"],
       ration   = td[, "ration"],
       patch    = td[, "patch"],
-      WT.actual = sapply(td[, "patch"], function(p) 
-        temp(t, p)),
+      WT.actual = ifelse(td[, "patch"] == "warm", T_warm, T_cold),
       WT       = watemp,
       growth   = growth
     )
@@ -520,9 +519,9 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
 
 
 # fweight: fish mass in grams
-# t: current day of year
+# T_warm, T_cold: current water temperatures (°C) in each patch
 # ration_warm, ration_cold: ration sizes available in each patch
-fncGrowthPossible <- function(fweight, t, ration_warm, ration_cold) {
+fncGrowthPossible <- function(fweight, T_warm, T_cold, ration_warm, ration_cold) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
@@ -533,24 +532,24 @@ fncGrowthPossible <- function(fweight, t, ration_warm, ration_cold) {
   ma.idx <- which.min(abs(ma.seq - fw))
 
   patches <- c("warm", "cold")
+  temps   <- c(T_warm, T_cold)
   rations <- c(ration_warm, ration_cold)
   growth  <- watemp <- vector(length = 2)
   
   for (x in 1:2) {
-    temp      <- get_patchtemp(t, patches[x])
-    wt.idx    <- which.min(abs(wt.seq - temp))
+    wt.idx    <- which.min(abs(wt.seq - temps[x]))
     ra.idx    <- which.min(abs(ra.seq - rations[x]))
     growth[x] <- wt.growth[wt.idx, ra.idx, ma.idx]
     watemp[x] <- wt.seq[wt.idx]
   }
   
   lookup <- data.frame(
-    patch    = patches,
-    weight   = rep(fweight, 2),
-    ration   = rations,
-    WT.actual = c(get_patchtemp(t, "warm"), get_patchtemp(t, "cold")),
-    WT       = watemp,
-    growth   = growth
+    patch     = patches,
+    weight    = rep(fweight, 2),
+    ration    = rations,
+    WT.actual = c(T_warm, T_cold),
+    WT        = watemp,
+    growth    = growth
   )
   
   best_patch <- patches[which.max(growth)]
@@ -575,9 +574,6 @@ fncTempDepend <- function(temp) {
 }
 
 
-mytemps <- seq(from = 0.1, to = 25, by = 0.1)
-plot(fncTempDepend(temp = mytemps) ~ mytemps, type = "l", ylim = c(0,1), xlab = "Temperature (deg. C)", ylab = "f(T)", main = "Temperature dependence model 3")
-
 
 fncAllomCmax <- function(weight) {
   # get bioenergetics constants
@@ -587,21 +583,6 @@ fncAllomCmax <- function(weight) {
 } 
 
 
-myweights <- seq(from = 0.5, to = 1000, by = 1)
-mycmax <- fncAllomCmax(weight = myweights)
-
-par(mfrow = c(1,2), mar = c(4.5,4.5,1,1))
-plot(mycmax ~ myweights, type = 'l', ylab = "Cmax (g/g/d)", xlab = "Fish mass (g)", ylim = c(0, max(mycmax)))
-plot(mycmax*myweights ~ myweights, type = 'l', ylab = "Cmax (g/d)", xlab = "Fish mass (g)")
-
-
-par(mar = c(4.5,4.5,1,1))
-# O. mykiss adults: Railsback and Rose 1999
-plot(0.628*(myweights^-0.3) ~ myweights, type = 'l', ylab = "Cmax (g/g/d)", xlab = "Fish mass (g)", ylim = c(0, max(mycmax)))
-# O. mykiss juveniles: Tyler and Bolduc 2008
-lines(0.178*(myweights^-0.297) ~ myweights, type = 'l', lty = 2)
-legend("topright", legend = c("Adults (Railsback and Rose 1999)", "Juveniles (Tyler and Bolduc 2008)"),
-       lty = c(1,2), bty = "n", cex = 0.9, y.intersp = 2)
 
 
 fncMoveSoftmax <- function(gwarm, gcold, tau = 0.001) {
@@ -609,120 +590,6 @@ fncMoveSoftmax <- function(gwarm, gcold, tau = 0.001) {
 }
 
 
-# Softmax: P(warm) = exp(g_warm/tau) / (exp(g_warm/tau) + exp(g_cold/tau))
-# Equivalently: sigmoid of (g_warm - g_cold) / tau
-tau_vals <- c(0.001, 0.003, 0.005, 0.01, 0.025)
-
-g_diff_seq <- seq(-0.03, 0.03, length.out = 400)
-
-softmax_df <- map_dfr(tau_vals, function(tau) {
-  tibble(
-    g_diff = g_diff_seq,
-    p_warm = 1 / (1 + exp(-g_diff / tau)),
-    tau_lab = paste0("τ = ", tau)
-  )
-}) |>
-  mutate(tau_lab = factor(tau_lab, levels = paste0("τ = ", tau_vals)))
-
-# Observed g_diff range from the earlier gdiff_df (pooled across weights)
-obs_range <- c(-0.02395578, 0.00791707)
-
-ggplot(softmax_df, aes(x = g_diff, y = p_warm, color = tau_lab)) +
-  # Shade the observed g_diff range from the simulation
-  annotate("rect",
-           xmin = obs_range[1], xmax = obs_range[2],
-           ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  annotate("text", x = mean(obs_range), y = 0.9,
-           label = "Observed\ng_diff range", size = 3, color = "grey40",
-           hjust = 0.5) +
-  geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey50") +
-  geom_vline(xintercept = 0,   linetype = "dashed", color = "grey50") +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "RdYlBu", direction = -1) +
-  scale_y_continuous(labels = scales::percent_format(),
-                     breaks = seq(0, 1, 0.25)) +
-  scale_x_continuous(labels = scales::label_number(accuracy = 0.01)) +
-  annotate("text", x =  0.028, y = 0.58, label = "warm\nbetter", size = 3,
-           color = "grey40", hjust = 1) +
-  annotate("text", x = -0.028, y = 0.58, label = "cold\nbetter", size = 3,
-           color = "grey40", hjust = 0) +
-  labs(
-    x     = "g_warm − g_cold  (g/g/d)",
-    y     = "P(choose warm patch)",
-    color = "Sensitivity (τ)",
-    title = "Softmax patch selection probability",
-    subtitle = "Grey band = observed growth difference range in simulation"
-  ) +
-  theme_bw()
-
-
-
-rations <- seq(0.02, 0.17, 0.001)
-waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
-
-wt_seq_ibm <- waterTemps[, "WT"]  # seq(0.1, 25, 0.1), 250 values       
-ra_seq_ibm <- rations             # seq(0.02, 0.17, 0.001), 151 values
-
-
-# ── 1. Daily g_move − g_stay across the season ─────────────────────────────────
-# Computed at representative masses (start, mid, end-of-season)
-rep_weights <- c(10, 50, 150)
-
-gdiff_df <- map_dfr(rep_weights, function(w) {
-  ma_idx <- pmax(1L, pmin(4500L, round(w)))
-  map_dfr(seq_len(nrow(habitat_df)), function(d) {
-    t           <- habitat_df$doy[d]
-    T_warm      <- get_patchtemp(t, "warm")
-    T_cold      <- get_patchtemp(t, "cold")
-    R_warm      <- get_patchration(t, "warm")
-    R_cold      <- get_patchration(t, "cold")
-    wt_idx_warm <- which.min(abs(wt_seq_ibm - T_warm))
-    wt_idx_cold <- which.min(abs(wt_seq_ibm - T_cold))
-    ra_idx_warm <- which.min(abs(ra_seq_ibm - R_warm))
-    ra_idx_cold <- which.min(abs(ra_seq_ibm - R_cold))
-    g_warm <- wt.growth[wt_idx_warm, ra_idx_warm, ma_idx]
-    g_cold <- wt.growth[wt_idx_cold, ra_idx_cold, ma_idx]
-    tibble(date = habitat_df$date[d], g_diff = g_warm - g_cold, weight = w)
-  })
-}) |>
-  mutate(weight_lab = paste0(weight, " g fish"))
-
-# ── 2. move_threshold distribution for several sigma_bold candidates ────────────
-sigma_candidates <- c(0.001, 0.003, 0.005, 0.01)
-thresh_df <- map_dfr(sigma_candidates, function(s) {
-  tibble(
-    move_threshold = rnorm(5000, mean = 0, sd = s),
-    sigma_lab = paste0("σ = ", s)
-  )
-}) |>
-  mutate(sigma_lab = factor(sigma_lab, levels = paste0("σ = ", sigma_candidates)))
-
-# ── 3. Plot ────────────────────────────────────────────────────────────────────
-# Panel A: g_diff over time
-p_time <- ggplot(gdiff_df, aes(x = date, y = g_diff, color = factor(weight))) +
-  geom_line(linewidth = 0.8) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  scale_color_brewer(palette = "Dark2") +
-  labs(x = "Date", y = "g_warm − g_cold (g/g/d)",
-       color = "Fish weight (g)", title = "A: Daily growth advantage of warm over cold patch")
-
-# Panel B: distribution of g_diff vs move_threshold candidates
-p_dist <- ggplot() +
-  # Shaded density of g_diff (pooled across weights — the "signal")
-  geom_density(data = gdiff_df, aes(x = g_diff, fill = "Patch growth\nadvantage"),
-               alpha = 0.3, color = NA) +
-  # move_threshold distributions for each sigma
-  geom_density(data = thresh_df, aes(x = move_threshold, color = sigma_lab),
-               linewidth = 0.85) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
-  scale_fill_manual(values = "steelblue") +
-  scale_color_brewer(palette = "Reds", direction = 1) +
-  labs(x = "g/g/d", y = "Density",
-       fill = NULL, color = "Threshold SD (σ)",
-       title = "B: Threshold distribution vs. actual growth advantage")
-
-cowplot::plot_grid(p_time, p_dist, ncol = 1, rel_heights = c(1, 1.1))
 
 
 fncMoveCost <- function(gr = fish$growth) {
@@ -745,356 +612,10 @@ fncMoveCost_allometric <- function(w, c = 0.025, b = 0.75) {
 }
 
 
-w_seq <- seq(0.1, 150, by = 0.1)
-
-cost_df <- tibble(weight = w_seq) |>
-  mutate(
-    `Option 1: Power (c=0.025, a=1)`          = fncMoveCost_power(weight),
-    `Option 2: Logistic (cmax=0.05, w50=2)`   = fncMoveCost_logistic(weight),
-    `Option 3: Allometric (c=0.025, b=0.75)`   = fncMoveCost_allometric(weight)
-  ) |>
-  pivot_longer(-weight, names_to = "option", values_to = "cost")
-
-# Reference lines: max observed |g_diff| and typical patch advantage range
-# g_ref <- gdiff_df |> summarise(
-#   max_adv = max(abs(g_diff)),
-#   p75_adv = quantile(abs(g_diff[g_diff != 0]), 0.75)
-# )
-
-p1 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
-  # Shade <1g region (essentially immobile zone)
-  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
-           size = 2.8, color = "grey40", hjust = 0.5) +
-  # Reference lines for typical patch growth differences
-  # geom_hline(yintercept = g_ref$max_adv,  linetype = "dashed", color = "grey40") +
-  # geom_hline(yintercept = g_ref$p75_adv,  linetype = "dotted", color = "grey40") +
-  # annotate("text", x = 148, y = g_ref$max_adv + 0.002,
-  #          label = "Max |g_diff|", size = 3, hjust = 1, color = "grey40") +
-  # annotate("text", x = 148, y = g_ref$p75_adv + 0.002,
-  #          label = "75th pctile |g_diff|", size = 3, hjust = 1, color = "grey40") +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "Dark2") +
-  scale_y_continuous(limits = c(0, 0.1)) +
-  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
-  labs(
-    x     = "Fish weight (g)",
-    y     = "Movement cost (g/g/d)",
-    color = NULL,
-    title = "Size-dependent movement cost functions",
-    subtitle = "Cost must exceed patch growth difference to prevent movement"
-  ) +
-  theme(legend.position = "bottom") +
-  guides(color = guide_legend(ncol = 1))
-
-
-p2 <- p1 + xlim(0, 5)
-
-fig <- ggpubr::ggarrange(
-  p1 + labs(title = NULL, subtitle = NULL),
-  p2 + labs(title = NULL, subtitle = NULL),
-  nrow = 1, common.legend = TRUE, legend = "bottom"
-)
-
-ggpubr::annotate_figure(
-  ggpubr::annotate_figure(fig,
-    top = ggpubr::text_grob(
-      "Cost must exceed patch growth difference to prevent movement",
-      size = 10, color = "grey40"
-    )
-  ),
-  top = ggpubr::text_grob(
-    "Size-dependent movement cost functions",
-    face = "bold", size = 13
-  )
-)
-
-
-w_seq <- seq(0.1, 150, by = 0.1)
-
-# variable a
-cost_df <- tibble(weight = w_seq) |>
-  mutate(
-    `Option 1: Power (c=0.025, a=1)`   = fncMoveCost_power(weight, c=0.025, a=1),
-    `Option 2: Power (c=0.025, a=1.5)`   = fncMoveCost_power(weight, c=0.025, a=1.5),
-    `Option 3: Power (c=0.025, a=2)`   = fncMoveCost_power(weight, c=0.025, a=2)
-  ) |>
-  pivot_longer(-weight, names_to = "option", values_to = "cost")
-
-p1 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
-  # Shade <1g region (essentially immobile zone)
-  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
-           size = 2.8, color = "grey40", hjust = 0.5) +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "Dark2") +
-  scale_y_continuous(limits = c(0, 0.1)) +
-  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
-  labs(
-    x     = "Fish weight (g)",
-    y     = "Movement cost (g/g/d)",
-    color = NULL,
-    title = "Variable a: decay exponent",
-    subtitle = "Changes how quickly movement costs decay with size"
-  ) +
-  theme(legend.position = "bottom") +
-  guides(color = guide_legend(ncol = 1))
-p1 <- p1 + xlim(0, 5)
-
-# variable c
-cost_df <- tibble(weight = w_seq) |>
-  mutate(
-    `Option 1: Power (c=0.025, a=1)`   = fncMoveCost_power(weight, c=0.025, a=1),
-    `Option 2: Power (c=0.05, a=1)`   = fncMoveCost_power(weight, c=0.05, a=1),
-    `Option 3: Power (c=0.1, a=1)`   = fncMoveCost_power(weight, c=0.1, a=1)
-  ) |>
-  pivot_longer(-weight, names_to = "option", values_to = "cost")
-
-p2 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
-  # Shade <1g region (essentially immobile zone)
-  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
-           size = 2.8, color = "grey40", hjust = 0.5) +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "Dark2") +
-  scale_y_continuous(limits = c(0, 0.1)) +
-  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
-  labs(
-    x     = "Fish weight (g)",
-    y     = "Movement cost (g/g/d)",
-    color = NULL,
-    title = "Variable c: scaling constant",
-    subtitle = "Changes the size of the immobile zone"
-  ) +
-  theme(legend.position = "bottom") +
-  guides(color = guide_legend(ncol = 1))
-p2 <- p2 + xlim(0, 5)
-
-
-ggpubr::ggarrange(
-  p1, p2,
-  nrow = 1
-)
 
 
 
-w_seq <- seq(0.1, 150, by = 0.1)
 
-# variable a
-cost_df <- tibble(weight = w_seq) |>
-  mutate(
-    `Option 1: Allometric (c=0.025, b=0.75)`   = fncMoveCost_allometric(weight, c=0.025, b=0.75),
-    `Option 2: Allometric (c=0.025, b=0.50)`   = fncMoveCost_allometric(weight, c=0.025, b=0.50),
-    `Option 3: Allometric (c=0.025, b=0.25)`   = fncMoveCost_allometric(weight, c=0.025, b=0.25)
-  ) |>
-  pivot_longer(-weight, names_to = "option", values_to = "cost")
-
-p1 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
-  # Shade <1g region (essentially immobile zone)
-  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
-           size = 2.8, color = "grey40", hjust = 0.5) +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "Dark2") +
-  scale_y_continuous(limits = c(0, 0.1)) +
-  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
-  labs(
-    x     = "Fish weight (g)",
-    y     = "Movement cost (g/g/d)",
-    color = NULL,
-    title = "Variable b: metabolic exponent",
-    subtitle = "Changes how quickly costs decay w/ size"
-  ) +
-  theme(legend.position = "bottom") +
-  guides(color = guide_legend(ncol = 1))
-p1 <- p1 + xlim(0, 5)
-
-# variable c
-cost_df <- tibble(weight = w_seq) |>
-  mutate(
-    `Option 1: Allometric (c=0.025, b=0.75)`   = fncMoveCost_allometric(weight, c=0.025, b=0.75),
-    `Option 2: Allometric (c=0.05, b=0.75)`   = fncMoveCost_allometric(weight, c=0.05, b=0.75),
-    `Option 3: Allometric (c=0.1, b=0.75)`   = fncMoveCost_allometric(weight, c=0.1, b=0.75)
-  ) |>
-  pivot_longer(-weight, names_to = "option", values_to = "cost")
-
-p2 <- ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
-  # Shade <1g region (essentially immobile zone)
-  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
-           size = 2.8, color = "grey40", hjust = 0.5) +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "Dark2") +
-  scale_y_continuous(limits = c(0, 0.1)) +
-  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
-  labs(
-    x     = "Fish weight (g)",
-    y     = "Movement cost (g/g/d)",
-    color = NULL,
-    title = "Variable c: scaling constant",
-    subtitle = "Changes the ~size of the immobile zone"
-  ) +
-  theme(legend.position = "bottom") +
-  guides(color = guide_legend(ncol = 1))
-p2 <- p2 + xlim(0, 5)
-
-
-ggpubr::ggarrange(
-  p1, p2,
-  nrow = 1
-)
-
-
-
-cost_df <- tibble(weight = w_seq) |>
-  mutate(
-    `Allometric (c=0.025, b=0.6)`   = fncMoveCost_allometric(weight, c=0.025, b=0.6)
-  ) |>
-  pivot_longer(-weight, names_to = "option", values_to = "cost")
-
-ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
-  # Shade <1g region (essentially immobile zone)
-  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  # annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
-  #          size = 2.8, color = "grey40", hjust = 0.5) +
-  geom_line(linewidth = 0.9) +
-  scale_color_brewer(palette = "Dark2") +
-  scale_y_continuous(limits = c(0, 0.065)) +
-  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
-  labs(
-    x     = "Fish weight (g)",
-    y     = "Movement cost (g/g/d)",
-    color = NULL
-  ) +
-  theme(legend.position = "bottom") +
-  guides(color = guide_legend(ncol = 1))
-
-
-rations <- seq(0.02, 0.17, 0.001)
-waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
-
-wt_seq_ibm <- waterTemps[, "WT"]  # seq(0.1, 25, 0.1), 250 values       
-ra_seq_ibm <- rations             # seq(0.02, 0.17, 0.001), 151 values
-
-sizes <- c(0.5, 1.0, 2.0)
-
-growth_diff_df <- habitat_df |>
-  filter(dayofsim <= 200) |>
-  select(date, dayofsim, temp_warm, temp_cold, pcmax_warm, pcmax_cold) |>
-  crossing(weight = sizes) |>
-  rowwise() |>
-  mutate(
-    wt_idx_w  = which.min(abs(wt_seq_ibm - temp_warm)),
-    wt_idx_c  = which.min(abs(wt_seq_ibm - temp_cold)),
-    pcmax_w   = min(fncTempDepend(temp_warm), pcmax_warm),
-    pcmax_c   = min(fncTempDepend(temp_cold), pcmax_cold),
-    cmax      = fncAllomCmax(weight),
-    ra_idx_w  = pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - cmax * pcmax_w)))),
-    ra_idx_c  = pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - cmax * pcmax_c)))),
-    ma_idx    = pmax(1L, pmin(4500L, round(weight + 1e-9))),  # avoid banker's rounding at 0.5
-    g_warm    = wt.growth[wt_idx_w, ra_idx_w, ma_idx],
-    g_cold    = wt.growth[wt_idx_c, ra_idx_c, ma_idx],
-    move_cost = fncMoveCost_allometric(weight, c = 0.1, b = 0.3),
-    `Cold → Warm` = g_warm - g_cold,
-    `Warm → Cold` = g_cold - g_warm
-  ) |>
-  ungroup()
-
-
-# Parameter combinations to evaluate
-param_grid <- tribble(
-  ~c_val, ~b_val, ~label,
-  0.025,  0.60,  "c=0.025, b=0.60 (current)",
-  0.050,  0.60,  "c=0.050, b=0.60",
-  0.100,  0.60,  "c=0.100, b=0.60",
-  0.050,  0.40,  "c=0.050, b=0.40",
-  0.100,  0.40,  "c=0.100, b=0.40"
-)
-
-# Cost threshold for each (weight × param combo)
-cost_grid <- param_grid |>
-  crossing(weight = c(0.5, 1.0, 2.0)) |>
-  mutate(
-    move_cost = fncMoveCost_allometric(weight, c = c_val, b = b_val),
-    size_lab  = paste0(weight, " g fish")
-  )
-
-# Growth difference data (already computed)
-gdiff_long <- growth_diff_df |>
-  mutate(size_lab = paste0(weight, " g fish")) |>
-  pivot_longer(c(`Cold → Warm`, `Warm → Cold`),
-               names_to = "direction", values_to = "g_diff")
-
-ggplot() +
-  geom_line(data = gdiff_long,
-            aes(x = date, y = g_diff, color = direction), linewidth = 0.8) +
-  geom_hline(data = cost_grid,
-             aes(yintercept = move_cost, linetype = label),
-             linewidth = 0.7, color = "black") +
-  geom_hline(yintercept = 0, color = "grey60", linewidth = 0.3) +
-  facet_wrap(~size_lab, nrow = 1) +
-  scale_color_manual(values = c("Cold → Warm" = "#d95f02", "Warm → Cold" = "#1f78b4")) +
-  scale_linetype_manual(
-    values = c(
-      "c=0.025, b=0.60 (current)" = "solid",
-      "c=0.050, b=0.60"           = "longdash",
-      "c=0.100, b=0.60"           = "dashed",
-      "c=0.050, b=0.40"           = "dotdash",
-      "c=0.100, b=0.40"           = "dotted"
-    )
-  ) +
-  labs(
-    x = NULL, y = "Growth difference (g/g/d)",
-    color    = "Movement direction",
-    linetype = "Movement cost parameters",
-    title    = "Growth potential difference vs. movement cost — parameter sensitivity",
-    subtitle = "Fish should move when the coloured line exceeds the cost threshold (black)"
-  ) +
-  theme_bw() +
-  theme(panel.grid.minor  = element_blank(),
-        legend.position   = "bottom",
-        legend.box        = "vertical")
-
-
-cost_df <- tibble(weight = w_seq) |>
-  mutate(
-    `Allometric (c=0.100, b=0.3)`   = fncMoveCost_allometric(weight, c=0.1, b=0.3),
-    `Allometric (c=0.100, b=0.4)`   = fncMoveCost_allometric(weight, c=0.1, b=0.4),
-    `Allometric (c=0.025, b=0.6)`   = fncMoveCost_allometric(weight, c=0.025, b=0.6)
-  ) |>
-  pivot_longer(-weight, names_to = "option", values_to = "cost")
-
-ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
-  # Shade <1g region (essentially immobile zone)
-  annotate("rect", xmin = 0, xmax = 1, ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.6) +
-  # annotate("text", x = 0.5, y = 0.095, label = "<1g\nimmobile\nzone",
-  #          size = 2.8, color = "grey40", hjust = 0.5) +
-  geom_line(linewidth = 0.9) +
-  scale_y_log10() + 
-  scale_color_brewer(palette = "Dark2") +
-  # scale_y_continuous(limits = c(0, 0.065)) +
-  scale_x_continuous(breaks = c(1, 10, 25, 50, 100, 150)) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "grey50") +
-  labs(
-    x     = "Fish weight (g)",
-    y     = "Movement cost (g/g/d)",
-    color = NULL
-  ) +
-  theme(legend.position = "bottom") +
-  guides(color = guide_legend(ncol = 1))
 
 
 fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50,
@@ -1111,24 +632,6 @@ fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50,
     select(-A_patch, -k, -eff_density)
 }
 
-
-expand.grid(
-  density = 1:200,
-  k       = c(10, 25, 50, 100, 200)
-) %>%
-  mutate(
-    dd_scalar = 1 * k / (k + density-1),
-    k_lab  = factor(paste0("k = ", k), levels = paste0("k = ", sort(unique(k))))
-  ) %>%
-  ggplot(aes(x = density, y = dd_scalar, color = k_lab)) +
-  geom_line() +
-  labs(
-    x     = "Fish density (N per patch)",
-    y     = "P_Cmax scalar",
-    color = "Half-saturation\ndensity (k)",
-    title = "Density-dependent consumption reduction",
-    caption = "Dashed line = baseline P_Cmax (no density effect)"
-  )
 
 
 # Dominance-weighted effective density for a vector of fish weights within a patch.
@@ -1147,76 +650,6 @@ fncEffDensity <- function(weights, beta = 1) {
 }
 
 
-set.seed(8823)
-n_fish_demo <- 60
-weights_demo <- c(
-  rlnorm(45, meanlog = log(2),  sdlog = 0.5),
-  rlnorm(15, meanlog = log(12), sdlog = 0.4)
-)
-# weights_demo <- seq(0.5, 50, length.out = n_fish_demo)
-# weights_demo <- c(seq(1,5,length.out = 30),seq(21,25,length.out = 30))
-
-beta_vals_demo <- c(0, 0.5, 1, Inf)
-
-map_dfr(beta_vals_demo, function(b) {
-  tibble(
-    weight      = weights_demo,
-    eff_density = fncEffDensity(weights_demo, beta = b),
-    beta_lab    = factor(paste0("β = ", b),
-                         levels = paste0("β = ", beta_vals_demo))
-  )
-}) |>
-  ggplot(aes(x = weight, y = eff_density)) +
-  geom_hline(yintercept = n_fish_demo, linetype = "dashed", color = "grey60") +
-  geom_point(alpha = 0.55, size = 1.8) +
-  facet_wrap(~beta_lab, nrow = 1) +
-  labs(
-    x       = "Body weight (g)",
-    y       = "Effective density",
-    title   = "Dominance-weighted effective density by body size",
-    caption = paste0(
-      "Dashed line = raw patch abundance (N = ", n_fish_demo, "). ",
-      "β = 0 recovers pure scramble; larger β strengthens dominance asymmetry."
-    )
-  ) +
-  theme_bw()
-
-
-K_vals_demo   <- c(50, 100, 500, 1000)
-beta_show     <- c(0, 0.5, 1, Inf)
-
-expand.grid(K = K_vals_demo, beta = beta_show) |>
-  as_tibble() |>
-  mutate(data = map2(K, beta, function(K, b) {
-    ed <- fncEffDensity(weights_demo, beta = b)
-    tibble(
-      weight    = weights_demo,
-      dd_scalar = K / (K + ed - 1),
-      scramble  = K / (K + n_fish_demo - 1)
-    )
-  })) |>
-  unnest(data) |>
-  mutate(
-    K_lab    = factor(paste0("K = ", K),    levels = paste0("K = ", K_vals_demo)),
-    beta_lab = factor(paste0("β = ", beta), levels = paste0("β = ", beta_show))
-  ) |>
-  ggplot(aes(x = weight, y = dd_scalar, color = beta_lab)) +
-  geom_hline(aes(yintercept = scramble), linetype = "dashed", color = "grey60") +
-  geom_point(alpha = 0.45, size = 1.3) +
-  facet_wrap(~K_lab, nrow = 1) +
-  scale_color_brewer(palette = "Dark2") +
-  labs(
-    x       = "Body weight (g)",
-    y       = "P_Cmax scalar",
-    color   = "β (dominance)",
-    title   = "Realized P_Cmax scalar by body size, K, and β",
-    caption = paste0(
-      "Dashed line = pure-scramble scalar (β = 0) at N = ", n_fish_demo, ". \n",
-      "Spread between dominant and subordinate fish is negligible at K = 1000 ",
-      "but substantial at K = 50–100."
-    )
-  ) +
-  theme_bw() + theme(plot.caption = element_text(hjust = 0))
 
 
 fncSurviveVari <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01){
@@ -1260,128 +693,7 @@ fncSurviveVari <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale
 }
 
 
-df <- expand_grid(
-  weight = seq(from = 0, to = 150, by = 0.1),
-  growth = seq(from = -0.03, to = 0.03, by = 0.005)#,
-  #pvals  = seq(from = 0, to = 1, by = 0.1)
-)
 
-surv.list <- fncSurviveVari(df)
-df <- df %>% mutate(prsurv = surv.list[[1]],
-                    survivors = surv.list[[2]])
-
-p1 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
-  xlim(0,5) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 0-5g", subtitle = "survival increases with fish size")
-
-p2 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
-  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
-
-ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
-
-
-# Compare b_interact values
-df_comp <- expand_grid(
-  weight      = seq(0, 50, by = 0.2),
-  growth      = c(-0.03, 0.03),
-  b_interact  = c(0.01, 0.05, 0.1, 0.5, 1.0)
-) %>%
-  group_by(b_interact) %>%
-  mutate(prsurv = fncSurviveVari(
-    tibble(weight = weight, growth = growth),
-    minprob = 0.96, b = 1, b_interact = unique(b_interact)
-  )[[1]]) %>%
-  ungroup()
-
-p1 <- df_comp %>%
-  filter(growth %in% c(-0.03, 0.03)) %>%
-  mutate(growth_label = ifelse(growth < 0, "Negative growth (−0.03)", "Positive growth (+0.03)")) |>
-  ggplot(aes(x = weight, y = prsurv, color = as_factor(b_interact), linetype = growth_label)) +
-  geom_line(linewidth = 0.7) +
-  theme_bw() +
-  scale_linetype_manual(values = c("dashed", "solid")) +
-  xlab("Fish weight (g)") + ylab("Survival probability") +
-  labs(color = "b_interact", linetype = "Growth", 
-       title = "Effect of b_interact")
-
-p2 <- df_comp %>%
-  filter(growth %in% c(-0.03, 0.03)) %>%
-  mutate(growth_label = ifelse(growth < 0, "Negative growth (−0.03)", "Positive growth (+0.03)")) |>
-  ggplot(aes(x = weight, y = prsurv, color = as_factor(b_interact), linetype = growth_label)) +
-  geom_line(linewidth = 0.7) +
-  theme_bw() +
-  coord_cartesian(ylim = c(0.989, 1)) +
-  scale_linetype_manual(values = c("dashed", "solid")) +
-  xlab("Fish weight (g)") + ylab("Survival probability") +
-  labs(color = "b_interact", linetype = "Growth", 
-       title = "Zoomed in: high surival")
-
-ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
-
-
-df_comp <- expand_grid(
-  weight      = c(0.5, 1, 2, 5, 10, 20, 50),
-  growth      = c(-0.03, 0.03),
-  b_interact  = c(0.01, 0.05, 0.1, 0.5, 1.0)
-) %>%
-  group_by(b_interact) %>%
-  mutate(prsurv = fncSurviveVari(
-    tibble(weight = weight, growth = growth),
-    minprob = 0.96, b = 1, b_interact = unique(b_interact)
-  )[[1]]) %>%
-  ungroup() %>%
-  mutate(seasonal = prsurv^90)
-
-# Focus: survival gap between worst and best growth, by weight and b_interact
-df_gap <- df_comp %>%
-  group_by(weight, b_interact) %>%
-  summarise(
-    seasonal_worst = min(seasonal),
-    seasonal_best  = max(seasonal),
-    gap          = seasonal_best - seasonal_worst
-  ) %>%
-  ungroup()
-
-# plot seasonal survival by growth and weight
-df_comp %>%
-  mutate(
-    growth_label = case_when(
-      growth == -0.03 ~ "Negative (−0.03)",
-      growth ==  0.03 ~ "Positive (+0.03)"
-    ),
-    b_label = paste0("b_interact = ", b_interact)
-  ) %>%
-  ggplot(aes(x = weight, y = seasonal, color = as_factor(b_interact), linetype = growth_label)) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 2) +
-  scale_x_log10(breaks = c(0.5, 1, 2, 5, 10, 20, 50)) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  theme_bw() +
-  xlab("Fish weight (g, log scale)") +
-  ylab("90-day survival") +
-  labs(color = "b_interact",
-       title = "Seasonal survival by growth, weight, and b_interact",
-       subtitle = "Larger b_interact prolongs survival costs of slow growth")
-
-# plot difference between 
-ggplot(df_gap, aes(x = weight, y = gap, color = as_factor(b_interact))) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 2) +
-  scale_x_log10(breaks = c(0.5, 1, 2, 5, 10, 20, 50)) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  theme_bw() +
-  xlab("Fish weight (g, log scale)") +
-  ylab("90-day survival gap\n(best − worst growth)") +
-  labs(color = "b_interact",
-       title = "Seasonal survival gap between the fastest and slowest growing fish",
-       subtitle = "Growth-driven survival gaps are greatest for small (but not the smallest) fish")
 
 
 fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, b = 1){
@@ -1409,52 +721,7 @@ fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, b = 1){
 }
 
 
-myweights <- seq(from = 0, to = 150, by = 0.1)
 
-surv.list <- fncSurviveSize(myweights, b = 1)
-df <- tibble(weight = myweights,
-             prsurv = surv.list[[1]],
-             survivors = surv.list[[2]])
-  
-p1 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv)) +
-  xlim(0,5) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 0-5g", subtitle = "survival increases with fish size")
-
-p2 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv)) +
-  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
-
-ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
-
-
-expand_grid(
-  asymp = c(seq(from = 0.995, to = 0.999, by = 0.001), 0.9995, 0.9999),
-  days = seq(from = 0, to = 2500, by = 100)
-) %>% 
-  mutate(survival = asymp^days) %>%
-  ggplot(aes(x = days/365, y = survival, group = factor(asymp), color = factor(asymp))) +
-  geom_line() + 
-  theme_bw() + xlab("Years") + ylab("Survival probability")
-
-
-tibble(maxprob = seq(from = 0.995, to = 1, by = 0.0001)) %>% mutate(annsurv = maxprob^365) %>%
-  ggplot(aes(x = maxprob, y = annsurv)) + geom_line() + 
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Maximum daily survival probability") + ylab("Annual survival probability") +
-  geom_abline(slope = 0, intercept = 0.54, color = "grey50", linetype = "dashed") + 
-  annotate("text", x = 0.995, y = 0.54+0.03, label = "Bonneville CT (Budy et al., 2007, TAFS)", hjust = 0, color = "grey50") +
-  geom_abline(slope = 0, intercept = 0.6, color = "grey50", linetype = "dashed") + 
-  annotate("text", x = 0.995, y = 0.6+0.03, label = "Bull trout (Al-Chokhachy and Budy, 2008, TAFS)", hjust = 0, color = "grey50") +
-  geom_abline(slope = 0, intercept = 0.34, color = "grey50", linetype = "dashed") + 
-  annotate("text", x = 0.995, y = 0.34+0.03, label = "Brook trout (Kanno et al., 2014, CJFAS)", hjust = 0, color = "grey50") +
-  geom_abline(slope = 0, intercept = 0.41, color = "grey50", linetype = "dashed") + 
-  annotate("text", x = 0.995, y = 0.41+0.03, label = "Yellowstone CT (Uthe et al., 2016, NAJFM)", hjust = 0, color = "grey50")
 
 
 fncSurviveFixed <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale = 0.01, g_range = c(-0.03, 0.03)){
@@ -1498,32 +765,6 @@ fncSurviveFixed <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescal
 }
 
 
-df <- expand_grid(
-  weight = seq(from = 0, to = 150, by = 0.1),
-  growth = seq(from = -0.03, to = 0.03, by = 0.005)#,
-  #pvals  = seq(from = 0, to = 1, by = 0.1)
-)
-
-surv.list <- fncSurviveFixed(df)
-df <- df %>% mutate(prsurv = surv.list[[1]],
-                    survivors = surv.list[[2]])
-
-p1 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
-  xlim(0,5) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 0-5g", subtitle = "survival increases with fish size")
-
-p2 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv, color = as_factor(growth))) +
-  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
-
-ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
-
 
 fncSurviveTemp <- function(temp, T1 = 30, T9 = 25.8) {
   # temp: numeric vector of water temperatures experienced by each fish (e.g., growth_df$WT.actual)
@@ -1535,19 +776,6 @@ fncSurviveTemp <- function(temp, T1 = 30, T9 = 25.8) {
   1 / (1 + exp(k * (temp - T50)))
 }
 
-
-data.frame(temp = seq(15, 35, by = 0.1)) |>
-  dplyr::mutate(p_survive = fncSurviveTemp(temp)) |>
-  ggplot(aes(x = temp, y = p_survive)) +
-  geom_line() +
-  geom_point(data = data.frame(temp = c(25.8, 30), p_survive = c(0.9, 0.1)),
-             size = 3, shape = 21, fill = "white") +
-  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
-  geom_vline(xintercept = c(25.8, 30),  linetype = "dashed", alpha = 0.4) +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Temperature (°C)") + ylab("Daily survival probability") +
-  labs(title = "Temperature-based daily survival",
-       subtitle = "Anchor points: P = 0.9 at 25.8°C, P = 0.1 at 30°C")
 
 
 fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
@@ -1561,63 +789,6 @@ fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
 }
 
 
-data.frame(condition = seq(0, 1, by = 0.01)) |>
-  dplyr::mutate(p_survive = fncSurviveStarve(condition)) |>
-  ggplot(aes(x = condition, y = p_survive)) +
-  geom_line() +
-  geom_point(data = data.frame(condition = c(0.55, 0.45), p_survive = c(0.9, 0.1)),
-             size = 3, shape = 21, fill = "white") +
-  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
-  geom_vline(xintercept = c(0.55, 0.45), linetype = "dashed", alpha = 0.4) +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Relative condition (current weight / peak weight)") + ylab("Daily survival probability") +
-  labs(title = "Condition-based (starvation) daily survival",
-       subtitle = "Anchor points: P = 0.9 at K = 0.75, P = 0.1 at K = 0.50")
-
-
-candidate_params <- list(
-  "Stringent (K9=0.6, K1=0.5)"  = c(K9 = 0.7, K1 = 0.6),
-  "Default (K9=0.5, K1=0.4)" = c(K9 = 0.55, K1 = 0.45),
-  "Lenient (K9=0.4, K1=0.3)"  = c(K9 = 0.4, K1 = 0.3)
-)
-
-curve_df <- purrr::map_dfr(names(candidate_params), function(nm) {
-  p <- candidate_params[[nm]]
-  data.frame(
-    condition  = seq(0, 1, by = 0.01),
-    p_survive  = fncSurviveStarve(seq(0, 1, by = 0.01), K9 = p["K9"], K1 = p["K1"]),
-    params     = nm
-  )
-})
-
-# Observed condition density per strategy (rug-style summary)
-# cond_summary <- condition_long |>
-#   group_by(strategy) |>
-#   summarise(
-#     p05 = quantile(condition, 0.05, na.rm = TRUE),
-#     p25 = quantile(condition, 0.25, na.rm = TRUE),
-#     med = median(condition, na.rm = TRUE),
-#     .groups = "drop"
-#   )
-
-ggplot(curve_df, aes(x = condition, y = p_survive, color = params)) +
-  geom_line(linewidth = 0.9) +
-  # Shade the range of typical cold-resident summer condition
-  annotate("rect", xmin = 0.63, xmax = 0.80, ymin = -Inf, ymax = Inf,
-           fill = "blue", alpha = 0.07) +
-  annotate("text", x = 0.715, y = 0.1, label = "Cold resident\nsummer range",
-           color = "blue", size = 3, hjust = 0.5) +
-  # Mark warm resident crash zone
-  annotate("rect", xmin = 0, xmax = 0.40, ymin = -Inf, ymax = Inf,
-           fill = "red", alpha = 0.07) +
-  annotate("text", x = 0.20, y = 0.1, label = "Warm resident\ncrash zone",
-           color = "red", size = 3, hjust = 0.5) +
-  scale_color_manual(values = c("black", "steelblue", "darkorange")) +
-  theme_bw() + theme(panel.grid = element_blank(), legend.position = "top") +
-  xlab("Relative condition (W / W_peak)") + ylab("Daily survival probability") +
-  labs(title = "Candidate starvation mortality curves",
-       subtitle = "Shaded regions: typical cold-resident summer condition (blue) and warm-resident crash zone (red)",
-       color = NULL)
 
 
 fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99) {
@@ -1634,27 +805,6 @@ fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.9
   p_min + (1 - p_min) * exp(-lambda * excess^k)
 }
 
-
-age_seq <- seq(0, 10, by = 0.05)
-
-data.frame(
-  age      = age_seq,
-  p_daily  = fncSurviveAge(age_seq),
-  p_annual = fncSurviveAge(age_seq)^365
-) |>
-  tidyr::pivot_longer(c(p_daily, p_annual), names_to = "metric", values_to = "p") |>
-  dplyr::mutate(metric = dplyr::recode(metric,
-    p_daily  = "Daily survival probability",
-    p_annual = "Annual survival (aging only)"
-  )) |>
-  ggplot(aes(x = age, y = p)) +
-  geom_vline(xintercept = c(5, 8), linetype = "dashed", alpha = 0.4) +
-  geom_line(linewidth = 0.9) +
-  facet_wrap(~ metric, scales = "free_y") +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Age (years)") + ylab("Survival probability") +
-  labs(title = "Senescence-based daily survival (age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99)",
-       subtitle = "Dashed lines: onset age (5) and near-zero survival target (8)")
 
 
 # length in mm
@@ -1679,40 +829,7 @@ fncLW <- function(values, input = c("lengths", "weights"), sigma = 0) {
   }
 }
 
-# Show length -> weight for several sigma values
-expand_grid(
-  length_mm = seq(0, 500, by = 5),
-  sigma     = c(0.05, 0.10, 0.15)
-) |>
-  # Replicate each combo a few times to show scatter
-  slice(rep(1:n(), each = 5)) |>
-  rowwise() |>
-  mutate(weight_g = fncLW(length_mm, input = "lengths", sigma = sigma)) |>
-  ungroup() |>
-  ggplot(aes(x = length_mm, y = weight_g)) +
-  geom_point(alpha = 0.15, size = 0.8) +
-  geom_line(
-    data = tibble(length_mm = seq(1, 500, by = 1),
-                  weight_g  = fncLW(seq(1, 500, by = 1), "lengths", sigma = 0)),
-    color = "firebrick2", linewidth = 0.8
-  ) +
-  facet_wrap(~ paste0("sigma = ", sigma)) +
-  theme_bw() +
-  xlab("Length (mm)") + ylab("Weight (g)") +
-  labs(title = "Length-weight relationship with log-scale noise (red = deterministic mean)")
 
-
-
-bind_rows(tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0002, f_b = 2.599, study = "RBT (Schill)") %>% mutate(eggs = f_a * (length_mm^f_b)),
-          tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0026, f_b = 2.226, study = "YCT (Meyer)") %>% mutate(eggs = f_a * (length_mm^f_b)),
-          tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0035, f_b = 2.200, study = "BNT (Elliott)") %>% mutate(eggs = f_a * (length_mm^f_b)),
-          tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0010, f_b = 2.340, study = "BUL (Al-Chokhachy)") %>% mutate(eggs = f_a * (length_mm^f_b))
-          ) %>%
-  ggplot() + 
-  geom_line(aes(x = length_mm, y = eggs, color = study), linewidth = 0.9) +
-  geom_line(data = tibble(length_mm = seq(150, 500, by = 10), f_a = 0.002, f_b = 2.25, study = "Mean") %>% mutate(eggs = f_a * (length_mm^f_b)),
-            aes(x = length_mm, y = eggs), color = "black", linewidth = 0.7, linetype = "dashed") +
-  theme_bw() + xlab("Length (mm)") + ylab("Fecundity (number of eggs)")
 
 
 fncFecund <- function (lengths, sigma = 0) {
@@ -1722,114 +839,9 @@ fncFecund <- function (lengths, sigma = 0) {
 }
 
 
-expand_grid(
-  length_mm = seq(150, 500, by = 5),
-  sigma     = c(0.05, 0.10, 0.15)
-) |>
-  # Replicate each combo a few times to show scatter
-  slice(rep(1:n(), each = 5)) |>
-  rowwise() |>
-  mutate(eggs = fncFecund(length_mm, sigma = sigma)) |>
-  ungroup() |>
-  ggplot(aes(x = length_mm, y = eggs)) +
-  geom_point(alpha = 0.15, size = 0.8) +
-  geom_line(
-    data = tibble(length_mm = seq(150, 500, by = 1),
-                  eggs  = fncFecund(lengths = seq(150, 500, by = 1), sigma = 0)),
-    color = "firebrick2", linewidth = 0.8
-  ) +
-  facet_wrap(~ paste0("sigma = ", sigma)) +
-  theme_bw() +
-  xlab("Length (mm)") + ylab("Fecundity (number of eggs)") +
-  labs(title = "Length-fecundity relationships with log-scale noise (red = deterministic mean)")
 
 
-tibble(weight_g = seq(300, 2000, by = 10)) %>%
-  mutate(eggs = 0.002*((10^((log10(weight_g) + 5.023) / 3.024)))^2.25) %>%
-  ggplot(aes(x = weight_g, y = eggs)) +
-  geom_line()
 
-
-mydat <- bind_rows(tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.57, f_b = 0.446, stock = 1),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.32, f_b = 0.393, stock = 2),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.46, f_b = 0.481, stock = 3),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.53, f_b = 0.465, stock = 4),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.36, f_b = 0.536, stock = 5),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.44, f_b = 0.554, stock = 6),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.48, f_b = 0.516, stock = 7),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.54, f_b = 0.574, stock = 8),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.40, f_b = 0.702, stock = 9),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.61, f_b = 0.626, stock = 10),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.54, f_b = 0.468, stock = 11),
-          tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.50, f_b = 0.650, stock = 12)
-          ) %>%
-  mutate(eggs = 10^(f_a + f_b*log10(weight_g/1000)), stock = as.factor(stock)) 
-
-p1 <- mydat %>%
-  ggplot() + 
-  geom_line(aes(x = log10(weight_g), y = log10(eggs), color = stock), linewidth = 0.9) +
-  geom_line(data = tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.461, f_b = 0.504, stock = "Mean") %>% mutate(eggs = 10^(f_a + f_b*log10(weight_g/1000))),
-            aes(x = log10(weight_g), y = log10(eggs)), color = "black", linewidth = 1, linetype = "dashed") +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("log10(Weight, g)") + ylab("log10(Fecundity, number of eggs)")
-
-p2 <- mydat %>%
-  ggplot() + 
-  geom_line(aes(x = (weight_g), y = (eggs), color = stock), linewidth = 0.9) +
-  geom_line(data = tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.461, f_b = 0.504, stock = "Mean") %>% mutate(eggs = 10^(f_a + f_b*log10(weight_g/1000))),
-            aes(x = (weight_g), y = (eggs)), color = "black", linewidth = 1, linetype = "dashed") +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Weight (g)") + ylab("Fecundity (number of eggs)")
-
-ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
-
-
-# Parameters and SEs (95% CI = mean ± 1.96 * SE)
-a_mean <- 3.461;  a_se <- 0.015 / 1.96
-b_mean <- 0.504;  b_se <- 0.040 / 1.96
-
-# Weight range in kg — adjust to match your species
-wt_kg  <- seq(0.3, 2, length.out = 300)
-log_wt <- log10(wt_kg)
-
-# Monte Carlo: draw (a, b) pairs from their marginal distributions
-set.seed(8314)
-n_draws  <- 20000
-a_draws  <- rnorm(n_draws, a_mean, a_se)
-b_draws  <- rnorm(n_draws, b_mean, b_se)
-
-# Predicted log10(fecundity) matrix: rows = weight values, cols = draws
-pred_mat <- 10^(outer(log_wt, b_draws) + outer(rep(1, length(log_wt)), a_draws))
-
-# Summarise across draws
-plot_df <- tibble(
-  wt_kg = wt_kg,
-  wt_g  = wt_kg*1000,
-  mean  = rowMeans(pred_mat),
-  lower = apply(pred_mat, 1, quantile, 0.025),
-  upper = apply(pred_mat, 1, quantile, 0.975)
-)
-
-ggplot(plot_df, aes(x = wt_g)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.25) +
-  geom_line(aes(y = mean), linewidth = 0.8) +
-  labs(
-    x = "Weight (g)",
-    y = "Fecundity (number of eggs)"
-  ) +
-  theme_bw() + theme(panel.grid = element_blank())
-
-
-ggplot(plot_df, aes(x = wt_g)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.25) +
-  geom_line(aes(y = mean), linewidth = 0.8) +
-  labs(
-    x = "Weight (g)",
-    y = "Fecundity (number of eggs)"
-  ) +
-  theme_bw() + theme(panel.grid = element_blank()) + 
-  geom_line(data = tibble(weight_g = seq(300, 2000, by = 10)) %>% mutate(eggs = 0.002*((10^((log10(weight_g) + 5.023) / 3.024)))^2.25),
-            aes(x = weight_g, y = eggs), color = "red")
 
 
 fncFecundBromage <- function (weights, sigma = 0, survival = 1) {
@@ -1839,135 +851,9 @@ fncFecundBromage <- function (weights, sigma = 0, survival = 1) {
 }
 
 
-simdat <- expand_grid(
-  weight_g  = seq(300, 2000, by = 5),
-  sigma     = seq(0.01, 0.15, by = 0.01)
-) |>
-  # Replicate each combo a few times to show scatter
-  slice(rep(1:n(), each = 5)) |>
-  rowwise() |>
-  mutate(eggs = fncFecundBromage(weight_g, sigma = sigma)) |>
-  ungroup()
-
-mysigs <- unique(simdat$sigma)
-myr2s <- c()
-
-for(i in 1:length(mysigs)) {
-  model <- lm(log10(eggs) ~ log10(weight_g), simdat %>% filter(sigma == mysigs[i]))
-  myr2s[i] <- summary(model)$r.squared
-}
-
-par(mar = c(4.5,4.5,1,1))
-plot(myr2s ~ mysigs, type = "l", xlab = "Sigma", ylab = "R squared")
-abline(h = 0.614, lty = 2, col = "grey50")
-abline(v = 0.085, lty = 2, col = "red")
-legend("topright", legend = c("R2 = 0.614, Bromage et al.",
-                              "sigma = 0.085"), lty = 2, col = c("grey50", "red"), bty = "n")
 
 
-expand_grid(
-  weight_g = seq(300, 2000, by = 5),
-  sigma     = c(0.085)
-) |>
-  # Replicate each combo a few times to show scatter
-  slice(rep(1:n(), each = 5)) |>
-  rowwise() |>
-  mutate(eggs = fncFecundBromage(weight_g, sigma = sigma)) |>
-  ungroup() |>
-  ggplot(aes(x = weight_g, y = eggs)) +
-  geom_point(alpha = 0.15, size = 0.8) +
-  geom_line(
-    data = tibble(weight_g = seq(300, 2000, by = 1),
-                  eggs  = fncFecundBromage(weights = seq(300, 2000, by = 1), sigma = 0)),
-    color = "firebrick2", linewidth = 0.8
-  ) +
-  facet_wrap(~ paste0("sigma = ", sigma)) +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Weight (g)") + ylab("Fecundity (number of eggs)") +
-  labs(title = "Weight-fecundity relationships with log-scale noise (red = deterministic mean)")
 
-
-oikos_tib <- tibble(momlen = c(381,441,390,344,442,385,415,361,335,NA,396,400),
-                    cohort = c(106,55,119,86,159,49,76,164,224,29,288,132)) 
-
-p1 <- oikos_tib %>%
-  ggplot(aes(x = momlen, y = cohort)) +
-  geom_point() + geom_smooth(method = "lm") +
-  xlab("Maternal parent length (mm)") + ylab("Reproductive success (number of offspring") +
-  theme_bw() + theme(panel.grid = element_blank()) + ylim(0,300)
-
-p2 <- oikos_tib %>%
-  ggplot(aes(y = cohort)) +
-  geom_boxplot(fill = "grey90") +
-  xlab("") + ylab("") +
-  theme_bw() + theme(panel.grid = element_blank(), 
-                     axis.title.x = element_blank(), axis.title.y = element_blank(),
-                     axis.text.x = element_blank(), axis.text.y = element_blank(),
-                     axis.ticks.x = element_blank()) + 
-  ylim(0,300)
-
-ggarrange(p1, p2, nrow = 1)
-
-
-expand_grid(
-  weight_g  = seq(300, 2000, by = 5),
-  survival     = seq(0.1, 1, by = 0.1)
-) |>
-  mutate(eggs = fncFecundBromage(weight_g, survival = survival)) %>%
-  ggplot() +
-  geom_rect(aes(xmin = -Inf, xmax = Inf, 
-                ymin = quantile(oikos_tib$cohort, probs = 0.025), 
-                ymax = quantile(oikos_tib$cohort, probs = 0.975)),
-            fill = "grey90", inherit.aes = FALSE) +
-  geom_rect(aes(xmin = -Inf, xmax = Inf, 
-                ymin = quantile(oikos_tib$cohort, probs = 0.25), 
-                ymax = quantile(oikos_tib$cohort, probs = 0.75)),
-            fill = "grey70", inherit.aes = FALSE) +
-  geom_abline(intercept = quantile(oikos_tib$cohort, probs = 0.5), slope = 0, linetype = "dashed") +
-  geom_line(aes(x = weight_g, y = eggs, group = survival, color = survival)) +
-  scale_color_viridis_c() +
-  theme_bw() + theme(panel.grid = element_blank()) + 
-  xlab("Weight (g)") + ylab("Fecundity (number of eggs)")
-
-
-mydf <- expand_grid(
-  weight_g = seq(300, 2000, by = 5),
-  egg_wt = seq(0.05, 0.09, by = 0.01)
-) |>
-  # Replicate each combo a few times to show scatter
-  mutate(eggs = fncFecundBromage(weight_g, sigma = 0),
-         mass_loss = eggs * egg_wt,
-         rel_mass_loss = mass_loss / weight_g,
-         egg_wt_lab = paste("Egg wt. = ", egg_wt, " g", sep = "")) 
-
-
-p1 <- mydf %>% ggplot() +
-  geom_line(aes(x = weight_g, y = mass_loss)) +
-  facet_wrap(~egg_wt_lab, nrow = 1) +
-  theme_bw() + xlab("Spawner weight (g)") + ylab("Total mass loss (g)")
-
-p2 <- mydf %>% ggplot() +
-  geom_line(aes(x = weight_g, y = rel_mass_loss)) +
-  facet_wrap(~egg_wt_lab, nrow = 1) +
-  geom_abline(intercept = 0.18, slope = 0, color = "red", linetype = "dashed") +
-  theme_bw() + xlab("Spawner weight (g)") + ylab("Proportional mass loss")
-
-egg::ggarrange(p1 + theme(axis.title.x = element_blank()), 
-               p2, 
-               nrow = 2, top = "Energetic cost of reproduction")
-
-
-tibble(mass = seq(300, 2000, by = 5)) %>%
-  mutate(eggs = 2.93 * (mass^1.18)) %>%
-  ggplot() + geom_line(aes(x = mass, y = eggs))
-
-tibble(mass = seq(300, 2000, by = 5)) %>%
-  mutate(eggvolume = 0.15 * (mass^0.14)) %>%
-  ggplot() + geom_line(aes(x = mass, y = eggvolume))
-
-tibble(eggvolume = seq(0.3, 0.5, by = 0.01)) %>%
-  mutate(energydensity = 2.15 * (eggvolume^0.77)) %>%
-  ggplot() + geom_line(aes(x = eggvolume, y = energydensity))
 
 
 
@@ -1985,40 +871,6 @@ fncMaturitySize <- function(weight, K1 = 300, K9 = 500, w_min = 200) {
 }
 
 
-data.frame(weight = seq(100, 1000, by = 10)) |>
-  dplyr::mutate(p_mature = fncMaturitySize(weight)) |>
-  ggplot(aes(x = weight, y = p_mature)) +
-  geom_line() +
-  geom_point(data = data.frame(weight = c(500, 300), p_mature = c(0.9, 0.1)),
-             size = 3, shape = 21, fill = "white") +
-  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
-  geom_vline(xintercept = c(300, 500), linetype = "dashed", alpha = 0.4) +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Weight (g)") + ylab("Daily maturation probability") +
-  labs(title = "Size-based daily maturity",
-       subtitle = "Anchor points: P = 0.1 at K = 300, P = 0.9 at K = 500")
-
-
-# Fish sizes to show and time horizon
-sizes   <- seq(100, 600, by = 100)
-days    <- 1:30
-
-# For each size, daily p is fixed; cumulative prob of having spawned by day t
-expand_grid(weight = sizes, day = days) |>
-  mutate(
-    p_daily = fncMaturitySize(weight),
-    p_cum   = 1 - (1 - p_daily)^day,
-    weight  = factor(paste0(weight, " g"), levels = paste0(sizes, " g"))
-  ) |>
-  ggplot(aes(x = day, y = p_cum, colour = weight)) +
-  geom_line(linewidth = 0.8) +
-  scale_colour_viridis_d(option = "plasma", end = 0.9, name = "Weight") +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  labs(
-    x = "Day",
-    y = "Cumulative probability of spawning",
-    title = "Cumulative probability of spawning over time by fish size"
-  )
 
 
 fncMaturityCondition <- function(condition, K1 = 0.7, K9 = 0.9, c_min = 0.6) {
@@ -2035,40 +887,6 @@ fncMaturityCondition <- function(condition, K1 = 0.7, K9 = 0.9, c_min = 0.6) {
 }
 
 
-data.frame(condition = seq(0, 1, by = 0.01)) |>
-  dplyr::mutate(p_mature = fncMaturityCondition(condition)) |>
-  ggplot(aes(x = condition, y = p_mature)) +
-  geom_line() +
-  geom_point(data = data.frame(condition = c(0.7, 0.9), p_mature = c(0.1, 0.9)),
-             size = 3, shape = 21, fill = "white") +
-  geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
-  geom_vline(xintercept = c(0.7, 0.9), linetype = "dashed", alpha = 0.4) +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  xlab("Relative condition (current weight / peak weight)") + ylab("Daily maturation probability") +
-  labs(title = "Condition-based daily maturity",
-       subtitle = "Anchor points: P = 0.1 at K = 0.7, P = 0.9 at K = 0.9")
-
-
-# Fish sizes to show and time horizon
-conditions   <- seq(0.5, 1, by = 0.1)
-days    <- 1:30
-
-# For each size, daily p is fixed; cumulative prob of having spawned by day t
-expand_grid(condition = conditions, day = days) |>
-  mutate(
-    p_daily = fncMaturityCondition(condition),
-    p_cum   = 1 - (1 - p_daily)^day,
-    condition  = factor(condition)
-  ) |>
-  ggplot(aes(x = day, y = p_cum, colour = condition)) +
-  geom_line(linewidth = 0.8) +
-  scale_colour_viridis_d(option = "plasma", end = 0.9, name = "Condition") +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  labs(
-    x = "Day",
-    y = "Cumulative probability of spawning",
-    title = "Cumulative probability of spawning over time by fish condition"
-  )
 
 
 fncMaturityDate <- function(doy, peak_doy = 121, duration = 15, p_max = 1) {
@@ -2085,166 +903,9 @@ fncMaturityDate <- function(doy, peak_doy = 121, duration = 15, p_max = 1) {
 
 
 
-# --- Visualise: vary duration, fix peak ---
-expand_grid(
-  doy      = 50:150,
-  duration = c(5, 10, 20, 40)
-) |>
-  mutate(
-    p        = fncMaturityDate(doy, peak_doy = 90, duration = duration),
-    duration = factor(paste0(duration, " days"), levels = paste0(c(5, 10, 20, 40), " days"))
-  ) |>
-  ggplot(aes(x = doy, y = p, colour = duration)) +
-  geom_line(linewidth = 0.8) +
-  scale_x_continuous(
-    breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
-    labels = month.abb
-  ) +
-  scale_colour_viridis_d(option = "plasma", end = 0.85, name = "Duration") +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  labs(
-    x = "Day of year",
-    y = "Daily spawning probability",
-    title = "Date-based daily spawning (reproduction/emergence) probability",
-    subtitle = "Peak day = May 1 (day 121); p_max = 1"
-  )
 
 
-# --- Panel A: heatmap of p_combined over doy × weight, condition fixed at 0.85
-p_heat <- expand_grid(
-  doy    = 1:200,
-  weight = seq(100, 600, by = 5)
-) |>
-  mutate(
-    p_date  = fncMaturityDate(doy, peak_doy = 90, duration = 60),
-    p_size  = fncMaturitySize(weight),
-    p_cond  = fncMaturityCondition(0.85),
-    p_comb  = p_date * p_size * p_cond
-  ) |>
-  ggplot(aes(x = doy, y = weight, fill = p_comb)) +
-  geom_tile() +
-  scale_fill_viridis_c(option = "plasma", name = "P(spawn)", limits = c(0, 1)) +
-  scale_x_continuous(
-    breaks = c(1, 32, 60, 91, 121, 152),
-    labels = month.abb[1:6],
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(expand = c(0, 0)) +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  labs(x = "Day of year", y = "Weight (g)",
-       title = "A: Size × Date  (condition = 0.85, fixed)")
-
-# --- Panel B: lines over doy for different conditions, weight fixed at 400g
-p_cond_lines <- expand_grid(
-  doy       = 1:200,
-  condition = c(0.70, 0.80, 0.85, 0.90, 1.00)
-) |>
-  mutate(
-    p_date = fncMaturityDate(doy, peak_doy = 90, duration = 60),
-    p_size = fncMaturitySize(400),
-    p_cond = fncMaturityCondition(condition),
-    p_comb = p_date * p_size * p_cond,
-    condition = factor(condition)
-  ) |>
-  ggplot(aes(x = doy, y = p_comb, colour = condition)) +
-  geom_line(linewidth = 0.8) +
-  scale_colour_viridis_d(option = "mako", end = 0.85, name = "Condition") +
-  scale_x_continuous(
-    breaks = c(1, 32, 60, 91, 121, 152, 182),
-    labels = month.abb[1:7]
-  ) +
-  theme_bw() + theme(panel.grid = element_blank()) +
-  labs(x = "Day of year", y = "P(spawn)",
-       title = "B: Condition × Date  (weight = 400 g, fixed)")
-
-p_heat / p_cond_lines
 
 
-#quarto::qmd_to_r_script("Functions.qmd")
 
-
-MaxDensity4Growth <- 50 # growth is not depressed further above this density (currently this is arbitary)
-fdens_raw <- fdens <- seq(from = 1, to = 100, by = 1) # create sequence of fish density
-fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth # high densities cap out at MaxDensity4Growth
-density.effect <- fncRescale((1 - c(fdens, 0.01, MaxDensity4Growth)), c((0.5),1)) # calculate density effect scalar
-density.effect <- density.effect[-c(length(density.effect), (length(density.effect) - 1))] #remove the last 2 temporary values
-
-par(mar = c(4.5,4.5,1,1))
-plot(density.effect ~ fdens_raw, type = "l", xlab = "Fish density", ylab = "Density effect on ration (multiplier)")
-abline(v = MaxDensity4Growth, col = "red", lty = 2)
-legend("topright", legend = c("Density effect", "Density threshold"), col = c("black", "red"), lty = c(1,2), bty = "n")
-
-
-fncDensityRation <- function(fish_pop, R_warm, R_cold, k_warm = 50, k_cold = 50) {
-  fish_pop %>%
-    mutate(
-      R_base = if_else(patch == "warm", R_warm, R_cold),
-      k      = if_else(patch == "warm", k_warm, k_cold),
-      ration = R_base * k / (k + density - 1)
-    ) %>%
-    select(-R_base, -k)
-}
-
-
-# Use actual R_warm and R_cold from the session as the baseline
-R_warm      <- get_patchration(1, "warm")
-R_cold      <- get_patchration(1, "cold")
-
-expand.grid(
-  density = 1:200,
-  k       = c(10, 25, 50, 100, 200),
-  patch   = c("warm", "cold")
-) %>%
-  mutate(
-    R_base = if_else(patch == "warm", R_warm, R_cold),
-    ration = R_base * k / (k + density - 1),
-    k_lab  = factor(paste0("k = ", k), levels = paste0("k = ", sort(unique(k))))
-  ) %>%
-  ggplot(aes(x = density, y = ration, color = k_lab)) +
-  geom_line() +
-  geom_hline(aes(yintercept = R_base), linetype = "dashed", color = "grey50") +
-  facet_wrap(~ patch, labeller = label_both) +
-  labs(
-    x     = "Fish density (N per patch)",
-    y     = "Realized ration (g)",
-    color = "Half-saturation\ndensity (k)",
-    title = "Density-dependent ration reduction",
-    caption = "Dashed line = baseline ration (no density effect)"
-  )
-
-
-fncDensityRation_ld <- function(fish_pop, R_warm, R_cold) {
-  fish_pop %>%
-    mutate(food   = if_else(patch == "warm", R_warm, R_cold),
-           ration = food / density
-           ) %>%
-    select(-food)
-}
-
-
-# set up objects as they would appear in the simulation loop
-R_warm      <- get_patchration(1, "warm")
-R_cold      <- get_patchration(1, "cold")
-fish_pop <- bind_rows(
-  tibble(strategy = "resident_warm", 
-         patch = "warm",
-         weight = pmax(1, rnorm(100, 0.1, 0)),
-         density = c(1:100)),
-  tibble(strategy = "resident_cold", 
-         patch = "cold",
-         weight = pmax(1, rnorm(100, 0.1, 0)),
-         density = c(1:100))) %>%
-  mutate(pid = row_number(),
-         ration = if_else(patch == "warm", ration_warm, ration_cold))
-# fish_pop
-
-# for example, competition more intense in warm habitat
-fish_pop <- fncDensityRation_ld(fish_pop, R_warm, R_cold)
-fish_pop %>%
-  ggplot(aes(x = density, y = ration, color = patch)) +
-  geom_line() +
-  scale_color_manual(values = c("warm" = 2, "cold" = 4)) +
-  theme_bw() +
-  xlab("Fish density") +
-  ylab("Ration")
 

@@ -18,11 +18,26 @@ book:
   date: today
   chapters:
     - index.qmd
-    - Habitat.qmd
-    - Functions.qmd
-    - PreCalGrowth.qmd
-    - GrowthRegime.qmd
-    - IBM_simulation.qmd
+    - part: "Define Core Functions"
+      chapters:
+        - Habitat.qmd
+        - Functions.qmd
+        - SimulationLoop.qmd
+        - PlotResults.qmd
+    - part: "Pre-Calculate Growth and Growth Regime"
+      chapters:
+        - PreCalGrowth.qmd
+        - GrowthRegime.qmd
+    - part: "Define and Run Experiments"
+      chapters:
+        - ScenarioDefs.qmd
+    - part: "Scenario Results"
+      chapters:
+        - Scenario_1_null_cold.qmd
+        - Scenario_2_temp_mult.qmd
+        - Scenario_3_temp_offset.qmd
+        - Scenario_4_temp_offset_diffP.qmd
+
 
 format:
   html:

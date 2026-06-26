@@ -1,5 +1,5 @@
 ---
-title: "Functions"
+title: "Mechanistic Functions"
 ---
 
 ```{r, include = FALSE}
@@ -11,7 +11,7 @@ library(patchwork)
 
 ***if any changes are made, need to re-run qmd_to_r_script() function at end, in console***
 
-**Purpose:** This script generates the functions called in the IBM simulation loop.
+**Purpose:** This script generates the helper functions called in the IBM simulation loop.
 
 Source dependencies
 
@@ -527,7 +527,7 @@ Look-up current growth based on actual WT, ration, and weight of fish
 # PIDs: vector of fish IDs, or NA for all fish
 # fish: data frame with columns pid, weight, ration, patch ("warm" or "cold")
 # t: current day of year
-fncGrowthFish <- function(PIDs = NA, fish, t) {
+fncGrowthFish <- function(PIDs = NA, fish, T_warm, T_cold) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
@@ -546,7 +546,7 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
     growth <- watemp <- vector(length = n)
     
     for (x in 1:n) {
-      temp     <- get_patchtemp(t, td[x, "patch"])           # temperature at fish's current patch
+      temp     <- if (td[x, "patch"] == "warm") T_warm else T_cold  # temperature at fish's current patch
       wt.idx   <- which.min(abs(wt.seq - temp))              # nearest water temperature index
       ra.idx   <- which.min(abs(ra.seq - td[x, "ration"]))   # nearest ration index
       ma.idx   <- which.min(abs(ma.seq - td[x, "weight"]))   # nearest mass index
@@ -559,8 +559,7 @@ fncGrowthFish <- function(PIDs = NA, fish, t) {
       weight   = td[, "weight"],
       ration   = td[, "ration"],
       patch    = td[, "patch"],
-      WT.actual = sapply(td[, "patch"], function(p) 
-        temp(t, p)),
+      WT.actual = ifelse(td[, "patch"] == "warm", T_warm, T_cold),
       WT       = watemp,
       growth   = growth
     )
@@ -579,9 +578,9 @@ Look-up best possible patch for growth based on current temperatures across both
 
 ```{r}
 # fweight: fish mass in grams
-# t: current day of year
+# T_warm, T_cold: current water temperatures (°C) in each patch
 # ration_warm, ration_cold: ration sizes available in each patch
-fncGrowthPossible <- function(fweight, t, ration_warm, ration_cold) {
+fncGrowthPossible <- function(fweight, T_warm, T_cold, ration_warm, ration_cold) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
@@ -592,24 +591,24 @@ fncGrowthPossible <- function(fweight, t, ration_warm, ration_cold) {
   ma.idx <- which.min(abs(ma.seq - fw))
 
   patches <- c("warm", "cold")
+  temps   <- c(T_warm, T_cold)
   rations <- c(ration_warm, ration_cold)
   growth  <- watemp <- vector(length = 2)
   
   for (x in 1:2) {
-    temp      <- get_patchtemp(t, patches[x])
-    wt.idx    <- which.min(abs(wt.seq - temp))
+    wt.idx    <- which.min(abs(wt.seq - temps[x]))
     ra.idx    <- which.min(abs(ra.seq - rations[x]))
     growth[x] <- wt.growth[wt.idx, ra.idx, ma.idx]
     watemp[x] <- wt.seq[wt.idx]
   }
   
   lookup <- data.frame(
-    patch    = patches,
-    weight   = rep(fweight, 2),
-    ration   = rations,
-    WT.actual = c(get_patchtemp(t, "warm"), get_patchtemp(t, "cold")),
-    WT       = watemp,
-    growth   = growth
+    patch     = patches,
+    weight    = rep(fweight, 2),
+    ration    = rations,
+    WT.actual = c(T_warm, T_cold),
+    WT        = watemp,
+    growth    = growth
   )
   
   best_patch <- patches[which.max(growth)]
@@ -642,6 +641,7 @@ fncTempDepend <- function(temp) {
 Plot temperature function
 
 ```{r}
+#| purl: false
 mytemps <- seq(from = 0.1, to = 25, by = 0.1)
 plot(fncTempDepend(temp = mytemps) ~ mytemps, type = "l", ylim = c(0,1), xlab = "Temperature (deg. C)", ylab = "f(T)", main = "Temperature dependence model 3")
 ```
@@ -662,6 +662,8 @@ fncAllomCmax <- function(weight) {
 Plot C~max~ by body size
 
 ```{r}
+#| purl: false
+
 myweights <- seq(from = 0.5, to = 1000, by = 1)
 mycmax <- fncAllomCmax(weight = myweights)
 
@@ -673,6 +675,8 @@ plot(mycmax*myweights ~ myweights, type = 'l', ylab = "Cmax (g/d)", xlab = "Fish
 Note that FB4 provides different parameter sets for adult vs. juvenile *O. mykiss*.
 
 ```{r}
+#| purl: false
+
 par(mar = c(4.5,4.5,1,1))
 # O. mykiss adults: Railsback and Rose 1999
 plot(0.628*(myweights^-0.3) ~ myweights, type = 'l', ylab = "Cmax (g/g/d)", xlab = "Fish mass (g)", ylim = c(0, max(mycmax)))
@@ -699,6 +703,8 @@ fncMoveSoftmax <- function(gwarm, gcold, tau = 0.001) {
 Plot the probability of choosing the warm patch given different values of `tau`, across a range of between-patch differences in growth potential.
 
 ```{r}
+#| purl: false
+
 # Softmax: P(warm) = exp(g_warm/tau) / (exp(g_warm/tau) + exp(g_cold/tau))
 # Equivalently: sigmoid of (g_warm - g_cold) / tau
 tau_vals <- c(0.001, 0.003, 0.005, 0.01, 0.025)
@@ -828,7 +834,11 @@ Each fish could have a unique threshold for movement, representing individual va
 
 Plot the distribution of `move_threshold` values against the distribution of daily `g_move - g_stay` values to check that `sigma_bold` creates meaningful variation rather than all fish behaving identically or randomly.
 
-```{r fig.width=7, fig.height=6, eval=FALSE}
+```{r}
+#| fig-width: 7
+#| fig-height: 6
+#| eval: false
+#| purl: false
 
 rations <- seq(0.02, 0.17, 0.001)
 waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
@@ -965,6 +975,8 @@ fncMoveCost_allometric <- function(w, c = 0.025, b = 0.75) {
 Compare functional forms of inverse power decay, logistic transition, and allometric metabolic scaling.
 
 ```{r}
+#| purl: false
+
 w_seq <- seq(0.1, 150, by = 0.1)
 
 cost_df <- tibble(weight = w_seq) |>
@@ -1048,6 +1060,8 @@ ggpubr::annotate_figure(
 `fncMoveCost_power` seems like a reasonably biologically realistic form. Repeat the simulation but with different parameter values
 
 ```{r}
+#| purl: false
+
 w_seq <- seq(0.1, 150, by = 0.1)
 
 # variable a
@@ -1127,6 +1141,8 @@ ggpubr::ggarrange(
 But the allometric scaling function appears to have the greatest support in the literature. See Schmidt-Nielsen (1972, *Science*), Ohlberger et al. (2005, *J. Exp. Zoo.*), and Ohlberger et al. (2006, *J. Comp. Phys. B*): showed how energetic cost of movement scales with body size within and across species using allometric scaling functions.
 
 ```{r}
+#| purl: false
+
 w_seq <- seq(0.1, 150, by = 0.1)
 
 # variable a
@@ -1202,6 +1218,8 @@ ggpubr::ggarrange(
 Show `c = 0.025` and `b = 0.6` across full range of weights
 
 ```{r}
+#| purl: false
+
 cost_df <- tibble(weight = w_seq) |>
   mutate(
     `Allometric (c=0.025, b=0.6)`   = fncMoveCost_allometric(weight, c=0.025, b=0.6)
@@ -1230,6 +1248,8 @@ ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
 
 How do movement costs under different parameter sets actually compare to differences in growth between habitats, for different sized fish?
 ```{r fig.width=8, fig.height=5}
+#| purl: false
+
 rations <- seq(0.02, 0.17, 0.001)
 waterTemps <- cbind("pid" = seq(1, length(seq(0.1, 25, 0.1))),"WT" = seq(0.1, 25, 0.1))
 
@@ -1320,6 +1340,8 @@ ggplot() +
 
 Compare this to some other parameter sets
 ```{r}
+#| purl: false
+
 cost_df <- tibble(weight = w_seq) |>
   mutate(
     `Allometric (c=0.100, b=0.3)`   = fncMoveCost_allometric(weight, c=0.1, b=0.3),
@@ -1386,6 +1408,8 @@ fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50,
 Visualize how P_C~max~ scales with density under different values of k to help calibrate the parameter.
 
 ```{r}
+#| purl: false
+
 expand.grid(
   density = 1:200,
   k       = c(10, 25, 50, 100, 200)
@@ -1476,6 +1500,8 @@ fncEffDensity <- function(weights, beta = 1) {
 **Plot 1 — Effective density gradient by β.** Uses a fixed, realistic log-normal size distribution (N = 60; modal weight ≈ 2 g with a larger-fish tail). Each point is one fish; the dashed line is raw patch abundance.
 
 ```{r}
+#| purl: false
+
 set.seed(8823)
 n_fish_demo <- 60
 weights_demo <- c(
@@ -1514,6 +1540,8 @@ map_dfr(beta_vals_demo, function(b) {
 **Plot 2 — Realized P_C~max~ scalar by body size, K, and β.** The scalar actually experienced by each fish is `K / (K + eff_density − 1)`. The dominant–subordinate spread in this scalar — and therefore the growth advantage of large fish — depends jointly on β (how steep the dominance gradient is) and K (how strongly density depresses consumption overall). The dashed line in each panel is the pure-scramble scalar at N = `r n_fish_demo`.
 
 ```{r}
+#| purl: false
+
 K_vals_demo   <- c(50, 100, 500, 1000)
 beta_show     <- c(0, 0.5, 1, Inf)
 
@@ -1622,6 +1650,8 @@ fncSurviveVari <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale
 As an example, plot daily survival probabilities based on fish size and instantaneous growth
 
 ```{r}
+#| purl: false
+
 df <- expand_grid(
   weight = seq(from = 0, to = 150, by = 0.1),
   growth = seq(from = -0.03, to = 0.03, by = 0.005)#,
@@ -1652,6 +1682,8 @@ ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 Show how `b_interact` affects weight x growth buffering: as `b_interact` gets smaller, growth effects on survival persist longer
 
 ```{r}
+#| purl: false
+
 # Compare b_interact values
 df_comp <- expand_grid(
   weight      = seq(0, 50, by = 0.2),
@@ -1694,6 +1726,8 @@ ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 Explore how different values of b_interact impact cumulative seasonal survival probability, i.e., over a 90 day/3 month period:
 
 ```{r}
+#| purl: false
+
 df_comp <- expand_grid(
   weight      = c(0.5, 1, 2, 5, 10, 20, 50),
   growth      = c(-0.03, 0.03),
@@ -1787,6 +1821,8 @@ fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, b = 1){
 Plot daily survival probabilities based on fish size alone
 
 ```{r}
+#| purl: false
+
 myweights <- seq(from = 0, to = 150, by = 0.1)
 
 surv.list <- fncSurviveSize(myweights, b = 1)
@@ -1814,6 +1850,8 @@ ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 Changing the asymptotic survival probability could be used as a way to induce senescence/limits on life span
 
 ```{r}
+#| purl: false
+
 expand_grid(
   asymp = c(seq(from = 0.995, to = 0.999, by = 0.001), 0.9995, 0.9999),
   days = seq(from = 0, to = 2500, by = 100)
@@ -1827,6 +1865,8 @@ expand_grid(
 Sporadic review of literature suggests that annual survival probabilities of trout in streams averages 0.5, but this is super variable. Annual survival = 0.5 corresponds to `maxprob = 0.998`. Alternatively, `maxprob = 0.9994` yields an annual survival probability of \~0.8.
 
 ```{r}
+#| purl: false
+
 tibble(maxprob = seq(from = 0.995, to = 1, by = 0.0001)) %>% mutate(annsurv = maxprob^365) %>%
   ggplot(aes(x = maxprob, y = annsurv)) + geom_line() + 
   theme_bw() + theme(panel.grid = element_blank()) +
@@ -1892,6 +1932,8 @@ fncSurviveFixed <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescal
 Plot daily survival probabilities: this should look the same as the example above, b/c above I used the same range of growth rates.
 
 ```{r}
+#| purl: false
+
 df <- expand_grid(
   weight = seq(from = 0, to = 150, by = 0.1),
   growth = seq(from = -0.03, to = 0.03, by = 0.005)#,
@@ -1949,6 +1991,8 @@ fncSurviveTemp <- function(temp, T1 = 30, T9 = 25.8) {
 Plot the curve across a biologically relevant temperature range:
 
 ```{r}
+#| purl: false
+
 data.frame(temp = seq(15, 35, by = 0.1)) |>
   dplyr::mutate(p_survive = fncSurviveTemp(temp)) |>
   ggplot(aes(x = temp, y = p_survive)) +
@@ -1991,6 +2035,8 @@ fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
 Plot the curve to check the anchor points:
 
 ```{r}
+#| purl: false
+
 data.frame(condition = seq(0, 1, by = 0.01)) |>
   dplyr::mutate(p_survive = fncSurviveStarve(condition)) |>
   ggplot(aes(x = condition, y = p_survive)) +
@@ -2008,6 +2054,8 @@ data.frame(condition = seq(0, 1, by = 0.01)) |>
 Plot the curve under a few candidate parameter sets to explore how the resulting curves relate to observed condition factors/mass loss from the IBM
 
 ```{r}
+#| purl: false
+
 candidate_params <- list(
   "Stringent (K9=0.6, K1=0.5)"  = c(K9 = 0.7, K1 = 0.6),
   "Default (K9=0.5, K1=0.4)" = c(K9 = 0.55, K1 = 0.45),
@@ -2099,6 +2147,8 @@ fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.9
 Plot the curve to inspect daily and annualised survival across a range of ages and `lambda` values:
 
 ```{r}
+#| purl: false
+
 age_seq <- seq(0, 10, by = 0.05)
 
 data.frame(
@@ -2159,8 +2209,12 @@ fncLW <- function(values, input = c("lengths", "weights"), sigma = 0) {
     10^((log10(values) + 5.023) / 3.024 + noise)
   }
 }
+```
 
-# Show length -> weight for several sigma values
+Show length -> weight for several sigma values
+```{r}
+#| purl: false
+
 expand_grid(
   length_mm = seq(0, 500, by = 5),
   sigma     = c(0.05, 0.10, 0.15)
@@ -2181,8 +2235,8 @@ expand_grid(
   theme_bw() +
   xlab("Length (mm)") + ylab("Weight (g)") +
   labs(title = "Length-weight relationship with log-scale noise (red = deterministic mean)")
-
 ```
+
 
 Setting `sigma`somewhere between `0.05` and `0.1` is probably most biologically plausible.
 
@@ -2206,6 +2260,8 @@ Interestingly, the values of `a` and `b` appear to be relatively stable among sp
 Plot length-fecundity relationships from these prior studies (colored lines) and add an \~average line to use for this study (dashed black line)
 
 ```{r}
+#| purl: false
+
 bind_rows(tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0002, f_b = 2.599, study = "RBT (Schill)") %>% mutate(eggs = f_a * (length_mm^f_b)),
           tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0026, f_b = 2.226, study = "YCT (Meyer)") %>% mutate(eggs = f_a * (length_mm^f_b)),
           tibble(length_mm = seq(150, 500, by = 10), f_a = 0.0035, f_b = 2.200, study = "BNT (Elliott)") %>% mutate(eggs = f_a * (length_mm^f_b)),
@@ -2231,6 +2287,8 @@ fncFecund <- function (lengths, sigma = 0) {
 Show length -\> fecundity for several sigma values
 
 ```{r}
+#| purl: false
+
 expand_grid(
   length_mm = seq(150, 500, by = 5),
   sigma     = c(0.05, 0.10, 0.15)
@@ -2258,6 +2316,8 @@ Setting `sigma`somewhere between `0.1` and `0.15` is probably most biologically 
 Show what this would look like in terms of fecundity by weight
 
 ```{r}
+#| purl: false
+
 tibble(weight_g = seq(300, 2000, by = 10)) %>%
   mutate(eggs = 0.002*((10^((log10(weight_g) + 5.023) / 3.024)))^2.25) %>%
   ggplot(aes(x = weight_g, y = eggs)) +
@@ -2271,6 +2331,8 @@ Alternatively, we can parameterize fecundity\~weight relationship directly, foll
 
 Show stock-specific relationships, black line is the combined mean reported in the paper:
 ```{r}
+#| purl: false
+
 mydat <- bind_rows(tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.57, f_b = 0.446, stock = 1),
           tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.32, f_b = 0.393, stock = 2),
           tibble(weight_g = seq(300, 2000, by = 10), f_a = 3.46, f_b = 0.481, stock = 3),
@@ -2308,6 +2370,8 @@ ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
 
 Reconstruct the 95% confidence interval using the information provided in Bromage et al. (1990).
 ```{r}
+#| purl: false
+
 # Parameters and SEs (95% CI = mean ± 1.96 * SE)
 a_mean <- 3.461;  a_se <- 0.015 / 1.96
 b_mean <- 0.504;  b_se <- 0.040 / 1.96
@@ -2347,6 +2411,8 @@ ggplot(plot_df, aes(x = wt_g)) +
 
 Now compare this with what we would have gotten by transforming weight to length and then calculating fecundity ([red line]{style="color: red;"})
 ```{r}
+#| purl: false
+
 ggplot(plot_df, aes(x = wt_g)) +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.25) +
   geom_line(aes(y = mean), linewidth = 0.8) +
@@ -2371,6 +2437,8 @@ fncFecundBromage <- function (weights, sigma = 0, survival = 1) {
 
 **Tune sigma.** Predict fecundity under varying sigma, then calculate R2 values from the linearized form and ~match to Bromage. Bromage reports an R2 of 0.614; sigma of 0.085 seems to provide a reasonable approximation of the uncertainty.
 ```{r}
+#| purl: false
+
 simdat <- expand_grid(
   weight_g  = seq(300, 2000, by = 5),
   sigma     = seq(0.01, 0.15, by = 0.01)
@@ -2399,6 +2467,8 @@ legend("topright", legend = c("R2 = 0.614, Bromage et al.",
 
 Now show the relationship with random noise.
 ```{r}
+#| purl: false
+
 expand_grid(
   weight_g = seq(300, 2000, by = 5),
   sigma     = c(0.085)
@@ -2424,6 +2494,8 @@ expand_grid(
 
 **Tune survival.** Tune the egg-to-fry survival parameter to better match empirical reproductive success data. E.g., see Baldock et al. (2023, Oikos). For redds that were not superimposed, we found no relationship between maternal parent size and reproductive success, but sample size and the range of fish size are extremely limited.
 ```{r}
+#| purl: false
+
 oikos_tib <- tibble(momlen = c(381,441,390,344,442,385,415,361,335,NA,396,400),
                     cohort = c(106,55,119,86,159,49,76,164,224,29,288,132)) 
 
@@ -2448,6 +2520,8 @@ ggarrange(p1, p2, nrow = 1)
 
 Show the the weight-fecundity relation ship with varying values for `survival` compares to the distribution of reproductive success values from Baldock et al. (2023).
 ```{r}
+#| purl: false
+
 expand_grid(
   weight_g  = seq(300, 2000, by = 5),
   survival     = seq(0.1, 1, by = 0.1)
@@ -2486,6 +2560,8 @@ Spawners incur a weight loss that represents the energetic cost of spawning: pri
 
 Explore the energetic cost of reproduction for different body sizes and egg weights, given the weight-fecundity relationship specified above (Bromage et al. 1990). 
 ```{r}
+#| purl: false
+
 mydf <- expand_grid(
   weight_g = seq(300, 2000, by = 5),
   egg_wt = seq(0.05, 0.09, by = 0.01)
@@ -2519,6 +2595,8 @@ Railsback et al. (2023) assumes that a fixed proportion of mass is lost to repro
 
 
 ```{r}
+#| purl: false
+
 tibble(mass = seq(300, 2000, by = 5)) %>%
   mutate(eggs = 2.93 * (mass^1.18)) %>%
   ggplot() + geom_line(aes(x = mass, y = eggs))
@@ -2559,6 +2637,8 @@ fncMaturitySize <- function(weight, K1 = 300, K9 = 500, w_min = 200) {
 
 Show daily probability of maturation as a function of size
 ```{r}
+#| purl: false
+
 data.frame(weight = seq(100, 1000, by = 10)) |>
   dplyr::mutate(p_mature = fncMaturitySize(weight)) |>
   ggplot(aes(x = weight, y = p_mature)) +
@@ -2575,6 +2655,8 @@ data.frame(weight = seq(100, 1000, by = 10)) |>
 
 Visualize the cumulative probability of spawning over a given period of time, for fish of different sizes
 ```{r}
+#| purl: false
+
 # Fish sizes to show and time horizon
 sizes   <- seq(100, 600, by = 100)
 days    <- 1:30
@@ -2619,6 +2701,8 @@ fncMaturityCondition <- function(condition, K1 = 0.7, K9 = 0.9, c_min = 0.6) {
 
 Show daily probability of maturation as a function of condition
 ```{r}
+#| purl: false
+
 data.frame(condition = seq(0, 1, by = 0.01)) |>
   dplyr::mutate(p_mature = fncMaturityCondition(condition)) |>
   ggplot(aes(x = condition, y = p_mature)) +
@@ -2635,6 +2719,8 @@ data.frame(condition = seq(0, 1, by = 0.01)) |>
 
 Visualize the cumulative probability of spawning over a given period of time, for fish of different conditions
 ```{r}
+#| purl: false
+
 # Fish sizes to show and time horizon
 conditions   <- seq(0.5, 1, by = 0.1)
 days    <- 1:30
@@ -2684,6 +2770,8 @@ fncMaturityDate <- function(doy, peak_doy = 121, duration = 15, p_max = 1) {
 
 Show daily probability of maturation as a function of day of year and duration of spawning
 ```{r}
+#| purl: false
+
 # --- Visualise: vary duration, fix peak ---
 expand_grid(
   doy      = 50:150,
@@ -2714,6 +2802,8 @@ expand_grid(
 
 Visualize the combined daily spawning probability (size × condition × date) to see how the three components interact.
 ```{r}
+#| purl: false
+
 # --- Panel A: heatmap of p_combined over doy × weight, condition fixed at 0.85
 p_heat <- expand_grid(
   doy    = 1:200,
@@ -2772,8 +2862,11 @@ p_heat / p_cond_lines
 
 For sourcing later
 
-```{r eval=FALSE}
-#quarto::qmd_to_r_script("Functions.qmd")
+```{r}
+#| eval: false
+#| purl: false
+file.remove("Functions.R")
+quarto::qmd_to_r_script("Functions.qmd")
 ```
 
 
@@ -2784,7 +2877,10 @@ For sourcing later
 
 Ration size decreases linearly with fish density, up to some threshold above which there is no effect of there is no effect of density of ration size. Fullerton uses 1 fish per m\^2 of as the upper threshold. Here, I use an arbitrary *MaxDensity4Growth*, but we can change this to a value that makes sense for our model. Fullerton's IBM calculates this scalar, then multiplies by densities after movement to compute experienced/realized ration.
 
-```{r eval=FALSE}
+```{r}
+#| eval: false
+#| purl: false
+
 MaxDensity4Growth <- 50 # growth is not depressed further above this density (currently this is arbitary)
 fdens_raw <- fdens <- seq(from = 1, to = 100, by = 1) # create sequence of fish density
 fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth # high densities cap out at MaxDensity4Growth
@@ -2809,7 +2905,10 @@ Hyperbolic (Beverton-Holt style) reduction in food availability, i.e., scramble 
 
 **Choice of K should depend on range of possible densities... K is the sensitive parameter and will substantially affect results.**
 
-```{r eval=FALSE}
+```{r}
+#| eval: false
+#| purl: false
+
 fncDensityRation <- function(fish_pop, R_warm, R_cold, k_warm = 50, k_cold = 50) {
   fish_pop %>%
     mutate(
@@ -2823,7 +2922,10 @@ fncDensityRation <- function(fish_pop, R_warm, R_cold, k_warm = 50, k_cold = 50)
 
 Visualize how ration scales with density under different values of k to help calibrate the parameter. *Both patches have the same baseline ration, so curves are identical*
 
-```{r eval=FALSE}
+```{r}
+#| eval: false
+#| purl: false
+#| 
 # Use actual R_warm and R_cold from the session as the baseline
 R_warm      <- get_patchration(1, "warm")
 R_cold      <- get_patchration(1, "cold")
@@ -2860,7 +2962,10 @@ expand.grid(
 
 Here is a simpler formulation, where ration size is distributed evenly across all individuals (pure scramble competition) and food supply within a patch is fixed. I.e., ration size of 0.1 g is evenly distributed among all fish in a patch. If we use this, it would probably make sense to define sub-patches (feeding stations) within the larger patches.
 
-```{r eval=FALSE}
+```{r}
+#| eval: false
+#| purl: false
+#| 
 fncDensityRation_ld <- function(fish_pop, R_warm, R_cold) {
   fish_pop %>%
     mutate(food   = if_else(patch == "warm", R_warm, R_cold),

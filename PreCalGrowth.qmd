@@ -91,6 +91,8 @@ save("cmax", file = "data/cmax.array.RData")
 
 Load back in to plot
 ```{r}
+#| cache: false
+
 load("data/wt.growth.array.RData")
 load("data/consumption.array.RData")
 load("data/wastes.array.RData")

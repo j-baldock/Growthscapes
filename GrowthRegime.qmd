@@ -55,6 +55,7 @@ grate_df <- tibble(temp = waterTemps[,2],
 
 # calculate growth potential (g/d/d) and cumulative growth (g) across warm and cold patches and for an "optimal mover"
 growthregime_df <- habitat_df %>%
+  filter(year(date) == 2002) %>%
   mutate(temp_warm = trimws(temp_warm),
          temp_cold = trimws(temp_cold)) %>%
   left_join(grate_df, by = c("temp_warm" = "temp")) %>% rename(grpot_warm = grate_ggd) %>%

@@ -1193,6 +1193,164 @@ plot_patchvalue <- function(ibm_long, habitat_df, exp_start_date = NULL) {
                        strip.text = element_text(face = "bold"))
 
 
+  # ── 6. WARM BIOMASS SHARE ────────────────────────────────────────────────────
+  # Two complementary metrics, shown together in each panel:
+  #   f_warm   = B_warm / (B_warm + B_cold)                 [signed; >1 when cold is net-negative]
+  #   f+_warm  = max(B_warm,0) / (max(B_warm,0) + max(B_cold,0))  [0–1; NA when both ≤ 0]
+  # When cold >= 0 the two metrics are identical and points lie on the line.
+  # Open symbols flag periods where cold was net-negative (metrics diverge: line above 1, point pegged at 1).
+
+  share_ann <- biomass_ann |>
+    pivot_wider(names_from = patch, values_from = total_kg, values_fill = 0) |>
+    left_join(
+      annual_area |> mutate(prop_cold      = A_cold / (A_cold + A_warm),
+                             prop_warm_area = A_warm / (A_cold + A_warm)),
+      by = "cal_year"
+    ) |>
+    mutate(
+      f_warm     = warm / (warm + cold),
+      pos_warm   = pmax(warm, 0),
+      pos_cold   = pmax(cold, 0),
+      f_warm_pos = if_else(pos_warm + pos_cold > 0,
+                           pos_warm / (pos_warm + pos_cold),
+                           NA_real_),
+      cold_neg   = cold < 0
+    )
+
+  share_seas <- biomass_seas |>
+    pivot_wider(names_from = patch, values_from = total_kg, values_fill = 0) |>
+    left_join(
+      seasonal_area |> mutate(prop_cold      = A_cold / (A_cold + A_warm),
+                               prop_warm_area = A_warm / (A_cold + A_warm)),
+      by = c("season_year", "season")
+    ) |>
+    mutate(
+      f_warm     = warm / (warm + cold),
+      pos_warm   = pmax(warm, 0),
+      pos_cold   = pmax(cold, 0),
+      f_warm_pos = if_else(pos_warm + pos_cold > 0,
+                           pos_warm / (pos_warm + pos_cold),
+                           NA_real_),
+      cold_neg   = cold < 0
+    )
+
+  # Clip y-axis to [0, 3] to suppress extreme f_warm values during burn-in and
+  # early experiment years. coord_cartesian() keeps the full path connected
+  # (data are not dropped, just the viewport is clipped).
+  share_ylim <- c(0, 2)
+
+  p_share_ann <- ggplot(share_ann, aes(x = cal_year)) +
+    vline_yr +
+    # Reference: warm share proportional to warm area availability
+    geom_line(aes(y = prop_warm_area), linetype = "dashed",
+              color = "steelblue", linewidth = 0.6, alpha = 0.8) +
+    # Dotted line at f_warm = 1 (all net biomass from warm)
+    geom_hline(yintercept = 1, linetype = "dotted", color = "grey55") +
+    # f_warm: signed share (main line)
+    geom_line(aes(y = f_warm), color = "tomato", linewidth = 0.8) +
+    # f+_warm: positive-only share; open when cold was net-negative
+    geom_point(aes(y = f_warm_pos, shape = cold_neg), color = "tomato", size = 2.5) +
+    scale_shape_manual(
+      values = c("FALSE" = 19, "TRUE" = 1),
+      labels = c("FALSE" = "Cold \u2265 0", "TRUE" = "Cold < 0"),
+      name   = "Cold patch biomass"
+    ) +
+    scale_x_continuous(breaks = scales::breaks_pretty(n = 8)) +
+    (if (!is.null(share_ylim)) coord_cartesian(ylim = share_ylim)) +
+    labs(
+      x        = "Year",
+      y        = "Warm share of biomass accrued",
+      title    = "Annual warm habitat biomass share",
+      subtitle = "Line = signed share (f_warm); points = positive-only share (f+_warm); dashed blue = warm area proportion",
+      caption  = "Open points: cold habitat was net-negative that year"
+    ) +
+    theme_bw() + theme(panel.grid.minor = element_blank())
+
+  p_share_seas <- ggplot(share_seas, aes(x = season_year)) +
+    vline_yr +
+    geom_line(aes(y = prop_warm_area), linetype = "dashed",
+              color = "steelblue", linewidth = 0.6, alpha = 0.8) +
+    geom_hline(yintercept = 1, linetype = "dotted", color = "grey55") +
+    geom_line(aes(y = f_warm), color = "tomato", linewidth = 0.8) +
+    geom_point(aes(y = f_warm_pos, shape = cold_neg), color = "tomato", size = 2) +
+    scale_shape_manual(
+      values = c("FALSE" = 19, "TRUE" = 1),
+      labels = c("FALSE" = "Cold \u2265 0", "TRUE" = "Cold < 0"),
+      name   = "Cold patch biomass"
+    ) +
+    facet_wrap(~season, ncol = 2) +
+    scale_x_continuous(breaks = scales::breaks_pretty(n = 5)) +
+    (if (!is.null(share_ylim)) coord_cartesian(ylim = share_ylim)) +
+    labs(
+      x        = "Year",
+      y        = "Warm share of biomass accrued",
+      title    = "Seasonal warm habitat biomass share",
+      subtitle = " ",
+      caption  = "Open points: cold habitat was net-negative that season"
+    ) +
+    theme_bw() + theme(panel.grid.minor = element_blank(),
+                       strip.text = element_text(face = "bold"))
+
+  share_equiv <- share_ann |>
+    select(cal_year, f_warm, f_warm_pos, cold_neg, prop_cold)
+
+  p_share_equiv <- ggplot(share_equiv, aes(x = prop_cold)) +
+    # Area-proportional expectation: warm share = 1 - prop_cold
+    geom_abline(slope = -1, intercept = 1, linetype = "dashed",
+                color = "steelblue", linewidth = 0.6, alpha = 0.8) +
+    geom_hline(yintercept = 1, linetype = "dotted", color = "grey55") +
+    # f_warm path
+    geom_path(aes(y = f_warm, color = cal_year), linewidth = 0.6, alpha = 0.7) +
+    # f+_warm points; open when cold was net-negative
+    geom_point(aes(y = f_warm_pos, color = cal_year, shape = cold_neg), size = 2.5) +
+    scale_color_viridis_c(name = "Year", option = "plasma") +
+    scale_shape_manual(
+      values = c("FALSE" = 19, "TRUE" = 1),
+      labels = c("FALSE" = "Cold \u2265 0", "TRUE" = "Cold < 0"),
+      name   = "Cold patch biomass"
+    ) +
+    scale_x_continuous(labels = scales::label_percent(accuracy = 1),
+                       breaks = seq(0, 0.5, 0.1), limits = c(0, 0.5)) +
+    (if (!is.null(share_ylim)) coord_cartesian(ylim = share_ylim)) +
+    labs(
+      x        = "Cold habitat as proportion of total",
+      y        = "Warm share of biomass accrued",
+      title    = "Warm biomass share equivalence curve",
+      subtitle = "Path = signed share (f_warm); points = positive-only share (f+_warm); dashed blue = area-proportional expectation",
+      caption  = "Open points: cold was net-negative; dotted line: f_warm = 1"
+    ) +
+    theme_bw() + theme(panel.grid.minor = element_blank())
+
+  share_equiv_seas <- share_seas |>
+    select(season_year, season, f_warm, f_warm_pos, cold_neg, prop_cold)
+
+  p_share_equiv_seas <- ggplot(share_equiv_seas, aes(x = prop_cold)) +
+    geom_abline(slope = -1, intercept = 1, linetype = "dashed",
+                color = "steelblue", linewidth = 0.6, alpha = 0.8) +
+    geom_hline(yintercept = 1, linetype = "dotted", color = "grey55") +
+    geom_path(aes(y = f_warm, color = season_year), linewidth = 0.6, alpha = 0.7) +
+    geom_point(aes(y = f_warm_pos, color = season_year, shape = cold_neg), size = 2) +
+    facet_wrap(~season, ncol = 2) +
+    scale_color_viridis_c(name = "Year", option = "plasma") +
+    scale_shape_manual(
+      values = c("FALSE" = 19, "TRUE" = 1),
+      labels = c("FALSE" = "Cold \u2265 0", "TRUE" = "Cold < 0"),
+      name   = "Cold patch biomass"
+    ) +
+    scale_x_continuous(labels = scales::label_percent(accuracy = 1),
+                       breaks = seq(0, 0.5, 0.1), limits = c(0, 0.5)) +
+    (if (!is.null(share_ylim)) coord_cartesian(ylim = share_ylim)) +
+    labs(
+      x        = "Cold habitat as proportion of total",
+      y        = "Warm share of biomass accrued",
+      title    = "Warm biomass share equivalence curve by season",
+      subtitle = " ",
+      caption  = "Open points: cold was net-negative; dotted line: f_warm = 1"
+    ) +
+    theme_bw() + theme(panel.grid.minor = element_blank(),
+                       strip.text = element_text(face = "bold"))
+
+
   # ── Combine annual and seasonal panels side by side ──────────────────────────
   p_sel          <- p_sel_ann | p_sel_seas
   p_biomass      <- (p_biomass_ann      | p_biomass_seas)      + plot_layout(guides = "collect")
@@ -1203,6 +1361,8 @@ plot_patchvalue <- function(ibm_long, habitat_df, exp_start_date = NULL) {
   p_ggd_equiv      <- (p_ggd_equiv      | p_ggd_equiv_seas)      + plot_layout(guides = "collect")
   p_surv         <- (p_surv_ann         | p_surv_seas)         + plot_layout(guides = "collect")
   p_surv_equiv     <- (p_surv_equiv     | p_surv_equiv_seas)     + plot_layout(guides = "collect")
+  p_share        <- (p_share_ann        | p_share_seas)        + plot_layout(guides = "collect")
+  p_share_equiv  <- (p_share_equiv      | p_share_equiv_seas)  + plot_layout(guides = "collect")
 
   # ── Print ────────────────────────────────────────────────────────────────────
   print(p_sel)
@@ -1210,6 +1370,7 @@ plot_patchvalue <- function(ibm_long, habitat_df, exp_start_date = NULL) {
   print(p_per_area);     print(p_per_area_equiv)
   print(p_ggd);          print(p_ggd_equiv)
   print(p_surv);         print(p_surv_equiv)
+  print(p_share);        print(p_share_equiv)
 
   invisible(list(
     sel            = p_sel,
@@ -1220,7 +1381,9 @@ plot_patchvalue <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     ggd            = p_ggd,
     ggd_equiv      = p_ggd_equiv,
     surv           = p_surv,
-    surv_equiv     = p_surv_equiv
+    surv_equiv     = p_surv_equiv,
+    share          = p_share,
+    share_equiv    = p_share_equiv
   ))
 }
 ```

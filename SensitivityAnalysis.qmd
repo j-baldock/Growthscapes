@@ -1,0 +1,1824 @@
+---
+title: "Parameter Sensitivity Analysis"
+subtitle: "Effects of key model parameters on population dynamics"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 11
+    fig-height: 7
+execute:
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r include=FALSE}
+#| label: setup
+#| cache: false
+
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+
+source("Habitat.R")
+source("Functions.R")
+source("SimulationLoop.R")
+source("ScenarioDefs.R")
+```
+
+```{r}
+#| label: base parameters
+#| cache: false
+
+# ── Baseline parameter set ────────────────────────────────────────────────────
+# All sensitivity runs keep every parameter at these values except the focal one.
+baseline <- scenarios[["null_cold"]]
+
+exp_start_date <- as.Date(baseline$mindate) + lubridate::years(baseline$nyears_burnin)
+burn_start     <- year(as.Date(baseline$mindate))
+exp_start_yr   <- year(exp_start_date)
+exp_end_yr     <- exp_start_yr + baseline$nyears_experiment
+
+cat("Baseline parameters:\n")
+cat("  K_cold / K_warm         :", baseline$K_cold, "/", baseline$K_warm, "\n")
+cat("  egg_surv                :", baseline$egg_surv, "\n")
+cat("  dominance_beta          :", baseline$dominance_beta, "\n")
+cat("  age_structured_competition:", baseline$age_structured_competition, "\n")
+cat("  crit_pcmax_lo / hi      :", baseline$crit_pcmax_lo, "/", baseline$crit_pcmax_hi, "\n")
+cat("  crit_period_days        :", baseline$crit_period_days, "\n")
+cat("Burn-in:", burn_start, "–", exp_start_yr - 1,
+    " | Experiment:", exp_start_yr, "–", exp_end_yr, "\n")
+```
+
+
+```{r}
+#| label: helpers
+#| cache: false
+
+# ── Helper: run one sensitivity simulation ─────────────────────────────────────
+run_sens <- function(param_name, param_val, base = baseline) {
+  p   <- modifyList(base, setNames(list(param_val), param_name))
+  # K must be set in both habitat and params
+  if (param_name %in% c("K_cold", "K_warm")) {
+    p <- modifyList(p, list(K_cold = param_val, K_warm = param_val))
+  }
+  hdf <- build_habitat(p)
+  run_simulation(habitat_df = hdf, params = p, wt_growth = wt.growth)
+}
+
+# ── Helper: Oct 1 annual census (N and total biomass) ─────────────────────────
+oct1_census <- function(sim, label) {
+  sim$ibm_long |>
+    filter(!is.na(date), survived == 1,
+           month(date) == 10, day(date) == 1) |>
+    mutate(year  = year(date),
+           phase = if_else(year < exp_start_yr, "burn-in", "experiment")) |>
+    group_by(year, phase) |>
+    summarise(N        = n_distinct(pid),
+              biomass_kg = sum(weight) / 1000,
+              .groups  = "drop") |>
+    mutate(label = label)
+}
+
+# ── Helper: population map (burn-in N[t+1] ~ N[t]) ───────────────────────────
+pop_map <- function(census_df) {
+  census_df |>
+    filter(phase == "burn-in") |>
+    group_by(label) |>
+    arrange(year) |>
+    mutate(N_next = lead(N)) |>
+    ungroup() |>
+    filter(!is.na(N_next))
+}
+
+# ── Helper: stock-recruitment (60-day survivors vs spawner biomass) ────────────
+# Uses fry surviving the critical period (60 days post-hatch) as the recruitment
+# metric rather than fry born, because fry born is the *input* to the
+# density-dependent critical-period function. 60-day survivors represent the
+# post-compensation output and should display a Beverton-Holt plateau against
+# spawner biomass if density-dependent thinning is operating correctly.
+stock_recruit <- function(sim, label) {
+  ibm <- sim$ibm_long
+  hdf <- sim$habitat_df
+
+  # Fry surviving at least 60 days post-hatch (past the critical period)
+  recruits_60d <- ibm |>
+    filter(!is.na(parent_pid)) |>
+    mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
+    filter(birth_yr < exp_start_yr) |>
+    group_by(pid, birth_yr) |>
+    summarise(days_alive = n(), .groups = "drop") |>
+    filter(days_alive >= 60) |>
+    count(birth_yr, name = "n_surv60")
+
+  # Spawner biomass: adults (≥ 100 g) present during spawning window (Apr–Jun)
+  spawner_bio <- ibm |>
+    filter(!is.na(date), survived == 1) |>
+    mutate(year = year(date), doy = yday(date)) |>
+    filter(doy >= 90, doy <= 150, weight >= 100, year < exp_start_yr) |>
+    group_by(year) |>
+    summarise(spawner_kg = sum(weight) / 1000, .groups = "drop")
+
+  left_join(recruits_60d, spawner_bio, by = c("birth_yr" = "year")) |>
+    mutate(label = label, spawner_kg = replace_na(spawner_kg, 0))
+}
+
+# ── Helper: critical-period thinning rate vs cohort size ──────────────────────
+thinning_rate <- function(sim, label) {
+  ibm <- sim$ibm_long
+  hdf <- sim$habitat_df
+
+  born <- ibm |>
+    filter(!is.na(parent_pid)) |>
+    mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
+    filter(birth_yr < exp_start_yr) |>
+    distinct(pid, birth_yr) |>
+    count(birth_yr, name = "n_born")
+
+  surv60 <- ibm |>
+    filter(!is.na(parent_pid)) |>
+    mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
+    filter(birth_yr < exp_start_yr) |>
+    group_by(pid, birth_yr) |>
+    summarise(days_alive = n(), .groups = "drop") |>
+    filter(days_alive >= 60) |>
+    count(birth_yr, name = "n_surv60")
+
+  left_join(born, surv60, by = "birth_yr") |>
+    mutate(surv_rate = replace_na(n_surv60 / n_born, 0),
+           label = label)
+}
+
+# ── Helper: biomass by age class (Oct 1, burn-in) ────────────────────────────
+biomass_age <- function(sim, label) {
+  sim$ibm_long |>
+    filter(!is.na(date), survived == 1,
+           month(date) == 10, day(date) == 1) |>
+    mutate(year      = year(date),
+           age_class = if_else(cohort == year, "Age-0 fry", "Age-1+"),
+           phase     = if_else(year < exp_start_yr, "burn-in", "experiment")) |>
+    filter(phase == "burn-in") |>
+    group_by(year, age_class) |>
+    summarise(biomass_kg = sum(weight) / 1000,
+              n_fish     = n_distinct(pid), .groups = "drop") |>
+    group_by(age_class) |>
+    summarise(mean_bio_kg = mean(biomass_kg),
+              mean_n      = mean(n_fish),
+              mean_wt_g   = mean(biomass_kg * 1000 / pmax(n_fish, 1)),
+              .groups = "drop") |>
+    mutate(label = label)
+}
+
+# ── Helper: weight-at-age (Oct 1, burn-in mean, ages 0-4) ────────────────────
+wt_at_age <- function(sim, label) {
+  sim$ibm_long |>
+    filter(!is.na(date), survived == 1,
+           month(date) == 10, day(date) == 1) |>
+    mutate(year     = year(date),
+           age_yrs  = floor(age),
+           phase    = if_else(year < exp_start_yr, "burn-in", "experiment")) |>
+    filter(phase == "burn-in", age_yrs <= 4) |>
+    group_by(year, age_yrs) |>
+    summarise(mean_wt = mean(weight), n = n_distinct(pid), .groups = "drop") |>
+    filter(n >= 2) |>
+    group_by(age_yrs) |>
+    summarise(mean_wt = mean(mean_wt), .groups = "drop") |>
+    mutate(label = label)
+}
+
+# ── Helper: age-0 daily weight (doy mean across burn-in cohorts) ──────────────
+age0_daily_wt <- function(sim, label) {
+  sim$ibm_long |>
+    filter(!is.na(date), survived == 1, !is.na(ggd)) |>
+    mutate(year = year(date),
+           doy  = yday(date)) |>
+    filter(cohort == year, year < exp_start_yr) |>
+    group_by(doy) |>
+    summarise(mean_wt = mean(weight), n = n(), .groups = "drop") |>
+    filter(n >= 5) |>
+    mutate(label = label)
+}
+
+# ── Stability summary ──────────────────────────────────────────────────────────
+stability_stats <- function(census_df) {
+  census_df |>
+    group_by(label, phase) |>
+    summarise(mean_N     = round(mean(N)),
+              cv         = round(sd(N) / mean(N), 2),
+              mean_bio   = round(mean(biomass_kg), 1),
+              sim_yrs    = n(),
+              .groups    = "drop")
+}
+
+# ── Total years simulated (burn-in + experiment combined) ─────────────────────
+# Used in the cross-parameter summary to identify premature collapse.
+# max possible = nyears_burnin + nyears_experiment = 100.
+total_sim_yrs <- function(census_df) {
+  census_df |>
+    group_by(label) |>
+    summarise(total_yrs = n_distinct(year), .groups = "drop")
+}
+
+# ── Helper: 4-panel stability bar chart (mean N and CV × phase) ───────────────
+# stable_df: output of stability_stats(); cols: length-3 colour vector.
+# Layout: rows = metric (mean N, CV), columns = phase (burn-in, experiment).
+plot_stability_fig <- function(stable_df, cols) {
+  stable_long <- stable_df |>
+    select(label, phase, mean_N, cv) |>
+    pivot_longer(c(mean_N, cv),
+                 names_to  = "metric",
+                 values_to = "value") |>
+    mutate(
+      metric = factor(metric,
+                      levels = c("mean_N", "cv"),
+                      labels = c("Mean N (Oct 1)", "CV (abundance)")),
+      phase  = factor(phase,
+                      levels = c("burn-in", "experiment"),
+                      labels = c("Burn-in", "Experiment"))
+    )
+
+  ggplot(stable_long, aes(x = label, y = value, fill = label)) +
+    geom_col(width = 0.65, show.legend = FALSE) +
+    facet_grid(metric ~ phase, scales = "free_y") +
+    scale_fill_manual(values = cols) +
+    labs(x = NULL, y = NULL) +
+    theme_sens() +
+    theme(axis.text.x  = element_text(size = 7.5, lineheight = 0.85),
+          strip.text   = element_text(size = 9),
+          panel.spacing = unit(0.8, "lines"))
+}
+
+# ── Shared colour palette (Okabe-Ito: blue / teal / vermillion) ──────────────
+# Colorblind-friendly; all three are clearly distinguishable.
+# Mapping: low value = blue, mid/baseline value = teal, high value = vermillion.
+sens_cols <- c("#0072B2", "#009E73", "#D55E00")
+
+# ── Shared plot theme ─────────────────────────────────────────────────────────
+theme_sens <- function() {
+  theme_bw() +
+    theme(legend.position  = "top",
+          strip.background = element_rect(fill = "grey88"),
+          panel.grid.minor = element_blank(),
+          plot.title       = element_text(size = 10, face = "bold"),
+          plot.subtitle    = element_text(size = 8, color = "grey30"))
+}
+```
+
+---
+
+## `K_cold`: strength of density dependence
+
+The half-saturation constant K controls the density at which consumption suppression
+becomes binding. Smaller K creates stronger suppression at lower densities; larger K
+allows the population to grow more before density effects manifest. All other parameters
+held at baseline (`egg_surv = 0.1`, `dominance_beta = 1`).
+
+```{r}
+#| label: sim-K
+#| cache: true
+
+K_vals   <- c(100, 200, 500)
+K_labels <- paste0("K = ", K_vals)
+K_cols   <- sens_cols
+
+cat("Running K sensitivity simulations...\n")
+K_sims <- lapply(seq_along(K_vals), function(i) {
+  cat(" K =", K_vals[i], "... ")
+  p   <- modifyList(baseline, list(K_cold = K_vals[i], K_warm = K_vals[i]))
+  hdf <- build_habitat(p)
+  res <- run_simulation(hdf, p, wt_growth = wt.growth)
+  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+  res
+})
+names(K_sims) <- K_labels
+```
+
+```{r}
+#| label: K-outcomes
+
+K_census   <- bind_rows(Map(oct1_census,   K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_sr       <- bind_rows(Map(stock_recruit, K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_thin     <- bind_rows(Map(thinning_rate, K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+
+K_waa      <- bind_rows(Map(wt_at_age,     K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_age0_dly <- bind_rows(Map(age0_daily_wt, K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_stable   <- stability_stats(K_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-K-ts
+#| fig-cap: "Oct 1 annual abundance and total biomass for each K value. Grey band = burn-in."
+#| fig-height: 5
+
+p_N <- ggplot(K_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = K_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(K_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = K_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-K-comp
+#| fig-cap: "Left: burn-in population map. Center: stock-recruitment relationship. Right: critical-period survival rate vs cohort size."
+#| fig-height: 5
+
+K_map <- pop_map(K_census)
+
+p_map <- ggplot(K_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = K_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)",
+       subtitle = "Curve crossing below dashed line = compensatory") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(K_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = n_surv60, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = K_cols) +
+  labs(x = "Spawner biomass (kg, Apr–Jun)", y = "Fry surviving 60 days",
+       color = NULL, title = "Stock-recruitment",
+       subtitle = "60-day survivors vs. spawner biomass \n— should show B-H plateau") +
+  theme_sens()
+
+p_thin <- ggplot(K_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = K_cols) +
+  labs(x = "Fry born", y = "% surviving 60-day critical period",
+       color = NULL, title = "Critical-period thinning",
+       subtitle = "Declining rate = density-dependent compensation") +
+  theme_sens() + theme(legend.position = "none")
+
+p_map | p_sr | p_thin
+```
+
+### Age structure
+
+```{r}
+#| label: fig-K-thin
+#| fig-cap: "Left: mean weight at age (burn-in). Right: Mean age-0 fry weight by day of year, averaged across burn-in cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(K_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = K_cols) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (burn-in mean)",
+       subtitle = "Shows how K affects individual growth trajectories") +
+  theme_sens()
+
+month_doys   <- c(121, 152, 182, 213, 244, 274, 305, 335)
+month_labels <- c("May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+
+p_aget <- ggplot(K_age0_dly |> filter(doy >= 118),
+       aes(x = doy, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = K_cols) +
+  scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = NULL, y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — burn-in cohort mean",
+       subtitle = "Smaller K = more density suppression = slower early growth") +
+  theme_sens()
+
+p_waa | p_aget
+```
+
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: fig-K-stable
+#| fig-cap: "Mean Oct 1 abundance and CV by K value, split by simulation phase."
+#| fig-height: 5
+
+plot_stability_fig(K_stable, K_cols)
+```
+
+```{r}
+#| label: tbl-K-stable
+#| tbl-cap: "Burn-in and experiment stability statistics by K value."
+
+K_stable |>
+  knitr::kable(col.names = c("K", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## `egg_surv`: proportional egg survival
+
+Egg-to-fry survival scales the number of recruits entering the simulation each spring.
+It represents spawning habitat quality, redd conditions, and egg-incubation success.
+All other parameters held at baseline (`K = 200`, `dominance_beta = 1`).
+
+```{r}
+#| label: sim-egg
+#| cache: true
+
+egg_vals   <- c(0.01, 0.1, 0.2)
+egg_labels <- paste0("egg_surv = ", egg_vals)
+egg_cols   <- sens_cols
+
+cat("Running egg_surv sensitivity simulations...\n")
+egg_sims <- lapply(seq_along(egg_vals), function(i) {
+  cat(" egg_surv =", egg_vals[i], "... ")
+  p   <- modifyList(baseline, list(egg_surv = egg_vals[i]))
+  hdf <- build_habitat(p)
+  res <- run_simulation(hdf, p, wt_growth = wt.growth)
+  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+  res
+})
+names(egg_sims) <- egg_labels
+```
+
+```{r}
+#| label: egg-outcomes
+
+egg_census   <- bind_rows(Map(oct1_census,   egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_sr       <- bind_rows(Map(stock_recruit, egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_thin     <- bind_rows(Map(thinning_rate, egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+
+egg_waa      <- bind_rows(Map(wt_at_age,     egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_age0_dly <- bind_rows(Map(age0_daily_wt, egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_stable   <- stability_stats(egg_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-egg-ts
+#| fig-cap: "Oct 1 annual abundance and total biomass for each egg_surv value."
+#| fig-height: 5
+
+p_N <- ggplot(egg_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = egg_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(egg_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = egg_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-egg-comp
+#| fig-cap: "Left: burn-in population map. Center: stock-recruitment. Right: critical-period survival rate vs cohort size."
+#| fig-height: 5
+
+egg_map <- pop_map(egg_census)
+
+p_map <- ggplot(egg_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = egg_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(egg_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = n_surv60, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = egg_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry surviving 60 days",
+       color = NULL, title = "Stock-recruitment") +
+  theme_sens()
+
+p_thin <- ggplot(egg_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = egg_cols) +
+  labs(x = "Fry born", y = "% surviving 60-day critical period",
+       color = NULL, title = "Critical-period thinning") +
+  theme_sens() + theme(legend.position = "none")
+
+p_map | p_sr | p_thin
+```
+
+### Age structure
+
+```{r}
+#| label: fig-egg-age0
+#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(egg_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = egg_cols) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (burn-in mean)",
+       subtitle = "Higher egg_surv: smaller age-0, larger age-2+ (size-selective thinning)") +
+  theme_sens()
+
+p_aget <- ggplot(egg_age0_dly |> filter(doy >= 118),
+                 aes(x = doy, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = egg_cols) +
+  scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = NULL, y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — burn-in cohort mean") +
+  theme_sens()
+
+p_waa | p_aget
+```
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: fig-egg-stable
+#| fig-cap: "Mean Oct 1 abundance and CV by egg_surv, split by simulation phase."
+#| fig-height: 5
+
+plot_stability_fig(egg_stable, egg_cols)
+```
+
+```{r}
+#| label: tbl-egg-stable
+#| tbl-cap: "Stability statistics by egg_surv."
+
+egg_stable |>
+  knitr::kable(col.names = c("egg_surv", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## `dominance_beta`: size-based competitive dominance
+
+`dominance_beta` controls the strength of size-based competitive dominance *within*
+each age class. β = 0 is pure scramble (all fish experience the same effective density
+regardless of size); β = 1 means a fish twice the size of its competitor imposes a full
+competitive unit of pressure, while a fish half its size imposes only half a unit.
+All other parameters held at baseline (`K = 200`, `egg_surv = 0.1`).
+
+```{r}
+#| label: sim-beta
+#| cache: true
+
+beta_vals   <- c(0, 0.5, 1)
+beta_labels <- paste0("β = ", beta_vals)
+beta_cols   <- sens_cols
+
+cat("Running dominance_beta sensitivity simulations...\n")
+beta_sims <- lapply(seq_along(beta_vals), function(i) {
+  cat(" beta =", beta_vals[i], "... ")
+  p   <- modifyList(baseline, list(dominance_beta = beta_vals[i]))
+  hdf <- build_habitat(p)
+  res <- run_simulation(hdf, p, wt_growth = wt.growth)
+  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+  res
+})
+names(beta_sims) <- beta_labels
+```
+
+```{r}
+#| label: beta-outcomes
+
+beta_census   <- bind_rows(Map(oct1_census,   beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_sr       <- bind_rows(Map(stock_recruit, beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_thin     <- bind_rows(Map(thinning_rate, beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_waa      <- bind_rows(Map(wt_at_age,     beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_age0_dly <- bind_rows(Map(age0_daily_wt, beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_stable   <- stability_stats(beta_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-beta-ts
+#| fig-cap: "Oct 1 annual abundance and total biomass for each dominance_beta value."
+#| fig-height: 5
+
+p_N <- ggplot(beta_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = beta_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(beta_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = beta_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-beta-comp
+#| fig-cap: "Left: burn-in population map. Center: stock-recruitment. Right: critical-period survival rate vs cohort size."
+#| fig-height: 5
+
+beta_map <- pop_map(beta_census)
+
+p_map <- ggplot(beta_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = beta_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(beta_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = n_surv60, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = beta_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry surviving 60 days",
+       color = NULL, title = "Stock-recruitment") +
+  theme_sens()
+
+p_thin <- ggplot(beta_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = beta_cols) +
+  labs(x = "Fry born", y = "% surviving 60-day critical period",
+       color = NULL, title = "Critical-period thinning") +
+  theme_sens() + theme(legend.position = "none")
+
+p_map | p_sr | p_thin
+```
+
+### Age structure
+
+```{r}
+#| label: fig-beta-age0
+#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(beta_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = beta_cols) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (burn-in mean)",
+       subtitle = "Higher β: larger dominant adults, more skewed size distribution") +
+  theme_sens()
+
+p_aget <- ggplot(beta_age0_dly |> filter(doy >= 118),
+                 aes(x = doy, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = beta_cols) +
+  scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = NULL, y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — burn-in cohort mean") +
+  theme_sens()
+
+p_waa | p_aget
+```
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: fig-beta-stable
+#| fig-cap: "Mean Oct 1 abundance and CV by dominance_beta, split by simulation phase."
+#| fig-height: 5
+
+plot_stability_fig(beta_stable, beta_cols)
+```
+
+```{r}
+#| label: tbl-beta-stable
+#| tbl-cap: "Stability statistics by dominance_beta."
+
+beta_stable |>
+  knitr::kable(col.names = c("β", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## `crit_pcmax_lo` / `crit_pcmax_hi`: critical-period threshold 
+
+`fncSurviveConsumption` is parameterised by two thresholds that define the lower and
+upper ends of the logistic sigmoid. At `crit_pcmax_lo`, the 60-day period survival
+approaches 1%; at `crit_pcmax_hi`, it approaches 99%. These values are phenomenological
+— they were calibrated to the K = 200 consumption distributions observed during the
+diagnostic session, not derived from first principles. This section tests how sensitive
+the compensatory regulation is to shifting the sigmoid window up or down.
+
+| Scenario | `crit_pcmax_lo` | `crit_pcmax_hi` | Midpoint | Interpretation |
+|---|---|---|---|---|
+| Low window | 0.25 | 0.35 | 0.30 | Lenient — mortality only kicks in below pcmax_dd ≈ 0.35; most boom-year fry (at ~0.38–0.40) escape |
+| **Baseline** | **0.30** | **0.40** | **0.35** | **Current default** |
+| High window | 0.35 | 0.45 | 0.40 | Strict — boom-year fry at ~0.38–0.40 fall within the penalty zone; stronger thinning |
+
+All other parameters held at baseline (`K = 200`, `egg_surv = 0.1`, `dominance_beta = 1`).
+
+```{r}
+#| label: sim-crit-thresh
+#| cache: true
+
+thresh_vals <- list(
+  c(lo = 0.25, hi = 0.35),
+  c(lo = 0.30, hi = 0.40),
+  c(lo = 0.35, hi = 0.45)
+)
+thresh_labels <- c("lo=0.25 / hi=0.35\n(lenient)", 
+                   "lo=0.30 / hi=0.40\n(baseline)",
+                   "lo=0.35 / hi=0.45\n(strict)")
+thresh_cols <- sens_cols
+
+cat("Running crit_pcmax threshold sensitivity simulations...\n")
+thresh_sims <- lapply(seq_along(thresh_vals), function(i) {
+  tv <- thresh_vals[[i]]
+  cat(" lo=", tv["lo"], "hi=", tv["hi"], "... ")
+  p   <- modifyList(baseline, list(crit_pcmax_lo = tv["lo"],
+                                   crit_pcmax_hi = tv["hi"]))
+  hdf <- build_habitat(p)
+  res <- run_simulation(hdf, p, wt_growth = wt.growth)
+  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+  res
+})
+names(thresh_sims) <- thresh_labels
+```
+
+```{r}
+#| label: thresh-outcomes
+
+thresh_census   <- bind_rows(Map(oct1_census,   thresh_sims, thresh_labels)) |>
+  mutate(label = factor(label, levels = thresh_labels))
+thresh_sr       <- bind_rows(Map(stock_recruit, thresh_sims, thresh_labels)) |>
+  mutate(label = factor(label, levels = thresh_labels))
+thresh_thin     <- bind_rows(Map(thinning_rate, thresh_sims, thresh_labels)) |>
+  mutate(label = factor(label, levels = thresh_labels))
+thresh_waa      <- bind_rows(Map(wt_at_age,     thresh_sims, thresh_labels)) |>
+  mutate(label = factor(label, levels = thresh_labels))
+thresh_age0_dly <- bind_rows(Map(age0_daily_wt, thresh_sims, thresh_labels)) |>
+  mutate(label = factor(label, levels = thresh_labels))
+thresh_stable   <- stability_stats(thresh_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-thresh-ts
+#| fig-cap: "Oct 1 abundance and biomass by threshold window. Stricter thresholds create stronger early mortality and smaller but more stable populations."
+#| fig-height: 5
+
+p_N <- ggplot(thresh_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = thresh_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(thresh_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = thresh_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-thresh-comp
+#| fig-cap: "Left: burn-in population map. Center: stock-recruitment. Right: critical-period survival rate vs cohort size."
+#| fig-height: 5
+
+thresh_map <- pop_map(thresh_census)
+
+p_map <- ggplot(thresh_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = thresh_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)",
+       subtitle = "Does compensatory regulation persist across threshold values?") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(thresh_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = n_surv60, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = thresh_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry surviving 60 days", color = NULL,
+       title = "Stock-recruitment") +
+  theme_sens()
+
+p_thin <- ggplot(thresh_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = thresh_cols) +
+  labs(x = "Fry born", y = "% surviving 60-day critical period",
+       color = NULL, title = "Critical-period thinning",
+       subtitle = "Stricter window (high lo/hi) = lower survival at any given cohort size") +
+  theme_sens() + theme(legend.position = "none")
+
+p_map | p_sr | p_thin
+```
+
+### Age structure
+
+```{r}
+#| label: fig-thresh-age0
+#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(thresh_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = thresh_cols) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (burn-in mean)",
+       subtitle = "Stricter window (high lo/hi) = stronger size-selection = larger older fish") +
+  theme_sens()
+
+p_aget <- ggplot(thresh_age0_dly |> filter(doy >= 118),
+                 aes(x = doy, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = thresh_cols) +
+  scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = NULL, y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — burn-in cohort mean") +
+  theme_sens()
+
+p_waa | p_aget
+```
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: fig-thresh-stable
+#| fig-cap: "Mean Oct 1 abundance and CV by threshold window, split by simulation phase."
+#| fig-height: 5
+
+plot_stability_fig(thresh_stable, thresh_cols)
+```
+
+```{r}
+#| label: tbl-thresh-stable
+#| tbl-cap: "Stability statistics by threshold window."
+
+thresh_stable |>
+  knitr::kable(col.names = c("Threshold window", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## `crit_period_days`: critical-period duration
+
+The Elliott (1989) critical period is approximately 60 days for *Salmo trutta*, but
+the precise duration for the focal species is uncertain. A longer critical period
+extends the window during which density-dependent thinning applies; a shorter window
+concentrates mortality in the first month post-hatch. This section tests whether
+the compensatory regulation is robust to the duration assumption.
+
+All other parameters held at baseline (`K = 200`, `egg_surv = 0.1`, `dominance_beta = 1`,
+`crit_pcmax_lo = 0.30`, `crit_pcmax_hi = 0.40`).
+
+```{r}
+#| label: sim-crit-days
+#| cache: true
+
+days_vals   <- c(0L, 30L, 60L, 90L)
+days_labels <- c("0 days\n(disabled)", "30 days\n(narrow)",
+                 "60 days\n(baseline)", "90 days\n(wide)")
+# Grey for disabled (0 days), then three sequential colours
+days_cols   <- c("#999999", "#0072B2", "#009E73", "#D55E00")
+
+cat("Running crit_period_days sensitivity simulations...\n")
+days_sims <- lapply(seq_along(days_vals), function(i) {
+  cat(" crit_period_days =", days_vals[i], "... ")
+  p   <- modifyList(baseline, list(crit_period_days = days_vals[i]))
+  hdf <- build_habitat(p)
+  res <- run_simulation(hdf, p, wt_growth = wt.growth)
+  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+  res
+})
+names(days_sims) <- days_labels
+
+# thinning_rate uses 60-day survival by default; create a version parameterised
+# per scenario so the survival window matches the critical period being tested
+thinning_rate_n <- function(sim, label, n_days) {
+  ibm <- sim$ibm_long; hdf <- sim$habitat_df
+  born <- ibm |>
+    filter(!is.na(parent_pid)) |>
+    mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
+    filter(birth_yr < exp_start_yr) |>
+    distinct(pid, birth_yr) |>
+    count(birth_yr, name = "n_born")
+  surv_n <- ibm |>
+    filter(!is.na(parent_pid)) |>
+    mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
+    filter(birth_yr < exp_start_yr) |>
+    group_by(pid, birth_yr) |>
+    summarise(days_alive = n(), .groups = "drop") |>
+    filter(days_alive >= n_days) |>
+    count(birth_yr, name = "n_surv")
+  left_join(born, surv_n, by = "birth_yr") |>
+    mutate(surv_rate = replace_na(n_surv / n_born, 0), label = label)
+}
+```
+
+```{r}
+#| label: days-outcomes
+
+days_census   <- bind_rows(Map(oct1_census,   days_sims, days_labels)) |>
+  mutate(label = factor(label, levels = days_labels))
+days_sr       <- bind_rows(Map(stock_recruit, days_sims, days_labels)) |>
+  mutate(label = factor(label, levels = days_labels))
+# Thinning rate: 0-day (disabled) scenario uses standard 60-day window to show
+# natural cohort thinning without the function; others use their own period length.
+days_thin <- bind_rows(
+  thinning_rate(   days_sims[[1]], days_labels[1]),           # 0 days: no function
+  thinning_rate_n( days_sims[[2]], days_labels[2], days_vals[2]),
+  thinning_rate_n( days_sims[[3]], days_labels[3], days_vals[3]),
+  thinning_rate_n( days_sims[[4]], days_labels[4], days_vals[4])
+) |> mutate(label = factor(label, levels = days_labels))
+days_waa      <- bind_rows(Map(wt_at_age,     days_sims, days_labels)) |>
+  mutate(label = factor(label, levels = days_labels))
+days_age0_dly <- bind_rows(Map(age0_daily_wt, days_sims, days_labels)) |>
+  mutate(label = factor(label, levels = days_labels))
+days_stable   <- stability_stats(days_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-days-ts
+#| fig-cap: "Oct 1 abundance and biomass by critical-period duration."
+#| fig-height: 5
+
+p_N <- ggplot(days_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = days_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(days_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = days_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-days-comp
+#| fig-cap: "Left: burn-in population map. Center: stock-recruitment. Right: critical-period survival rate vs cohort size (each line uses its own period length as threshold)."
+#| fig-height: 5
+
+days_map <- pop_map(days_census)
+
+p_map <- ggplot(days_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = days_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)",
+       subtitle = "Does the compensation attractor persist across period lengths?") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(days_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = n_surv60, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = days_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry surviving 60 days", color = NULL,
+       title = "Stock-recruitment") +
+  theme_sens()
+
+p_thin <- ggplot(days_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = days_cols) +
+  labs(x = "Fry born", y = "% surviving critical period",
+       color = NULL, title = "Critical-period thinning") +
+  theme_sens() + theme(legend.position = "none")
+
+p_map | p_sr | p_thin
+```
+
+### Age structure
+
+```{r}
+#| label: fig-days-age0
+#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(days_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = days_cols) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (burn-in mean)",
+       subtitle = "Longer critical period = more size-selection = larger adults") +
+  theme_sens()
+
+p_aget <- ggplot(days_age0_dly |> filter(doy >= 118),
+                 aes(x = doy, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = days_cols) +
+  scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = NULL, y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — burn-in cohort mean") +
+  theme_sens()
+
+p_waa | p_aget
+```
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: fig-days-stable
+#| fig-cap: "Mean Oct 1 abundance and CV by critical-period duration, split by simulation phase."
+#| fig-height: 5
+
+plot_stability_fig(days_stable, days_cols)
+```
+
+```{r}
+#| label: tbl-days-stable
+#| tbl-cap: "Stability statistics by critical-period duration."
+
+days_stable |>
+  knitr::kable(col.names = c("Duration", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## `pcmax_cold` / `pcmax_warm`: maximum consumption
+
+`pcmax` sets the ceiling on achievable daily consumption as a proportion of
+physiological maximum Cmax. The effective ration is
+`pcmax_adjusted = min(fT(temp), pcmax)`, so at peak summer cold-patch temperatures
+(T ≈ 15°C, fT ≈ 0.91), `pcmax_cold = 0.5` is the binding constraint — fish are
+food-limited by habitat quality, not by temperature. Raising pcmax relaxes this
+ceiling and directly increases `pcmax_adjusted_dd` for all fish.
+
+All other parameters held at baseline (`K = 200`, `egg_surv = 0.1`,
+`dominance_beta = 1`, `crit_pcmax_lo = 0.30`, `crit_pcmax_hi = 0.40`).
+
+::: {.callout-warning}
+## Interaction with critical-period thresholds
+
+The thresholds `crit_pcmax_lo = 0.30` and `crit_pcmax_hi = 0.40` were calibrated
+when `pcmax_cold = 0.5`, where boom-year fry sit at pcmax_adjusted_dd ≈ 0.38 —
+just below `crit_pcmax_hi`. At `pcmax = 0.75`, the same fry may achieve
+pcmax_adjusted_dd ≈ 0.57, which is well above the threshold, so the
+critical-period function barely fires and compensatory regulation weakens or
+disappears. At `pcmax = 1.0` temperature becomes the binding constraint
+(fT ≈ 0.91) and pcmax_adjusted_dd ≈ 0.82. **The thresholds should be
+recalibrated proportionally if pcmax is changed from the baseline.**
+Plots below will reveal whether compensation survives the shift.
+:::
+
+```{r}
+#| label: sim-pcmax
+#| cache: false
+
+pcmax_vals   <- c(0.50, 0.75, 1.00)
+pcmax_labels <- paste0("pcmax = ", pcmax_vals)
+pcmax_cols   <- c("#0072B2", "#009E73", "#D55E00")
+
+cache_file <- "cache/pcmax_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading pcmax simulations from cache...\n")
+  pcmax_sims <- readRDS(cache_file)
+} else {
+  cat("Running pcmax sensitivity simulations...\n")
+  pcmax_sims <- lapply(seq_along(pcmax_vals), function(i) {
+    pv <- pcmax_vals[i]
+    cat(" pcmax =", pv, "... ")
+    p   <- modifyList(baseline, list(pcmax_cold = pv, pcmax_warm = pv))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(pcmax_sims) <- pcmax_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(pcmax_sims, cache_file)
+}
+```
+
+```{r}
+#| label: pcmax-outcomes
+
+pcmax_census   <- bind_rows(Map(oct1_census,   pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_sr       <- bind_rows(Map(stock_recruit, pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_thin     <- bind_rows(Map(thinning_rate, pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_waa      <- bind_rows(Map(wt_at_age,     pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_age0_dly <- bind_rows(Map(age0_daily_wt, pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_stable   <- stability_stats(pcmax_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-pcmax-ts
+#| fig-cap: "Oct 1 abundance and biomass by pcmax value."
+#| fig-height: 5
+
+p_N <- ggplot(pcmax_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = pcmax_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(pcmax_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = pcmax_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-pcmax-comp
+#| fig-cap: "Left: burn-in population map. Center: stock-recruitment. Right: critical-period survival rate vs cohort size. Weakening compensation at higher pcmax indicates threshold recalibration is needed."
+#| fig-height: 5
+
+pcmax_map <- pop_map(pcmax_census)
+
+p_map <- ggplot(pcmax_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = pcmax_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(pcmax_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = n_surv60, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = pcmax_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry surviving 60 days", color = NULL,
+       title = "Stock-recruitment") +
+  theme_sens()
+
+p_thin <- ggplot(pcmax_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = pcmax_cols) +
+  labs(x = "Fry born", y = "% surviving 60-day critical period",
+       color = NULL, title = "Critical-period thinning",
+       subtitle = "Rising survival rate at higher pcmax = compensation breaking down") +
+  theme_sens() + theme(legend.position = "none")
+
+p_map | p_sr | p_thin
+```
+
+### Age structure
+
+```{r}
+#| label: fig-pcmax-age0
+#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(pcmax_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = pcmax_cols) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (burn-in mean)",
+       subtitle = "Higher pcmax = better ration = larger fish at all ages") +
+  theme_sens()
+
+p_aget <- ggplot(pcmax_age0_dly |> filter(doy >= 118),
+                 aes(x = doy, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = pcmax_cols) +
+  scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = NULL, y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — burn-in cohort mean",
+       subtitle = "Higher pcmax lifts the growth ceiling; peak weight and winter decline both affected") +
+  theme_sens()
+
+p_waa | p_aget
+```
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: fig-pcmax-stable
+#| fig-cap: "Stability by pcmax."
+#| fig-height: 5
+
+plot_stability_fig(pcmax_stable, pcmax_cols)
+```
+
+```{r}
+#| label: tbl-pcmax-stable
+#| tbl-cap: "Stability statistics by pcmax."
+
+pcmax_stable |>
+  knitr::kable(col.names = c("pcmax", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## `A_cold`: habitat area
+
+`A_cold` sets the area of cold habitat available to fish (in arbitrary area units;
+`eff_density = (n - 1) / A_cold`). For the null cold-only scenario, `A_warm = 0`
+throughout, and cold habitat declines linearly from `A_cold` to 0 over the 60-year
+experiment period regardless of starting area. Larger starting area means a larger
+effective carrying capacity during the burn-in and a longer absolute decline before
+the population is forced into critically small habitat.
+
+All other parameters held at baseline (`K = 200`, `egg_surv = 0.1`,
+`dominance_beta = 1`, `crit_pcmax_lo = 0.30`, `crit_pcmax_hi = 0.40`).
+
+::: {.callout-warning}
+## Interaction with K and critical-period thresholds
+
+Increasing `A_cold` is mathematically equivalent to scaling K upward: both reduce
+`eff_density` for a given N, shifting boom-year fry pcmax_adjusted_dd upward. At
+`A_cold = 2`, eff_density halves for the same population size, pushing pcmax_dd
+toward ~0.45–0.48 and above `crit_pcmax_hi = 0.40`. At `A_cold = 4`, the
+critical-period function likely fires negligibly. This is the same interaction as
+for K: **K and A_cold are partially substitutable**, and the critical-period
+thresholds may need recalibration if habitat area deviates substantially from the
+baseline. The population map and SR curve will reveal whether compensation degrades
+under larger areas.
+:::
+
+```{r}
+#| label: sim-area
+#| cache: false
+
+area_vals   <- c(1, 2, 4)
+area_labels <- paste0("A_cold = ", area_vals)
+area_cols   <- c("#0072B2", "#009E73", "#D55E00")
+
+cache_file <- "cache/area_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading habitat area simulations from cache...\n")
+  area_sims <- readRDS(cache_file)
+} else {
+  cat("Running habitat area sensitivity simulations...\n")
+  area_sims <- lapply(seq_along(area_vals), function(i) {
+    av <- area_vals[i]
+    cat(" A_cold =", av, "... ")
+    # A_cold_target = 0 retained: cold habitat still declines to 0 over experiment.
+    # A_warm = 0 retained: null cold-only scenario.
+    p   <- modifyList(baseline, list(A_cold = av))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(area_sims) <- area_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(area_sims, cache_file)
+}
+```
+
+```{r}
+#| label: area-outcomes
+
+area_census   <- bind_rows(Map(oct1_census,   area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_sr       <- bind_rows(Map(stock_recruit, area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_thin     <- bind_rows(Map(thinning_rate, area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_waa      <- bind_rows(Map(wt_at_age,     area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_age0_dly <- bind_rows(Map(age0_daily_wt, area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_stable   <- stability_stats(area_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-area-ts
+#| fig-cap: "Oct 1 abundance and biomass by cold habitat area. All scenarios decline to extinction as A_cold → 0; larger starting area supports a larger population and may delay collapse."
+#| fig-height: 5
+
+p_N <- ggplot(area_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = area_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(area_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = area_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-area-comp
+#| fig-cap: "Left: burn-in population map. Center: stock-recruitment. Right: critical-period survival rate vs cohort size."
+#| fig-height: 5
+
+area_map <- pop_map(area_census)
+
+p_map <- ggplot(area_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = area_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(area_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = n_surv60, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = area_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry surviving 60 days", color = NULL,
+       title = "Stock-recruitment") +
+  theme_sens()
+
+p_thin <- ggplot(area_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = area_cols) +
+  labs(x = "Fry born", y = "% surviving 60-day critical period",
+       color = NULL, title = "Critical-period thinning",
+       subtitle = "Larger area = lower eff_density = weaker thinning (same interaction as high K)") +
+  theme_sens() + theme(legend.position = "none")
+
+p_map | p_sr | p_thin
+```
+
+### Age structure
+
+```{r}
+#| label: fig-area-age0
+#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(area_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = area_cols) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (burn-in mean)",
+       subtitle = "Larger area = lower competition = better individual growth") +
+  theme_sens()
+
+p_aget <- ggplot(area_age0_dly |> filter(doy >= 118),
+                 aes(x = doy, y = mean_wt, color = label)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = area_cols) +
+  scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = NULL, y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — burn-in cohort mean") +
+  theme_sens()
+
+p_waa | p_aget
+```
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: fig-area-stable
+#| fig-cap: "Stability by cold habitat area."
+#| fig-height: 5
+
+plot_stability_fig(area_stable, area_cols)
+```
+
+```{r}
+#| label: tbl-area-stable
+#| tbl-cap: "Stability statistics by cold habitat area. Experiment years are comparable across scenarios only if populations survive long enough; earlier collapse at smaller area is expected."
+
+area_stable |>
+  knitr::kable(col.names = c("A_cold", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## Size and age structured competition (`age_structured_competition` × `dominance_beta`)
+
+`age_structured_competition` controls whether fry (age-0) and older fish (age-1+)
+compete as separate pools. When `TRUE`, fry compete only with other fry and adults
+only with other adults, reflecting ontogenetic habitat segregation (channel margins
+vs. pools and runs). When `FALSE`, all fish in a patch compete in one pool.
+
+The effect of this toggle depends critically on `dominance_beta`:
+
+- At **β = 1** adults are already near-immune to fry competition — a fry imposes a
+  competitive cost of `(m_fry / m_adult)^1 ≈ 0` on a large adult regardless of
+  age-class structuring. The toggle has little practical effect.
+- At **β = 0.5** a fry imposes `(m_fry / m_adult)^0.5 ≈ 0.05` — non-trivial — so
+  adults feel meaningful fry competition when structuring is off.
+
+This section uses a **2×2 design** (age_structured × dominance_beta) to make the
+interaction explicit. `sim_crit` (TRUE, β = 1) and `sim_b05` (TRUE, β = 0.5) are
+aliased from `beta_sims`; two new simulations complete the grid.
+All other parameters at baseline (`K = 200`, `egg_surv = 0.1`, `crit_period_days = 60`).
+
+```{r}
+#| label: sim-agestr
+#| cache: false
+
+# Pull the structured runs directly from beta_sims (baseline has
+# age_structured_competition = TRUE, so these are identical to sim_crit / sim_b05)
+sim_crit <- beta_sims[["β = 1"]]
+sim_b05  <- beta_sims[["β = 0.5"]]
+
+cache_file <- "cache/agestr_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading age-structure simulations from cache...\n")
+  agestr_cache     <- readRDS(cache_file)
+  sim_agestr_F_b05 <- agestr_cache$sim_agestr_F_b05
+  sim_agestr_F_b1  <- agestr_cache$sim_agestr_F_b1
+} else {
+  cat("Running age-class competition 2x2 simulations...\n")
+  sim_agestr_F_b05 <- {
+    cat(" age_structured=FALSE, beta=0.5 ... ")
+    p   <- modifyList(baseline, list(age_structured_competition = FALSE,
+                                     dominance_beta             = 0.5))
+    res <- run_simulation(build_habitat(p), p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  }
+  sim_agestr_F_b1 <- {
+    cat(" age_structured=FALSE, beta=1.0 ... ")
+    p   <- modifyList(baseline, list(age_structured_competition = FALSE,
+                                     dominance_beta             = 1))
+    res <- run_simulation(build_habitat(p), p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  }
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(list(sim_agestr_F_b05 = sim_agestr_F_b05,
+               sim_agestr_F_b1  = sim_agestr_F_b1),
+          cache_file)
+}
+```
+
+```{r}
+#| label: agestr-outcomes
+
+agestr_sims <- list(
+  "Structured, β = 1\n(baseline)" = sim_crit,
+  "Structured, β = 0.5"           = sim_b05,
+  "Unstructured, β = 1"           = sim_agestr_F_b1,
+  "Unstructured, β = 0.5"         = sim_agestr_F_b05
+)
+agestr_labels <- names(agestr_sims)
+
+# Colour = beta; linetype = competition structure
+agestr_cols <- c("β = 1" = "#D55E00", "β = 0.5" = "#0072B2")
+agestr_lty  <- c("Structured" = "solid", "Unstructured" = "dashed")
+
+mk_agestr <- function(df)
+  df |>
+    mutate(beta_lab = if_else(grepl("0\\.5", label), "β = 0.5", "β = 1"),
+           str_lab  = if_else(grepl("Unstr", label), "Unstructured", "Structured"))
+
+agestr_census <- bind_rows(Map(oct1_census,   agestr_sims, agestr_labels)) |>
+  mutate(label = factor(label, levels = agestr_labels)) |> mk_agestr()
+agestr_thin   <- bind_rows(Map(thinning_rate, agestr_sims, agestr_labels)) |>
+  mutate(label = factor(label, levels = agestr_labels)) |> mk_agestr()
+agestr_waa    <- bind_rows(Map(wt_at_age,     agestr_sims, agestr_labels)) |>
+  mutate(label = factor(label, levels = agestr_labels)) |> mk_agestr()
+agestr_stable <- stability_stats(agestr_census)
+```
+
+### Abundance over time and population map
+
+```{r}
+#| label: fig-agestr-ts
+#| fig-cap: "Oct 1 abundance and burn-in population map for the 2×2 age-structured × beta design. Colour = beta; linetype = competition structure."
+#| fig-height: 9
+
+p_ts <- ggplot(agestr_census,
+               aes(x = year, y = N, color = beta_lab, linetype = str_lab)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.35) +
+  geom_line(linewidth = 0.8) +
+  scale_color_manual(values = agestr_cols) +
+  scale_linetype_manual(values = agestr_lty) +
+  labs(x = NULL, y = "N (Oct 1)", color = "dominance_beta",
+       linetype = "Competition structure",
+       title = "A: Annual abundance",
+       subtitle = "Divergence between solid and dashed of same colour shows effect of age-class structuring") +
+  theme_sens()
+
+agestr_map <- agestr_census |>
+  filter(phase == "burn-in") |>
+  group_by(label, beta_lab, str_lab) |> arrange(year) |>
+  mutate(N_next = lead(N)) |> ungroup() |> filter(!is.na(N_next))
+
+p_map <- ggplot(agestr_map,
+                aes(x = N, y = N_next, color = beta_lab, linetype = str_lab)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = agestr_cols) +
+  scale_linetype_manual(values = agestr_lty) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)",
+       color = "dominance_beta", linetype = "Competition structure",
+       title = "B: Population map (burn-in only)") +
+  theme_sens()
+
+p_ts / p_map
+```
+
+### Critical-period thinning and weight at age
+
+```{r}
+#| label: fig-agestr-thin
+#| fig-cap: "Thinning rate and weight-at-age for the 2×2 design."
+#| fig-height: 5
+
+p_thin <- ggplot(agestr_thin,
+                 aes(x = n_born, y = surv_rate,
+                     color = beta_lab, linetype = str_lab)) +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = agestr_cols) +
+  scale_linetype_manual(values = agestr_lty) +
+  labs(x = "Fry born", y = "% surviving 60 days",
+       color = "dominance_beta", linetype = "Competition structure",
+       title = "Critical-period thinning") +
+  theme_sens() + theme(legend.position = "none")
+
+p_waa <- ggplot(agestr_waa,
+                aes(x = age_yrs, y = mean_wt,
+                    color = beta_lab, linetype = str_lab)) +
+  geom_line(linewidth = 0.9) + geom_point(size = 2.5) +
+  scale_color_manual(values = agestr_cols) +
+  scale_linetype_manual(values = agestr_lty) +
+  scale_x_continuous(breaks = 0:4) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = "dominance_beta", linetype = "Competition structure",
+       title = "Weight at age (burn-in mean)") +
+  theme_sens()
+
+p_thin | p_waa
+```
+
+### Stability summary {.unnumbered}
+
+```{r}
+#| label: tbl-agestr-stable
+#| tbl-cap: "Stability statistics for the 2×2 age-class structured competition design."
+
+agestr_stable |>
+  knitr::kable(col.names = c("Scenario", "Phase", "Mean N",
+                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+```
+
+---
+
+## Cross-parameter summary
+
+```{r}
+#| label: fig-cv-summary
+#| fig-width: 13
+#| fig-cap: "Mean Oct 1 abundance, CV of abundance, and years simulated during the burn-in phase, across all parameter values. Years simulated < 40 indicates the population collapsed before completing the burn-in."
+
+param_levels <- c("K_cold", "egg_surv", "dominance_beta",
+                  "pcmax threshold", "crit_period_days",
+                  "pcmax_cold/warm", "A_cold")
+param_labels <- c("K", "egg_surv", "dom.\nbeta",
+                  "pcmax\nthreshold", "crit_period\ndays",
+                  "pcmax\ncold/warm", "A_cold")
+
+# Burn-in stability (mean N, CV) joined with total years across both phases
+total_yrs_all <- bind_rows(
+  total_sim_yrs(K_census)      |> mutate(parameter = "K_cold"),
+  total_sim_yrs(egg_census)    |> mutate(parameter = "egg_surv"),
+  total_sim_yrs(beta_census)   |> mutate(parameter = "dominance_beta"),
+  total_sim_yrs(thresh_census) |> mutate(parameter = "pcmax threshold"),
+  total_sim_yrs(days_census)   |> mutate(parameter = "crit_period_days"),
+  total_sim_yrs(pcmax_census)  |> mutate(parameter = "pcmax_cold/warm"),
+  total_sim_yrs(area_census)   |> mutate(parameter = "A_cold")
+)
+
+cv_all <- bind_rows(
+  K_stable      |> filter(phase == "burn-in") |> mutate(parameter = "K_cold"),
+  egg_stable    |> filter(phase == "burn-in") |> mutate(parameter = "egg_surv"),
+  beta_stable   |> filter(phase == "burn-in") |> mutate(parameter = "dominance_beta"),
+  thresh_stable |> filter(phase == "burn-in") |> mutate(parameter = "pcmax threshold"),
+  days_stable   |> filter(phase == "burn-in") |> mutate(parameter = "crit_period_days"),
+  pcmax_stable  |> filter(phase == "burn-in") |> mutate(parameter = "pcmax_cold/warm"),
+  area_stable   |> filter(phase == "burn-in") |> mutate(parameter = "A_cold")
+) |>
+  left_join(total_yrs_all, by = c("label", "parameter")) |>
+  mutate(parameter = factor(parameter, levels = param_levels,
+                            labels = param_labels))
+
+cv_all_long <- cv_all |>
+  pivot_longer(c(mean_N, cv, total_yrs),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_N", "cv", "total_yrs"),
+                         labels = c("Mean N (Oct 1)", "CV (abundance)",
+                                    "Years simulated\n(max = 100)")))
+
+param_fill <- c("#0072B2", "#009E73", "#D55E00", "#CC79A7", "#E69F00",
+                "#56B4E9", "#999999")
+names(param_fill) <- param_labels
+
+ggplot(cv_all_long, aes(x = label, y = value, fill = parameter)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  # Year 40: end of burn-in (bars below = collapsed during burn-in)
+  geom_hline(
+    data = \(d) filter(d, metric == "Years simulated\n(max = 100)"),
+    aes(yintercept = 40),
+    linetype = "dotted", color = "grey35", linewidth = 0.6
+  ) +
+  # Year 100: end of full simulation (bars below = collapsed during experiment)
+  geom_hline(
+    data = \(d) filter(d, metric == "Years simulated\n(max = 100)"),
+    aes(yintercept = 100),
+    linetype = "dashed", color = "grey35", linewidth = 0.6
+  ) +
+  facet_grid(metric ~ parameter, scales = "free") +
+  scale_fill_manual(values = param_fill) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(x = NULL, y = NULL,
+       title = "Burn-in stability across all parameter sensitivity analyses",
+       subtitle = paste0(
+         "Row 1: burn-in mean N.  Row 2: burn-in CV (lower = more stable).  ",
+         "Row 3: total years simulated (burn-in + experiment). ",
+         "Dotted = yr 40 (burn-in end); dashed = yr 100 (full simulation). "
+         )) +
+  theme_bw() +
+  theme(strip.background  = element_rect(fill = "grey88"),
+        strip.text.x      = element_text(size = 8),
+        strip.text.y      = element_text(size = 7.5, lineheight = 0.85),
+        panel.grid.minor  = element_blank(),
+        axis.text.x       = element_text(size = 6.5, lineheight = 0.8),
+        plot.title        = element_text(size = 10, face = "bold"),
+        plot.subtitle     = element_text(size = 7.5, color = "grey30"),
+        panel.spacing     = unit(0.6, "lines"))
+```
+
+### Age-class structured competition — 2×2 stability {.unnumbered}
+
+The age-class section uses a factorial design rather than a single-axis sweep, so
+it is not directly comparable to the single-parameter bar charts above. The table
+below summarises burn-in stability for all four combinations.
+
+```{r}
+#| label: tbl-agestr-summary
+#| tbl-cap: "Burn-in stability for the 2×2 age-structured × dominance_beta design. Rows where years simulated < 100 indicate premature collapse."
+
+agestr_stable |>
+  left_join(
+    bind_rows(Map(function(s, l)
+      tibble(label = l, total_yrs = n_distinct(
+        year(s$ibm_long$date[!is.na(s$ibm_long$date)]))),
+      agestr_sims, agestr_labels)),
+    by = "label"
+  ) |>
+  filter(phase == "burn-in") |>
+  select(label, mean_N, cv, total_yrs) |>
+  knitr::kable(col.names = c("Scenario", "Burn-in mean N",
+                              "Burn-in CV", "Total years simulated"))
+```
+
+

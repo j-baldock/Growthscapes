@@ -156,8 +156,17 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   egg_wt            <- params$egg_wt            %||% 0.07      # weight of a single egg (g); energetic cost per offspring
   repro_cost        <- params$repro_cost        %||% 0.2       # energetic cost of reproduction in percentage of body mass
   sigma_fecund      <- params$sigma_fecund      %||% 0.085     # random variation in weight-fecundity relationship
-  egg_surv          <- params$egg_surv          %||% 0.1       # egg-to-fry (hatching) survival probability ("pass-through" filter for fecundity)
-  sim_seed          <- params$sim_seed          %||% 7843
+  egg_surv                   <- params$egg_surv                   %||% 0.1    # egg-to-fry (hatching) survival probability ("pass-through" filter for fecundity)
+  age_structured_competition <- params$age_structured_competition %||% TRUE   # if TRUE, fry (age-0) compete only with fry; age-1+ compete only with age-1+
+  crit_pcmax_lo              <- params$crit_pcmax_lo              %||% 0.30   # pcmax_adjusted_dd at which ~1% critical-period survival is achieved
+  crit_pcmax_hi              <- params$crit_pcmax_hi              %||% 0.40   # pcmax_adjusted_dd at which ~99% critical-period survival is achieved (negligible cost)
+  crit_period_days           <- params$crit_period_days           %||% 60L    # length of the critical period (days post-hatch)
+  sim_seed                   <- params$sim_seed                   %||% 7843
+
+  # Competition grouping vector: used in group_by(across(all_of(eff_grp))) in Steps 2 and 3.
+  # When age_structured_competition = TRUE, eff_density is computed within patch × age class.
+  # When FALSE, all fish in the same patch compete (original behaviour).
+  eff_grp <- if (age_structured_competition) c("patch", "age_class") else "patch"
 
   # A_warm, A_cold, K_warm, K_cold, S_max_warm, S_max_cold are read from habitat_df each day (see Habitat.qmd)
 
@@ -243,7 +252,8 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   set.seed(sim_seed)
 
   for (d in seq_len(n_days)) {
-    t <- habitat_df$dayofsim[d]
+    t            <- habitat_df$dayofsim[d]
+    current_year <- year(habitat_df$date[d])     # calendar year of this simulation day
     fish_pop$age_days <- fish_pop$age_days + 1L  # increment age for all living fish
 
     # 1. READ TIME-VARYING HABITAT PARAMETERS ─────────────────────────────────
@@ -270,6 +280,12 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     if (A_warm == 0 && any(fish_pop$patch == "warm")) {
       fish_pop$patch[fish_pop$patch == "warm"] <- "cold"
     }
+
+    # If both patches have zero area, there is no valid habitat: exit immediately.
+    # (When A_cold = A_warm = 0, the guard above cycles fish cold→warm→cold, leaving
+    # them in cold with A_cold = 0. Any 1-fish age-class group then computes
+    # (n-1)/A = 0/0 = NaN, which propagates through eff_density → ration → error.)
+    if (A_cold == 0 && A_warm == 0) break
 
     # Calculate habitat, temperature, and body size dependent rations following convo. with Jonny
     fish_pop <- fish_pop |>
@@ -314,8 +330,11 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         ### 2.A.2. Individuals sense density-dependent GP in current habitat, abiotic GP in alternative habitat
         # Each mover uses its own dominance-weighted effective competitor density (fish per unit
         # area, self excluded) in its current patch.
+        # Effective competitor density: grouped by patch × age_class when
+        # age_structured_competition = TRUE, by patch only when FALSE.
         eff_density_all      <- fish_pop |>
-          group_by(patch) |>
+          mutate(age_class = if_else(cohort == current_year, "age0", "age1plus")) |>
+          group_by(across(all_of(eff_grp))) |>
           mutate(
             A_patch     = if_else(first(patch) == "warm", A_warm, A_cold),
             eff_density = (fncEffDensity(weight, beta = dominance_beta) - 1) / A_patch
@@ -349,12 +368,14 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         #   Alternative patch: counterfactual effective density — how the fish would rank if it
         #     joined the alternative patch's current occupants as a new entrant.
         mover_weights_vec <- fish_pop$weight[mover_rows]
-        warm_weights      <- fish_pop$weight[fish_pop$patch == "warm"]
-        cold_weights      <- fish_pop$weight[fish_pop$patch == "cold"]
+        age_class_all     <- if_else(fish_pop$cohort == current_year, "age0", "age1plus")
+        mover_age_class   <- age_class_all[mover_rows]
 
-        # Current-patch effective competitor density (per unit area, self excluded)
+        # Current-patch effective competitor density (per unit area, self excluded).
+        # Respects age_structured_competition toggle via eff_grp.
         eff_density_all      <- fish_pop |>
-          group_by(patch) |>
+          mutate(age_class = age_class_all) |>
+          group_by(across(all_of(eff_grp))) |>
           mutate(
             A_patch     = if_else(first(patch) == "warm", A_warm, A_cold),
             eff_density = (fncEffDensity(weight, beta = dominance_beta) - 1) / A_patch
@@ -363,18 +384,43 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
           pull(eff_density)
         eff_dens_current_vec <- eff_density_all[mover_rows]
 
-        # Counterfactual effective competitor density in the alternative patch if the mover joins.
-        # rowSums gives the dominance-weighted count of existing residents as perceived by the focal
-        # fish (no +1 for self, since we want competitors only, consistent with eff_dens_current_vec).
-        eff_dens_if_join_warm <- rowSums(
-          outer(mover_weights_vec, warm_weights,
-                FUN = function(mi, mj) ifelse(mj >= mi, 1, (mj / mi)^dominance_beta))
-        ) / A_warm
+        # Helper: vectorized outer-product effective density (per unit area)
+        eff_join <- function(focal_wts, comp_wts, area) {
+          if (length(focal_wts) == 0) return(numeric(0))
+          if (length(comp_wts)  == 0) return(rep(0, length(focal_wts)))
+          rowSums(outer(focal_wts, comp_wts,
+                        FUN = function(mi, mj) ifelse(mj >= mi, 1, (mj/mi)^dominance_beta))) / area
+        }
 
-        eff_dens_if_join_cold <- rowSums(
-          outer(mover_weights_vec, cold_weights,
-                FUN = function(mi, mj) ifelse(mj >= mi, 1, (mj / mi)^dominance_beta))
-        ) / A_cold
+        # Counterfactual effective competitor density in the alternative patch if the mover joins.
+        if (age_structured_competition) {
+          # Competitors restricted to the same age class as the focal mover.
+          warm_wts_age0  <- fish_pop$weight[fish_pop$patch == "warm" & age_class_all == "age0"]
+          warm_wts_age1p <- fish_pop$weight[fish_pop$patch == "warm" & age_class_all == "age1plus"]
+          cold_wts_age0  <- fish_pop$weight[fish_pop$patch == "cold" & age_class_all == "age0"]
+          cold_wts_age1p <- fish_pop$weight[fish_pop$patch == "cold" & age_class_all == "age1plus"]
+
+          idx_age0  <- which(mover_age_class == "age0")
+          idx_age1p <- which(mover_age_class == "age1plus")
+
+          eff_dens_if_join_warm <- numeric(length(mover_rows))
+          eff_dens_if_join_cold <- numeric(length(mover_rows))
+
+          if (length(idx_age0)  > 0) {
+            eff_dens_if_join_warm[idx_age0]  <- eff_join(mover_weights_vec[idx_age0],  warm_wts_age0,  A_warm)
+            eff_dens_if_join_cold[idx_age0]  <- eff_join(mover_weights_vec[idx_age0],  cold_wts_age0,  A_cold)
+          }
+          if (length(idx_age1p) > 0) {
+            eff_dens_if_join_warm[idx_age1p] <- eff_join(mover_weights_vec[idx_age1p], warm_wts_age1p, A_warm)
+            eff_dens_if_join_cold[idx_age1p] <- eff_join(mover_weights_vec[idx_age1p], cold_wts_age1p, A_cold)
+          }
+        } else {
+          # All fish in the alternative patch are competitors (original behaviour).
+          warm_weights          <- fish_pop$weight[fish_pop$patch == "warm"]
+          cold_weights          <- fish_pop$weight[fish_pop$patch == "cold"]
+          eff_dens_if_join_warm <- eff_join(mover_weights_vec, warm_weights, A_warm)
+          eff_dens_if_join_cold <- eff_join(mover_weights_vec, cold_weights, A_cold)
+        }
 
         # Assign per-area effective competitor density per patch per mover:
         #   current patch → eff_dens_current_vec (fish is already there, self excluded)
@@ -460,18 +506,25 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     }
 
     # Update density (fish per unit area) and dominance-weighted effective competitor density
-    # after fish have moved. eff_density excludes self (+1 from fncEffDensity removed) and is
-    # divided by patch area, giving per-area competitor density. Set dominance_beta = 0 for
-    # pure scramble; K is calibrated in the same fish-per-unit-area units.
+    # after fish have moved. density counts all fish in the patch regardless of age class.
+    # eff_density is computed within the grouping defined by eff_grp:
+    #   age_structured_competition = TRUE  → group by patch × age_class (fry vs. age-1+)
+    #   age_structured_competition = FALSE → group by patch only (all fish compete together)
+    # This reflects ontogenetic habitat segregation in salmonids when enabled. Self is
+    # excluded via the (-1) correction from fncEffDensity.
     fish_pop <- fish_pop |>
+      mutate(age_class = if_else(cohort == current_year, "age0", "age1plus")) |>
       group_by(patch) |>
       mutate(
-        A_patch     = if_else(first(patch) == "warm", A_warm, A_cold),
-        density     = n() / A_patch,
+        A_patch = if_else(first(patch) == "warm", A_warm, A_cold),
+        density = n() / A_patch
+      ) |>
+      group_by(across(all_of(eff_grp))) |>
+      mutate(
         eff_density = (fncEffDensity(weight, beta = dominance_beta) - 1) / A_patch
       ) |>
       ungroup() |>
-      select(-A_patch)
+      select(-A_patch, -age_class)
 
     if (food_densdepen == "fullerton") {
       ### 3a. Fullerton approach (uses raw patch density; dominance not yet integrated here)
@@ -514,8 +567,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # 5. SPAWNING AND REPRODUCTION ─────────────────────────────────────────────
     # Reset spawned_this_year flag at the calendar year boundary
     if (d > 1) {
-      prev_year    <- year(habitat_df$date[d - 1])
-      current_year <- year(habitat_df$date[d])
+      prev_year <- year(habitat_df$date[d - 1])
       if (current_year != prev_year) fish_pop$spawned_this_year <- FALSE
     }
 
@@ -555,7 +607,6 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
 
       # Create offspring rows and add to population --------------------------------
       new_fish_list <- vector("list", length(spawner_idx))
-      current_year  <- year(habitat_df$date[d])
 
       for (i in seq_along(spawner_idx)) {
         si      <- spawner_idx[i]
@@ -648,8 +699,20 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # fish older than 8 have ~0 chance of survival.
     # p_age <- fncSurviveAge(fish_pop$age_days / 365)
 
+    # Critical-period consumption-based survival (Elliott 1989).
+    # Applied only to fish within their first crit_period_days days post-hatch.
+    # Uses pcmax_adjusted_dd (density-adjusted daily consumption rate) computed in Step 3.
+    # Fish added this day (new offspring) have NA pcmax_adjusted_dd and receive p_crit = 1.0.
+    p_crit <- fncSurviveConsumption(
+      pcmax_dd         = fish_pop$pcmax_adjusted_dd,
+      age_days         = fish_pop$age_days,
+      crit_pcmax_lo    = crit_pcmax_lo,
+      crit_pcmax_hi    = crit_pcmax_hi,
+      crit_period_days = crit_period_days
+    )
+
     # Calculate combined daily survival rate
-    prb.srv   <- pmin(p_sg * p_temp * p_starv, 1)
+    prb.srv   <- pmin(p_sg * p_temp * p_starv * p_crit, 1)
 
     # Minimum weight floor: fish that drop below hatch weight die immediately (backstop)
     prb.srv[fish_pop$weight < start_wt] <- 0

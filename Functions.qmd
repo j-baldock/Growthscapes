@@ -2007,7 +2007,7 @@ data.frame(temp = seq(15, 35, by = 0.1)) |>
        subtitle = "Anchor points: P = 0.9 at 25.8°C, P = 0.1 at 30°C")
 ```
 
-### Starvation
+### Condition
 
 `fncSurviveStarve()` applies elevated mortality to fish in poor energetic condition. Condition is defined as the ratio of current weight to the fish's historical peak weight:
 
@@ -2106,6 +2106,54 @@ ggplot(curve_df, aes(x = condition, y = p_survive, color = params)) +
 -   **Default (K9=0.55, K1=0.45)**: K9 sits right at the lower edge of cold-resident winter condition, meaning most cold residents are spared but fish at their seasonal worst (\~0.63) face mild pressure. This is probably the most biologically defensible — seasonal mass loss is survivable, but persistent severe loss is not.
 -   **Lenient (K9=0.4, K1=0.3)**: Cold residents mostly escape the starvation mortality entirely (their winter minimum \~0.63 sits above K9). The starvation mechanism only catches fish that have lost \>65% of peak mass — reserved for genuinely catastrophic deficit.
 -   **Stringent (K9=0.6, K1=0.5)**: The inflection point falls within the blue shaded cold-resident summer range — starvation mortality would fire hard on cold residents every winter during normal seasonal mass loss. Too aggressive.
+
+
+### Critical period
+
+`fncSurviveConsumption()` applies density-dependent mortality during the critical period (first
+`crit_period_days` days post-hatch), motivated by Elliott (1989): newly-hatched fry with minimal
+energy reserves face sharply elevated mortality when daily consumption falls below the level
+needed to sustain growth. The function returns a **daily** survival probability, parameterised so
+that a fish sustaining `crit_pcmax_lo` throughout the entire critical period has approximately 1%
+period-level survival, while one sustaining `crit_pcmax_hi` has approximately 99% survival. Fish
+outside the critical period (`age_days > crit_period_days`) or with `NA` pcmax receive a daily
+probability of 1.0 (no additional mortality). Designed for use with the hyperbolic
+density-dependent ration; `pcmax_adjusted_dd` is the direct input.
+
+```{r fncSurviveConsumption}
+fncSurviveConsumption <- function(pcmax_dd, age_days,
+                                  crit_pcmax_lo    = 0.30,
+                                  crit_pcmax_hi    = 0.40,
+                                  crit_period_days = 60L) {
+  # pcmax_dd:         daily consumption as proportion of Cmax (pcmax_adjusted_dd)
+  # age_days:         integer age in days
+  # crit_pcmax_lo:    pcmax_dd at which ~1%  period-survival is achieved (near-lethal)
+  # crit_pcmax_hi:    pcmax_dd at which ~99% period-survival is achieved (negligible cost)
+  # crit_period_days: length of the critical period in days (default 60)
+  # Returns a daily survival probability vector of the same length as pcmax_dd.
+
+  out <- rep(1.0, length(pcmax_dd))
+  in_crit <- !is.na(age_days) & (age_days <= crit_period_days) & !is.na(pcmax_dd)
+  if (!any(in_crit)) return(out)
+
+  # Sigmoid midpoint and steepness anchored to lo/hi thresholds.
+  # At lo:  sigmoid ≈ 0.05  (5th percentile → maps to p_min)
+  # At hi:  sigmoid ≈ 0.95  (95th percentile → maps to p_max)
+  x0 <- (crit_pcmax_lo + crit_pcmax_hi) / 2
+  k  <- -log(19) / (crit_pcmax_lo - x0)
+
+  # Daily probability bounds derived from target period-level survival:
+  #   p_min: 60-day survival ≈ 1%  → daily = 0.01^(1/T)
+  #   p_max: 60-day survival ≈ 99% → daily = 0.99^(1/T)
+  p_min <- 0.01 ^ (1 / crit_period_days)
+  p_max <- 0.99 ^ (1 / crit_period_days)
+
+  sigmoid      <- 1 / (1 + exp(-k * (pcmax_dd[in_crit] - x0)))
+  out[in_crit] <- p_min + (p_max - p_min) * sigmoid
+  out
+}
+```
+
 
 ### Senescence
 

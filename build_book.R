@@ -2,7 +2,7 @@ library(quarto)
 library(knitr)
 
 # render whole book
-quarto::quarto_render(output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render(output_format = "html")
 
 # render single chapters
 quarto::quarto_render("index.qmd", output_format = "html")
@@ -16,6 +16,7 @@ quarto::quarto_render("GrowthRegime.qmd", output_format = "html", cache_refresh 
 quarto::quarto_render("IBM_simulation.qmd", output_format = "html", cache_refresh = TRUE)
 
 quarto::quarto_render("ScenarioDefs.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("SensitivityAnalysis.qmd", output_format = "html", cache_refresh = FALSE)
 
 quarto::quarto_render("Scenario_1_null_cold.qmd", output_format = "html", cache_refresh = TRUE)
 quarto::quarto_render("Scenario_2_temp_mult.qmd", output_format = "html", cache_refresh = TRUE)

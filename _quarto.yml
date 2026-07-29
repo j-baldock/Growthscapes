@@ -28,9 +28,10 @@ book:
       chapters:
         - PreCalGrowth.qmd
         - GrowthRegime.qmd
-    - part: "Define and Run Experiments"
+    - part: "Define Experiments and Sensitivity Analysis"
       chapters:
         - ScenarioDefs.qmd
+        - SensitivityAnalysis.qmd
     - part: "Scenario Results"
       chapters:
         - Scenario_1_null_cold.qmd

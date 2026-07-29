@@ -791,6 +791,39 @@ fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
 
 
 
+fncSurviveConsumption <- function(pcmax_dd, age_days,
+                                  crit_pcmax_lo    = 0.30,
+                                  crit_pcmax_hi    = 0.40,
+                                  crit_period_days = 60L) {
+  # pcmax_dd:         daily consumption as proportion of Cmax (pcmax_adjusted_dd)
+  # age_days:         integer age in days
+  # crit_pcmax_lo:    pcmax_dd at which ~1%  period-survival is achieved (near-lethal)
+  # crit_pcmax_hi:    pcmax_dd at which ~99% period-survival is achieved (negligible cost)
+  # crit_period_days: length of the critical period in days (default 60)
+  # Returns a daily survival probability vector of the same length as pcmax_dd.
+
+  out <- rep(1.0, length(pcmax_dd))
+  in_crit <- !is.na(age_days) & (age_days <= crit_period_days) & !is.na(pcmax_dd)
+  if (!any(in_crit)) return(out)
+
+  # Sigmoid midpoint and steepness anchored to lo/hi thresholds.
+  # At lo:  sigmoid ≈ 0.05  (5th percentile → maps to p_min)
+  # At hi:  sigmoid ≈ 0.95  (95th percentile → maps to p_max)
+  x0 <- (crit_pcmax_lo + crit_pcmax_hi) / 2
+  k  <- -log(19) / (crit_pcmax_lo - x0)
+
+  # Daily probability bounds derived from target period-level survival:
+  #   p_min: 60-day survival ≈ 1%  → daily = 0.01^(1/T)
+  #   p_max: 60-day survival ≈ 99% → daily = 0.99^(1/T)
+  p_min <- 0.01 ^ (1 / crit_period_days)
+  p_max <- 0.99 ^ (1 / crit_period_days)
+
+  sigmoid      <- 1 / (1 + exp(-k * (pcmax_dd[in_crit] - x0)))
+  out[in_crit] <- p_min + (p_max - p_min) * sigmoid
+  out
+}
+
+
 fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99) {
   # age:        numeric vector of fish ages in years (pass d / 365 from the IBM loop)
   # age_thresh: age (years) at which senescent mortality begins (default 5)

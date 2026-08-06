@@ -76,8 +76,8 @@ run_all_scenarios <- function(overwrite = FALSE) {
 # Uncomment a line below to run (or re-run) a single scenario:
 
 # run_scenario("base")
-# run_scenario("temp_offset")
-# run_scenario("base", overwrite = TRUE)   # re-run and overwrite
+run_scenario("temp_offset", overwrite = TRUE)
+run_scenario("temp_offset_diffP", overwrite = TRUE)   # re-run and overwrite
 beep()
 
 # ── Batch run ─────────────────────────────────────────────────────────────────

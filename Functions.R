@@ -642,11 +642,32 @@ fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50,
 # beta = 1 → linear size-based dominance
 # beta → Inf → pure contest (only larger fish impose any cost)
 fncEffDensity <- function(weights, beta = 1) {
+  # Returns effective density for each fish: a size-weighted count of competitors.
+  # Fish larger than or equal to focal fish count as 1; smaller fish count as (w_j/w_i)^beta.
+  #
+  # Original outer() implementation was O(n²) in memory — fatal for large populations.
+  # This version is O(n log n) time and O(n) memory via sorted cumulative sums:
+  #
+  #   ED_i = 1 + (n_≥i - 1) + (1/w_i^β) * Σ_{j: w_j < w_i} w_j^β
+  #
+  # where n_≥i is the number of fish with weight >= w_i (including self).
+
   n <- length(weights)
   if (n == 1L) return(1)
-  ratio_mat      <- outer(weights, weights, FUN = function(mi, mj) ifelse(mj >= mi, 1, (mj / mi)^beta))
-  diag(ratio_mat) <- 0   # exclude self from competitor sum
-  rowSums(ratio_mat) + 1 # +1 to count focal fish in effective density
+  if (beta == 0) return(rep(n, n))          # scramble: all fish are equivalent competitors
+
+  ord     <- order(weights)
+  w_sort  <- weights[ord]
+  cs      <- cumsum(w_sort^beta)             # cumulative sum of w^beta in sorted order
+  k_less  <- findInterval(w_sort, w_sort,
+                           left.open = TRUE) # count of fish strictly lighter than each
+  cs_less <- c(0, cs)[k_less + 1]           # sum of w^beta for strictly lighter fish
+
+  ed_sort <- 1 + (n - k_less - 1) + cs_less / w_sort^beta
+
+  ed <- numeric(n)
+  ed[ord] <- ed_sort
+  ed
 }
 
 
@@ -696,28 +717,25 @@ fncSurviveVari <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale
 
 
 
-fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, b = 1){
-  # weight:      numeric vector of fish weights
-  # minprob:     daily survival probability for the smallest fish (asymptote at w = 0)
-  # maxprob:     daily survival probability asymptote for very large fish (default 1)
-  # b:           controls steepness of the size-survival curve
+fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, w0 = 5, k = 0.8){
+  # weight:  numeric vector of fish weights (g)
+  # minprob: daily survival floor approached as weight → 0.
+  #          Elliott (1993) estimates 6.4% daily mortality during the critical period → minprob ≈ 0.936.
+  #          The default of 0.96 is slightly more conservative to allow population establishment from small hatchlings.
+  # maxprob: daily survival asymptote for large fish; habitat-specific, set by S_max_warm / S_max_cold.
+  # w0:      inflection weight (g) — size at which survival is halfway between minprob and maxprob.
+  #          ~7g corresponds to approximately 60 days post-hatch in the cold habitat (from growth trajectory plots).
+  # k:       sigmoid steepness. With k = 1, the transition from ~minprob to ~maxprob spans roughly 5–9g.
 
-  # Weights
-  w <- weight # weight of fish that are alive at this time step
-  
-  # Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)
-  w_scale <- 1 - 1 / exp(b * w)
-  v <- minprob + (maxprob - minprob) * w_scale
-  
-  # Probability of survival
-  prb.srv <- v
-  prb.srv[prb.srv > 1] <- 1 # set upper bound at 1
-  
-  # Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step
+  # Logistic sigmoid scaled between minprob and maxprob
+  w_scale <- 1 / (1 + exp(-k * (weight - w0)))
+  prb.srv <- minprob + (maxprob - minprob) * w_scale
+  prb.srv <- pmin(prb.srv, 1)
+
+  # Draw survival outcomes
   survivors <- rbinom(n = length(weight), size = 1, prob = prb.srv)
-  
+
   return(list(prb.srv, survivors))
-  #return(survivors)
 }
 
 

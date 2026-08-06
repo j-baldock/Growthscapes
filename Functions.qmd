@@ -1488,11 +1488,32 @@ Write the function:
 # beta = 1 → linear size-based dominance
 # beta → Inf → pure contest (only larger fish impose any cost)
 fncEffDensity <- function(weights, beta = 1) {
+  # Returns effective density for each fish: a size-weighted count of competitors.
+  # Fish larger than or equal to focal fish count as 1; smaller fish count as (w_j/w_i)^beta.
+  #
+  # Original outer() implementation was O(n²) in memory — fatal for large populations.
+  # This version is O(n log n) time and O(n) memory via sorted cumulative sums:
+  #
+  #   ED_i = 1 + (n_≥i - 1) + (1/w_i^β) * Σ_{j: w_j < w_i} w_j^β
+  #
+  # where n_≥i is the number of fish with weight >= w_i (including self).
+
   n <- length(weights)
   if (n == 1L) return(1)
-  ratio_mat      <- outer(weights, weights, FUN = function(mi, mj) ifelse(mj >= mi, 1, (mj / mi)^beta))
-  diag(ratio_mat) <- 0   # exclude self from competitor sum
-  rowSums(ratio_mat) + 1 # +1 to count focal fish in effective density
+  if (beta == 0) return(rep(n, n))          # scramble: all fish are equivalent competitors
+
+  ord     <- order(weights)
+  w_sort  <- weights[ord]
+  cs      <- cumsum(w_sort^beta)             # cumulative sum of w^beta in sorted order
+  k_less  <- findInterval(w_sort, w_sort,
+                           left.open = TRUE) # count of fish strictly lighter than each
+  cs_less <- c(0, cs)[k_less + 1]           # sum of w^beta for strictly lighter fish
+
+  ed_sort <- 1 + (n - k_less - 1) + cs_less / w_sort^beta
+
+  ed <- numeric(n)
+  ed[ord] <- ed_sort
+  ed
 }
 ```
 
@@ -1788,63 +1809,63 @@ ggplot(df_gap, aes(x = weight, y = gap, color = as_factor(b_interact))) +
 
 #### No growth effect
 
-`minprob`--the minimum daily probability of survival, which is experienced by the smallest fish--should probably be based on some empirical estimates. Elliott (1993, Fisheries Research) puts this a bit lower for BNT: mean daily mortality rate during the critical period is 6.4% (`minprob = 0.936`). Maybe also see Elliott (1989, Journal of Animal Ecology).
-
-Write simple, size-dependent survival function: daily survival probability increases with size.
+Daily survival probability follows a logistic sigmoid in weight, rising from a floor (`minprob`) for the smallest fish to an asymptote (`maxprob`) for large fish. The inflection weight `w0` sets the size at which survival is halfway between the two extremes. Elliott (1993, Fisheries Research) estimates 6.4% daily mortality during the critical period for BNT (`minprob = 0.936`); `w0 = 7`g corresponds to approximately 60 days post-hatch in the cold habitat (based on age-0 daily weight trajectory plots in the Sensitivity Analysis). Mortality is therefore most intense and most sustained for fish below `w0`, which creates growth-mediated density dependence: high density → reduced food → slower growth → more time below `w0` → higher cumulative mortality.
 
 ```{r}
-fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, b = 1){
-  # weight:      numeric vector of fish weights
-  # minprob:     daily survival probability for the smallest fish (asymptote at w = 0)
-  # maxprob:     daily survival probability asymptote for very large fish (default 1)
-  # b:           controls steepness of the size-survival curve
+fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, w0 = 5, k = 0.8){
+  # weight:  numeric vector of fish weights (g)
+  # minprob: daily survival floor approached as weight → 0.
+  #          Elliott (1993) estimates 6.4% daily mortality during the critical period → minprob ≈ 0.936.
+  #          The default of 0.96 is slightly more conservative to allow population establishment from small hatchlings.
+  # maxprob: daily survival asymptote for large fish; habitat-specific, set by S_max_warm / S_max_cold.
+  # w0:      inflection weight (g) — size at which survival is halfway between minprob and maxprob.
+  #          ~7g corresponds to approximately 60 days post-hatch in the cold habitat (from growth trajectory plots).
+  # k:       sigmoid steepness. With k = 1, the transition from ~minprob to ~maxprob spans roughly 5–9g.
 
-  # Weights
-  w <- weight # weight of fish that are alive at this time step
-  
-  # Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)
-  w_scale <- 1 - 1 / exp(b * w)
-  v <- minprob + (maxprob - minprob) * w_scale
-  
-  # Probability of survival
-  prb.srv <- v
-  prb.srv[prb.srv > 1] <- 1 # set upper bound at 1
-  
-  # Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step
+  # Logistic sigmoid scaled between minprob and maxprob
+  w_scale <- 1 / (1 + exp(-k * (weight - w0)))
+  prb.srv <- minprob + (maxprob - minprob) * w_scale
+  prb.srv <- pmin(prb.srv, 1)
+
+  # Draw survival outcomes
   survivors <- rbinom(n = length(weight), size = 1, prob = prb.srv)
-  
+
   return(list(prb.srv, survivors))
-  #return(survivors)
 }
 ```
 
-Plot daily survival probabilities based on fish size alone
+Plot daily survival probability and 60-day cumulative survival by fish weight. The 60-day cumulative assumes constant weight (i.e., no growth) and therefore represents the maximum mortality a fish could experience at each size — in practice cumulative survival will be higher as fish grow through the danger zone.
 
 ```{r}
 #| purl: false
 
-myweights <- seq(from = 0, to = 150, by = 0.1)
+myweights <- seq(from = 0, to = 20, by = 0.05)
 
-surv.list <- fncSurviveSize(myweights, b = 1)
-df <- tibble(weight = myweights,
-             prsurv = surv.list[[1]],
-             survivors = surv.list[[2]])
-  
-p1 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv)) +
-  xlim(0,5) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 0-5g", subtitle = "survival increases with fish size")
+surv.list  <- fncSurviveSize(myweights)
+df_size <- tibble(
+  weight = myweights,
+  daily  = surv.list[[1]],
+  cum60  = daily^60
+)
 
-p2 <- df %>% #filter(pvals == 0.1) %>%
-  ggplot() +
-  geom_line(aes(x = weight, y = prsurv)) +
-  xlim(10,150) + ylim(0.9925,1) + theme_bw() +
-  xlab("Fish weight (g)") + ylab("Daily survival probability") + 
-  labs(color = "Instantaneous\ngrowth (g/g/d)", title = "Weight: 10-150g", subtitle = "effect of growth diminishes for larger fish")
+p1 <- ggplot(df_size, aes(x = weight, y = daily)) +
+  geom_line() +
+  geom_vline(xintercept = 5, linetype = "dotted", color = "gray50") +
+  annotate("text", x = 5.3, y = 0.935, label = "w0 = 5g", hjust = 0, size = 3, color = "gray40") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(x = "Fish weight (g)", y = "Daily survival probability",
+       title = "Daily survival probability by weight") +
+  theme_bw()
 
-ggpubr::ggarrange(p1, p2, nrow = 1, common.legend = TRUE, legend = "right")
+p2 <- ggplot(df_size, aes(x = weight, y = cum60)) +
+  geom_line() +
+  geom_vline(xintercept = 5, linetype = "dotted", color = "gray50") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(x = "Fish weight (g)", y = "60-day cumulative survival",
+       title = "60-day cumulative survival by weight") +
+  theme_bw()
+
+p1 / p2
 ```
 
 Changing the asymptotic survival probability could be used as a way to induce senescence/limits on life span

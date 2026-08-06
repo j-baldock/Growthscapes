@@ -148,6 +148,9 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   movecost_b        <- params$movecost_b        %||% 0.3       # movement cost allometric function `b` = decay exponent (higher = steeper drop-off)
   sigma_bold        <- params$sigma_bold        %||% 0.002     # SD of boldness distribution, for dispersal propensity (g/g/d units)
   tau               <- params$tau               %||% 0.001     # sensitivity to growth difference (for probabilistic/softmax variation in movement)
+  s_min             <- params$s_min             %||% 0.96      # minimum size-based daily survival probability
+  s_w0              <- params$s_w0              %||% 7         # inflection point of size-based survival logistic curve
+  s_k               <- params$s_k               %||% 1         # steepness of size-based survival logistic curve
   T1_mort           <- params$T1_mort           %||% 30        # temperature (°C) at which daily survival from thermal stress = 0.1
   T9_mort           <- params$T9_mort           %||% 25.8      # temperature (°C) at which daily survival from thermal stress = 0.9
   K9_starv          <- params$K9_starv          %||% 0.55      # relative condition (W_current/W_peak) at which starvation survival = 0.9
@@ -685,8 +688,8 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # 6. SURVIVAL ─────────────────────────────────────────────────────────────
     s_max_vec <- ifelse(fish_pop$patch == "warm", S_max_warm, S_max_cold)
 
-    # Weight and size dependent survival — growth effect is rescaled to a specific range
-    p_sg      <- fncSurviveSize(fish_pop$weight, maxprob = s_max_vec)[[1]]
+    # Size-dependent survival: logistic sigmoid in weight, rising from minprob floor to habitat-specific maxprob
+    p_sg      <- fncSurviveSize(fish_pop$weight, minprob = s_min, maxprob = s_max_vec, w0 = s_w0, k = s_k)[[1]]
 
     # Temperature-dependent survival: multiplied with size/growth probability so both act simultaneously
     p_temp    <- fncSurviveTemp(growth_df$WT.actual, T1 = T1_mort, T9 = T9_mort)
@@ -699,20 +702,20 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # fish older than 8 have ~0 chance of survival.
     # p_age <- fncSurviveAge(fish_pop$age_days / 365)
 
-    # Critical-period consumption-based survival (Elliott 1989).
-    # Applied only to fish within their first crit_period_days days post-hatch.
-    # Uses pcmax_adjusted_dd (density-adjusted daily consumption rate) computed in Step 3.
-    # Fish added this day (new offspring) have NA pcmax_adjusted_dd and receive p_crit = 1.0.
-    p_crit <- fncSurviveConsumption(
-      pcmax_dd         = fish_pop$pcmax_adjusted_dd,
-      age_days         = fish_pop$age_days,
-      crit_pcmax_lo    = crit_pcmax_lo,
-      crit_pcmax_hi    = crit_pcmax_hi,
-      crit_period_days = crit_period_days
-    )
+    # Critical-period consumption-based survival (Elliott 1989) — disabled.
+    # Replaced by the sigmoid shape of fncSurviveSize, which sustains strong size-dependent
+    # mortality below w0 (~7g) and achieves the same growth-mediated density dependence
+    # without requiring a separate consumption threshold module.
+    # p_crit <- fncSurviveConsumption(
+    #   pcmax_dd         = fish_pop$pcmax_adjusted_dd,
+    #   age_days         = fish_pop$age_days,
+    #   crit_pcmax_lo    = crit_pcmax_lo,
+    #   crit_pcmax_hi    = crit_pcmax_hi,
+    #   crit_period_days = crit_period_days
+    # )
 
     # Calculate combined daily survival rate
-    prb.srv   <- pmin(p_sg * p_temp * p_starv * p_crit, 1)
+    prb.srv   <- pmin(p_sg * p_temp * p_starv, 1)
 
     # Minimum weight floor: fish that drop below hatch weight die immediately (backstop)
     prb.srv[fish_pop$weight < start_wt] <- 0

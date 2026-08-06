@@ -2586,62 +2586,63 @@ window.Quarto = {
 </section>
 <section id="no-growth-effect" class="level4" data-number="3.7.1.2">
 <h4 data-number="3.7.1.2" class="anchored" data-anchor-id="no-growth-effect"><span class="header-section-number">3.7.1.2</span> No growth effect</h4>
-<p><code>minprob</code>–the minimum daily probability of survival, which is experienced by the smallest fish–should probably be based on some empirical estimates. Elliott (1993, Fisheries Research) puts this a bit lower for BNT: mean daily mortality rate during the critical period is 6.4% (<code>minprob = 0.936</code>). Maybe also see Elliott (1989, Journal of Animal Ecology).</p>
-<p>Write simple, size-dependent survival function: daily survival probability increases with size.</p>
+<p>Daily survival probability follows a logistic sigmoid in weight, rising from a floor (<code>minprob</code>) for the smallest fish to an asymptote (<code>maxprob</code>) for large fish. The inflection weight <code>w0</code> sets the size at which survival is halfway between the two extremes. Elliott (1993, Fisheries Research) estimates 6.4% daily mortality during the critical period for BNT (<code>minprob = 0.936</code>); <code>w0 = 7</code>g corresponds to approximately 60 days post-hatch in the cold habitat (based on age-0 daily weight trajectory plots in the Sensitivity Analysis). Mortality is therefore most intense and most sustained for fish below <code>w0</code>, which creates growth-mediated density dependence: high density → reduced food → slower growth → more time below <code>w0</code> → higher cumulative mortality.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>fncSurviveSize <span class="ot">&lt;-</span> <span class="cf">function</span>(weight, <span class="at">minprob =</span> <span class="fl">0.96</span>, <span class="at">maxprob =</span> <span class="dv">1</span>, <span class="at">b =</span> <span class="dv">1</span>){</span>
-<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># weight:      numeric vector of fish weights</span></span>
-<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># minprob:     daily survival probability for the smallest fish (asymptote at w = 0)</span></span>
-<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># maxprob:     daily survival probability asymptote for very large fish (default 1)</span></span>
-<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># b:           controls steepness of the size-survival curve</span></span>
-<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Weights</span></span>
-<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>  w <span class="ot">&lt;-</span> weight <span class="co"># weight of fish that are alive at this time step</span></span>
-<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)</span></span>
-<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>  w_scale <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">exp</span>(b <span class="sc">*</span> w)</span>
-<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>  v <span class="ot">&lt;-</span> minprob <span class="sc">+</span> (maxprob <span class="sc">-</span> minprob) <span class="sc">*</span> w_scale</span>
-<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Probability of survival</span></span>
-<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a>  prb.srv <span class="ot">&lt;-</span> v</span>
-<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a>  prb.srv[prb.srv <span class="sc">&gt;</span> <span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="co"># set upper bound at 1</span></span>
-<span id="cb40-17"><a href="#cb40-17" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb40-18"><a href="#cb40-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step</span></span>
-<span id="cb40-19"><a href="#cb40-19" aria-hidden="true" tabindex="-1"></a>  survivors <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(<span class="at">n =</span> <span class="fu">length</span>(weight), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> prb.srv)</span>
-<span id="cb40-20"><a href="#cb40-20" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb40-21"><a href="#cb40-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(prb.srv, survivors))</span>
-<span id="cb40-22"><a href="#cb40-22" aria-hidden="true" tabindex="-1"></a>  <span class="co">#return(survivors)</span></span>
-<span id="cb40-23"><a href="#cb40-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>fncSurviveSize <span class="ot">&lt;-</span> <span class="cf">function</span>(weight, <span class="at">minprob =</span> <span class="fl">0.96</span>, <span class="at">maxprob =</span> <span class="dv">1</span>, <span class="at">w0 =</span> <span class="dv">5</span>, <span class="at">k =</span> <span class="fl">0.8</span>){</span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># weight:  numeric vector of fish weights (g)</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># minprob: daily survival floor approached as weight → 0.</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">#          Elliott (1993) estimates 6.4% daily mortality during the critical period → minprob ≈ 0.936.</span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">#          The default of 0.96 is slightly more conservative to allow population establishment from small hatchlings.</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># maxprob: daily survival asymptote for large fish; habitat-specific, set by S_max_warm / S_max_cold.</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># w0:      inflection weight (g) — size at which survival is halfway between minprob and maxprob.</span></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">#          ~7g corresponds to approximately 60 days post-hatch in the cold habitat (from growth trajectory plots).</span></span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># k:       sigmoid steepness. With k = 1, the transition from ~minprob to ~maxprob spans roughly 5–9g.</span></span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Logistic sigmoid scaled between minprob and maxprob</span></span>
+<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>  w_scale <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span>k <span class="sc">*</span> (weight <span class="sc">-</span> w0)))</span>
+<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a>  prb.srv <span class="ot">&lt;-</span> minprob <span class="sc">+</span> (maxprob <span class="sc">-</span> minprob) <span class="sc">*</span> w_scale</span>
+<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>  prb.srv <span class="ot">&lt;-</span> <span class="fu">pmin</span>(prb.srv, <span class="dv">1</span>)</span>
+<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Draw survival outcomes</span></span>
+<span id="cb40-17"><a href="#cb40-17" aria-hidden="true" tabindex="-1"></a>  survivors <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(<span class="at">n =</span> <span class="fu">length</span>(weight), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> prb.srv)</span>
+<span id="cb40-18"><a href="#cb40-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-19"><a href="#cb40-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(prb.srv, survivors))</span>
+<span id="cb40-20"><a href="#cb40-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<p>Plot daily survival probabilities based on fish size alone</p>
+<p>Plot daily survival probability and 60-day cumulative survival by fish weight. The 60-day cumulative assumes constant weight (i.e., no growth) and therefore represents the maximum mortality a fish could experience at each size — in practice cumulative survival will be higher as fish grow through the danger zone.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>myweights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">150</span>, <span class="at">by =</span> <span class="fl">0.1</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>myweights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">20</span>, <span class="at">by =</span> <span class="fl">0.05</span>)</span>
 <span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>surv.list <span class="ot">&lt;-</span> <span class="fu">fncSurviveSize</span>(myweights, <span class="at">b =</span> <span class="dv">1</span>)</span>
-<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">weight =</span> myweights,</span>
-<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">prsurv =</span> surv.list[[<span class="dv">1</span>]],</span>
-<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">survivors =</span> surv.list[[<span class="dv">2</span>]])</span>
-<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span> <span class="co">#filter(pvals == 0.1) %&gt;%</span></span>
-<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb41-10"><a href="#cb41-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> prsurv)) <span class="sc">+</span></span>
-<span id="cb41-11"><a href="#cb41-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">0</span>,<span class="dv">5</span>) <span class="sc">+</span> <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb41-12"><a href="#cb41-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Daily survival probability"</span>) <span class="sc">+</span> </span>
-<span id="cb41-13"><a href="#cb41-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Instantaneous</span><span class="sc">\n</span><span class="st">growth (g/g/d)"</span>, <span class="at">title =</span> <span class="st">"Weight: 0-5g"</span>, <span class="at">subtitle =</span> <span class="st">"survival increases with fish size"</span>)</span>
-<span id="cb41-14"><a href="#cb41-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-15"><a href="#cb41-15" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span> <span class="co">#filter(pvals == 0.1) %&gt;%</span></span>
-<span id="cb41-16"><a href="#cb41-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb41-17"><a href="#cb41-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> prsurv)) <span class="sc">+</span></span>
-<span id="cb41-18"><a href="#cb41-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">10</span>,<span class="dv">150</span>) <span class="sc">+</span> <span class="fu">ylim</span>(<span class="fl">0.9925</span>,<span class="dv">1</span>) <span class="sc">+</span> <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb41-19"><a href="#cb41-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Daily survival probability"</span>) <span class="sc">+</span> </span>
-<span id="cb41-20"><a href="#cb41-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Instantaneous</span><span class="sc">\n</span><span class="st">growth (g/g/d)"</span>, <span class="at">title =</span> <span class="st">"Weight: 10-150g"</span>, <span class="at">subtitle =</span> <span class="st">"effect of growth diminishes for larger fish"</span>)</span>
-<span id="cb41-21"><a href="#cb41-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-22"><a href="#cb41-22" aria-hidden="true" tabindex="-1"></a>ggpubr<span class="sc">::</span><span class="fu">ggarrange</span>(p1, p2, <span class="at">nrow =</span> <span class="dv">1</span>, <span class="at">common.legend =</span> <span class="cn">TRUE</span>, <span class="at">legend =</span> <span class="st">"right"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>surv.list  <span class="ot">&lt;-</span> <span class="fu">fncSurviveSize</span>(myweights)</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>df_size <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">weight =</span> myweights,</span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">daily  =</span> surv.list[[<span class="dv">1</span>]],</span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">cum60  =</span> daily<span class="sc">^</span><span class="dv">60</span></span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-10"><a href="#cb41-10" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_size, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> daily)) <span class="sc">+</span></span>
+<span id="cb41-11"><a href="#cb41-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb41-12"><a href="#cb41-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">5</span>, <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">color =</span> <span class="st">"gray50"</span>) <span class="sc">+</span></span>
+<span id="cb41-13"><a href="#cb41-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">5.3</span>, <span class="at">y =</span> <span class="fl">0.935</span>, <span class="at">label =</span> <span class="st">"w0 = 5g"</span>, <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">size =</span> <span class="dv">3</span>, <span class="at">color =</span> <span class="st">"gray40"</span>) <span class="sc">+</span></span>
+<span id="cb41-14"><a href="#cb41-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">percent_format</span>(<span class="at">accuracy =</span> <span class="fl">0.1</span>)) <span class="sc">+</span></span>
+<span id="cb41-15"><a href="#cb41-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"Daily survival probability"</span>,</span>
+<span id="cb41-16"><a href="#cb41-16" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"Daily survival probability by weight"</span>) <span class="sc">+</span></span>
+<span id="cb41-17"><a href="#cb41-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
+<span id="cb41-18"><a href="#cb41-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-19"><a href="#cb41-19" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_size, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> cum60)) <span class="sc">+</span></span>
+<span id="cb41-20"><a href="#cb41-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb41-21"><a href="#cb41-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">5</span>, <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">color =</span> <span class="st">"gray50"</span>) <span class="sc">+</span></span>
+<span id="cb41-22"><a href="#cb41-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">percent_format</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb41-23"><a href="#cb41-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"60-day cumulative survival"</span>,</span>
+<span id="cb41-24"><a href="#cb41-24" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"60-day cumulative survival by weight"</span>) <span class="sc">+</span></span>
+<span id="cb41-25"><a href="#cb41-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
+<span id="cb41-26"><a href="#cb41-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-27"><a href="#cb41-27" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">/</span> p2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -6353,63 +6354,63 @@ window._ojs.runtime.interpretFromScriptTags();
 <span id="cb86-1862"><a href="#cb86-1862" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb86-1863"><a href="#cb86-1863" aria-hidden="true" tabindex="-1"></a><span class="fu">#### No growth effect</span></span>
 <span id="cb86-1864"><a href="#cb86-1864" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1865"><a href="#cb86-1865" aria-hidden="true" tabindex="-1"></a><span class="in">`minprob`</span>--the minimum daily probability of survival, which is experienced by the smallest fish--should probably be based on some empirical estimates. Elliott (1993, Fisheries Research) puts this a bit lower for BNT: mean daily mortality rate during the critical period is 6.4% (<span class="in">`minprob = 0.936`</span>). Maybe also see Elliott (1989, Journal of Animal Ecology).</span>
+<span id="cb86-1865"><a href="#cb86-1865" aria-hidden="true" tabindex="-1"></a>Daily survival probability follows a logistic sigmoid in weight, rising from a floor (<span class="in">`minprob`</span>) for the smallest fish to an asymptote (<span class="in">`maxprob`</span>) for large fish. The inflection weight <span class="in">`w0`</span> sets the size at which survival is halfway between the two extremes. Elliott (1993, Fisheries Research) estimates 6.4% daily mortality during the critical period for BNT (<span class="in">`minprob = 0.936`</span>); <span class="in">`w0 = 7`</span>g corresponds to approximately 60 days post-hatch in the cold habitat (based on age-0 daily weight trajectory plots in the Sensitivity Analysis). Mortality is therefore most intense and most sustained for fish below <span class="in">`w0`</span>, which creates growth-mediated density dependence: high density → reduced food → slower growth → more time below <span class="in">`w0`</span> → higher cumulative mortality.</span>
 <span id="cb86-1866"><a href="#cb86-1866" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1867"><a href="#cb86-1867" aria-hidden="true" tabindex="-1"></a>Write simple, size-dependent survival function: daily survival probability increases with size.</span>
-<span id="cb86-1868"><a href="#cb86-1868" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1871"><a href="#cb86-1871" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb86-1872"><a href="#cb86-1872" aria-hidden="true" tabindex="-1"></a>fncSurviveSize <span class="ot">&lt;-</span> <span class="cf">function</span>(weight, <span class="at">minprob =</span> <span class="fl">0.96</span>, <span class="at">maxprob =</span> <span class="dv">1</span>, <span class="at">b =</span> <span class="dv">1</span>){</span>
-<span id="cb86-1873"><a href="#cb86-1873" aria-hidden="true" tabindex="-1"></a>  <span class="co"># weight:      numeric vector of fish weights</span></span>
-<span id="cb86-1874"><a href="#cb86-1874" aria-hidden="true" tabindex="-1"></a>  <span class="co"># minprob:     daily survival probability for the smallest fish (asymptote at w = 0)</span></span>
-<span id="cb86-1875"><a href="#cb86-1875" aria-hidden="true" tabindex="-1"></a>  <span class="co"># maxprob:     daily survival probability asymptote for very large fish (default 1)</span></span>
-<span id="cb86-1876"><a href="#cb86-1876" aria-hidden="true" tabindex="-1"></a>  <span class="co"># b:           controls steepness of the size-survival curve</span></span>
-<span id="cb86-1877"><a href="#cb86-1877" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1878"><a href="#cb86-1878" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Weights</span></span>
-<span id="cb86-1879"><a href="#cb86-1879" aria-hidden="true" tabindex="-1"></a>  w <span class="ot">&lt;-</span> weight <span class="co"># weight of fish that are alive at this time step</span></span>
-<span id="cb86-1880"><a href="#cb86-1880" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb86-1881"><a href="#cb86-1881" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Base size-survival curve: 0 for tiny fish, approaches 1 for large fish (controlled by b)</span></span>
-<span id="cb86-1882"><a href="#cb86-1882" aria-hidden="true" tabindex="-1"></a>  w_scale <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">exp</span>(b <span class="sc">*</span> w)</span>
-<span id="cb86-1883"><a href="#cb86-1883" aria-hidden="true" tabindex="-1"></a>  v <span class="ot">&lt;-</span> minprob <span class="sc">+</span> (maxprob <span class="sc">-</span> minprob) <span class="sc">*</span> w_scale</span>
-<span id="cb86-1884"><a href="#cb86-1884" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb86-1885"><a href="#cb86-1885" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Probability of survival</span></span>
-<span id="cb86-1886"><a href="#cb86-1886" aria-hidden="true" tabindex="-1"></a>  prb.srv <span class="ot">&lt;-</span> v</span>
-<span id="cb86-1887"><a href="#cb86-1887" aria-hidden="true" tabindex="-1"></a>  prb.srv[prb.srv <span class="sc">&gt;</span> <span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="co"># set upper bound at 1</span></span>
-<span id="cb86-1888"><a href="#cb86-1888" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb86-1889"><a href="#cb86-1889" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Sample from binomial distribution with probabilities of prb.srv to determine which fish survive this time step</span></span>
-<span id="cb86-1890"><a href="#cb86-1890" aria-hidden="true" tabindex="-1"></a>  survivors <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(<span class="at">n =</span> <span class="fu">length</span>(weight), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> prb.srv)</span>
-<span id="cb86-1891"><a href="#cb86-1891" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb86-1892"><a href="#cb86-1892" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(prb.srv, survivors))</span>
-<span id="cb86-1893"><a href="#cb86-1893" aria-hidden="true" tabindex="-1"></a>  <span class="co">#return(survivors)</span></span>
-<span id="cb86-1894"><a href="#cb86-1894" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb86-1895"><a href="#cb86-1895" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb86-1896"><a href="#cb86-1896" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1897"><a href="#cb86-1897" aria-hidden="true" tabindex="-1"></a>Plot daily survival probabilities based on fish size alone</span>
+<span id="cb86-1869"><a href="#cb86-1869" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb86-1870"><a href="#cb86-1870" aria-hidden="true" tabindex="-1"></a>fncSurviveSize <span class="ot">&lt;-</span> <span class="cf">function</span>(weight, <span class="at">minprob =</span> <span class="fl">0.96</span>, <span class="at">maxprob =</span> <span class="dv">1</span>, <span class="at">w0 =</span> <span class="dv">5</span>, <span class="at">k =</span> <span class="fl">0.8</span>){</span>
+<span id="cb86-1871"><a href="#cb86-1871" aria-hidden="true" tabindex="-1"></a>  <span class="co"># weight:  numeric vector of fish weights (g)</span></span>
+<span id="cb86-1872"><a href="#cb86-1872" aria-hidden="true" tabindex="-1"></a>  <span class="co"># minprob: daily survival floor approached as weight → 0.</span></span>
+<span id="cb86-1873"><a href="#cb86-1873" aria-hidden="true" tabindex="-1"></a>  <span class="co">#          Elliott (1993) estimates 6.4% daily mortality during the critical period → minprob ≈ 0.936.</span></span>
+<span id="cb86-1874"><a href="#cb86-1874" aria-hidden="true" tabindex="-1"></a>  <span class="co">#          The default of 0.96 is slightly more conservative to allow population establishment from small hatchlings.</span></span>
+<span id="cb86-1875"><a href="#cb86-1875" aria-hidden="true" tabindex="-1"></a>  <span class="co"># maxprob: daily survival asymptote for large fish; habitat-specific, set by S_max_warm / S_max_cold.</span></span>
+<span id="cb86-1876"><a href="#cb86-1876" aria-hidden="true" tabindex="-1"></a>  <span class="co"># w0:      inflection weight (g) — size at which survival is halfway between minprob and maxprob.</span></span>
+<span id="cb86-1877"><a href="#cb86-1877" aria-hidden="true" tabindex="-1"></a>  <span class="co">#          ~7g corresponds to approximately 60 days post-hatch in the cold habitat (from growth trajectory plots).</span></span>
+<span id="cb86-1878"><a href="#cb86-1878" aria-hidden="true" tabindex="-1"></a>  <span class="co"># k:       sigmoid steepness. With k = 1, the transition from ~minprob to ~maxprob spans roughly 5–9g.</span></span>
+<span id="cb86-1879"><a href="#cb86-1879" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1880"><a href="#cb86-1880" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Logistic sigmoid scaled between minprob and maxprob</span></span>
+<span id="cb86-1881"><a href="#cb86-1881" aria-hidden="true" tabindex="-1"></a>  w_scale <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span>k <span class="sc">*</span> (weight <span class="sc">-</span> w0)))</span>
+<span id="cb86-1882"><a href="#cb86-1882" aria-hidden="true" tabindex="-1"></a>  prb.srv <span class="ot">&lt;-</span> minprob <span class="sc">+</span> (maxprob <span class="sc">-</span> minprob) <span class="sc">*</span> w_scale</span>
+<span id="cb86-1883"><a href="#cb86-1883" aria-hidden="true" tabindex="-1"></a>  prb.srv <span class="ot">&lt;-</span> <span class="fu">pmin</span>(prb.srv, <span class="dv">1</span>)</span>
+<span id="cb86-1884"><a href="#cb86-1884" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1885"><a href="#cb86-1885" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Draw survival outcomes</span></span>
+<span id="cb86-1886"><a href="#cb86-1886" aria-hidden="true" tabindex="-1"></a>  survivors <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(<span class="at">n =</span> <span class="fu">length</span>(weight), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> prb.srv)</span>
+<span id="cb86-1887"><a href="#cb86-1887" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1888"><a href="#cb86-1888" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(prb.srv, survivors))</span>
+<span id="cb86-1889"><a href="#cb86-1889" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb86-1890"><a href="#cb86-1890" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb86-1891"><a href="#cb86-1891" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1892"><a href="#cb86-1892" aria-hidden="true" tabindex="-1"></a>Plot daily survival probability and 60-day cumulative survival by fish weight. The 60-day cumulative assumes constant weight (i.e., no growth) and therefore represents the maximum mortality a fish could experience at each size — in practice cumulative survival will be higher as fish grow through the danger zone.</span>
+<span id="cb86-1893"><a href="#cb86-1893" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1896"><a href="#cb86-1896" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb86-1897"><a href="#cb86-1897" aria-hidden="true" tabindex="-1"></a><span class="co">#| purl: false</span></span>
 <span id="cb86-1898"><a href="#cb86-1898" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1901"><a href="#cb86-1901" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb86-1902"><a href="#cb86-1902" aria-hidden="true" tabindex="-1"></a><span class="co">#| purl: false</span></span>
-<span id="cb86-1903"><a href="#cb86-1903" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1904"><a href="#cb86-1904" aria-hidden="true" tabindex="-1"></a>myweights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">150</span>, <span class="at">by =</span> <span class="fl">0.1</span>)</span>
-<span id="cb86-1905"><a href="#cb86-1905" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1906"><a href="#cb86-1906" aria-hidden="true" tabindex="-1"></a>surv.list <span class="ot">&lt;-</span> <span class="fu">fncSurviveSize</span>(myweights, <span class="at">b =</span> <span class="dv">1</span>)</span>
-<span id="cb86-1907"><a href="#cb86-1907" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">weight =</span> myweights,</span>
-<span id="cb86-1908"><a href="#cb86-1908" aria-hidden="true" tabindex="-1"></a>             <span class="at">prsurv =</span> surv.list[[<span class="dv">1</span>]],</span>
-<span id="cb86-1909"><a href="#cb86-1909" aria-hidden="true" tabindex="-1"></a>             <span class="at">survivors =</span> surv.list[[<span class="dv">2</span>]])</span>
-<span id="cb86-1910"><a href="#cb86-1910" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb86-1911"><a href="#cb86-1911" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span> <span class="co">#filter(pvals == 0.1) %&gt;%</span></span>
-<span id="cb86-1912"><a href="#cb86-1912" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb86-1913"><a href="#cb86-1913" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> prsurv)) <span class="sc">+</span></span>
-<span id="cb86-1914"><a href="#cb86-1914" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">0</span>,<span class="dv">5</span>) <span class="sc">+</span> <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb86-1915"><a href="#cb86-1915" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Daily survival probability"</span>) <span class="sc">+</span> </span>
-<span id="cb86-1916"><a href="#cb86-1916" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Instantaneous</span><span class="sc">\n</span><span class="st">growth (g/g/d)"</span>, <span class="at">title =</span> <span class="st">"Weight: 0-5g"</span>, <span class="at">subtitle =</span> <span class="st">"survival increases with fish size"</span>)</span>
-<span id="cb86-1917"><a href="#cb86-1917" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1918"><a href="#cb86-1918" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span> <span class="co">#filter(pvals == 0.1) %&gt;%</span></span>
-<span id="cb86-1919"><a href="#cb86-1919" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb86-1920"><a href="#cb86-1920" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> prsurv)) <span class="sc">+</span></span>
-<span id="cb86-1921"><a href="#cb86-1921" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">10</span>,<span class="dv">150</span>) <span class="sc">+</span> <span class="fu">ylim</span>(<span class="fl">0.9925</span>,<span class="dv">1</span>) <span class="sc">+</span> <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb86-1922"><a href="#cb86-1922" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Fish weight (g)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Daily survival probability"</span>) <span class="sc">+</span> </span>
-<span id="cb86-1923"><a href="#cb86-1923" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Instantaneous</span><span class="sc">\n</span><span class="st">growth (g/g/d)"</span>, <span class="at">title =</span> <span class="st">"Weight: 10-150g"</span>, <span class="at">subtitle =</span> <span class="st">"effect of growth diminishes for larger fish"</span>)</span>
+<span id="cb86-1899"><a href="#cb86-1899" aria-hidden="true" tabindex="-1"></a>myweights <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">20</span>, <span class="at">by =</span> <span class="fl">0.05</span>)</span>
+<span id="cb86-1900"><a href="#cb86-1900" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1901"><a href="#cb86-1901" aria-hidden="true" tabindex="-1"></a>surv.list  <span class="ot">&lt;-</span> <span class="fu">fncSurviveSize</span>(myweights)</span>
+<span id="cb86-1902"><a href="#cb86-1902" aria-hidden="true" tabindex="-1"></a>df_size <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb86-1903"><a href="#cb86-1903" aria-hidden="true" tabindex="-1"></a>  <span class="at">weight =</span> myweights,</span>
+<span id="cb86-1904"><a href="#cb86-1904" aria-hidden="true" tabindex="-1"></a>  <span class="at">daily  =</span> surv.list[[<span class="dv">1</span>]],</span>
+<span id="cb86-1905"><a href="#cb86-1905" aria-hidden="true" tabindex="-1"></a>  <span class="at">cum60  =</span> daily<span class="sc">^</span><span class="dv">60</span></span>
+<span id="cb86-1906"><a href="#cb86-1906" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb86-1907"><a href="#cb86-1907" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1908"><a href="#cb86-1908" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_size, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> daily)) <span class="sc">+</span></span>
+<span id="cb86-1909"><a href="#cb86-1909" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb86-1910"><a href="#cb86-1910" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">5</span>, <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">color =</span> <span class="st">"gray50"</span>) <span class="sc">+</span></span>
+<span id="cb86-1911"><a href="#cb86-1911" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">5.3</span>, <span class="at">y =</span> <span class="fl">0.935</span>, <span class="at">label =</span> <span class="st">"w0 = 5g"</span>, <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">size =</span> <span class="dv">3</span>, <span class="at">color =</span> <span class="st">"gray40"</span>) <span class="sc">+</span></span>
+<span id="cb86-1912"><a href="#cb86-1912" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">percent_format</span>(<span class="at">accuracy =</span> <span class="fl">0.1</span>)) <span class="sc">+</span></span>
+<span id="cb86-1913"><a href="#cb86-1913" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"Daily survival probability"</span>,</span>
+<span id="cb86-1914"><a href="#cb86-1914" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"Daily survival probability by weight"</span>) <span class="sc">+</span></span>
+<span id="cb86-1915"><a href="#cb86-1915" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
+<span id="cb86-1916"><a href="#cb86-1916" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb86-1917"><a href="#cb86-1917" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_size, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> cum60)) <span class="sc">+</span></span>
+<span id="cb86-1918"><a href="#cb86-1918" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb86-1919"><a href="#cb86-1919" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">5</span>, <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">color =</span> <span class="st">"gray50"</span>) <span class="sc">+</span></span>
+<span id="cb86-1920"><a href="#cb86-1920" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">percent_format</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb86-1921"><a href="#cb86-1921" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"60-day cumulative survival"</span>,</span>
+<span id="cb86-1922"><a href="#cb86-1922" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"60-day cumulative survival by weight"</span>) <span class="sc">+</span></span>
+<span id="cb86-1923"><a href="#cb86-1923" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
 <span id="cb86-1924"><a href="#cb86-1924" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-1925"><a href="#cb86-1925" aria-hidden="true" tabindex="-1"></a>ggpubr<span class="sc">::</span><span class="fu">ggarrange</span>(p1, p2, <span class="at">nrow =</span> <span class="dv">1</span>, <span class="at">common.legend =</span> <span class="cn">TRUE</span>, <span class="at">legend =</span> <span class="st">"right"</span>)</span>
+<span id="cb86-1925"><a href="#cb86-1925" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">/</span> p2</span>
 <span id="cb86-1926"><a href="#cb86-1926" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb86-1927"><a href="#cb86-1927" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb86-1928"><a href="#cb86-1928" aria-hidden="true" tabindex="-1"></a>Changing the asymptotic survival probability could be used as a way to induce senescence/limits on life span</span>

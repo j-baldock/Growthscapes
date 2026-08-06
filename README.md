@@ -3,6 +3,7 @@ Analysis repository supporting the NWCASC-funded project evaluating the value of
 
 Quarto book: https://j-baldock.github.io/Growthscapes/
 
+
 Author: Jeff Baldock, baldockj@oregonstate.edu
 
 Collaborators: Jonny Armstrong, Tim Cline, Helen Neville, Dan Dauwalter, Emma Lundberg, and Seth Wenger.

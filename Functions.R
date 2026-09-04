@@ -842,18 +842,18 @@ fncSurviveConsumption <- function(pcmax_dd, age_days,
 }
 
 
-fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99) {
-  # age:        numeric vector of fish ages in years (pass d / 365 from the IBM loop)
-  # age_thresh: age (years) at which senescent mortality begins (default 5)
-  # lambda:     scale parameter; larger = faster approach to p_min (default 0.25)
-  # k:          Weibull shape exponent; k > 1 gives a slow initial decline that
-  #             accelerates with age — the mirror of the concave-down rise in fncSurvive().
-  #             k = 1 reduces to a simple exponential (fast drop, decelerating). Default 2.
-  # p_min:      asymptotic daily survival floor for very old fish (default 0.99)
-  # Returns a probability vector: 1.0 at/below threshold, declining with increasing age above.
-  # Default parameters: onset ~age 5, annual survival from aging alone approaches ~0 by age 8.
-  excess <- pmax(0, age - age_thresh)
-  p_min + (1 - p_min) * exp(-lambda * excess^k)
+fncSurviveAge <- function(age, x0 = 14, k = 0.7, p_min = 0.99) {
+  # age:   numeric vector of fish ages in years (pass age_days / 365 from the IBM loop)
+  # x0:    inflection point — age (years) at which senescent decline is steepest; default 14.
+  #        Senescence begins gradually several years before x0 and is effectively complete
+  #        several years after. Annual survival from aging alone crosses 50% at roughly x0 - 2.
+  # k:     steepness of the logistic decline; larger = sharper drop. Default 0.7.
+  # p_min: asymptotic daily survival floor for very old fish; default 0.99.
+  # Returns a probability vector in [p_min, 1]: near 1.0 for young fish, declining smoothly
+  # through the inflection at x0, approaching p_min asymptotically for very old fish.
+  # Default parameters: soft onset ~age 8-9, 50% annual survival from aging ~age 12,
+  # near-zero annual survival by ~age 17.
+  p_min + (1 - p_min) / (1 + exp(k * (age - x0)))
 }
 
 

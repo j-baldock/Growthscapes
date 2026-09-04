@@ -48,12 +48,18 @@ run_scenario <- function(name, overwrite = FALSE) {
   habitat_df <- build_habitat(params)
 
   message("Running scenario: '", name, "' ...")
+  t_start <- Sys.time()
   result <- run_simulation(habitat_df = habitat_df,
                            params     = params,
                            wt_growth  = wt.growth)
+  elapsed_s <- as.numeric(difftime(Sys.time(), t_start, units = "secs"))
+  elapsed_fmt <- sprintf("%dh %02dm %02ds",
+                         as.integer(elapsed_s %/% 3600),
+                         as.integer((elapsed_s %% 3600) %/% 60),
+                         as.integer(elapsed_s %% 60))
 
   saveRDS(result, out_path)
-  message("Saved: ", out_path)
+  message("Saved: ", out_path, " (run time: ", elapsed_fmt, ")")
   invisible(result)
 }
 
@@ -78,7 +84,30 @@ run_all_scenarios <- function(overwrite = FALSE) {
 # run_scenario("base")
 run_scenario("temp_offset", overwrite = TRUE)
 run_scenario("temp_offset_diffP", overwrite = TRUE)   # re-run and overwrite
+run_scenario("temp_offset_fixedhab", overwrite = TRUE)   # re-run and overwrite
+
+# fixed habitat: cold only (null)
+run_scenario("TempOffset_ColdOnly_95percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdOnly_05percold", overwrite = TRUE)
+# beep()
+
+# fixed habitat: cold + warm (same pcmax)
+run_scenario("TempOffset_ColdWarm_95percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_05percold", overwrite = TRUE)
 beep()
+
+# fixed habitat: cold + warm (same pcmax)
+run_scenario("TempOffset_ColdWarm_95percold_highPwarm", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_75percold_highPwarm", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_50percold_highPwarm", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_25percold_highPwarm", overwrite = TRUE)
+run_scenario("TempOffset_ColdWarm_05percold_highPwarm", overwrite = TRUE)
 
 # ── Batch run ─────────────────────────────────────────────────────────────────
 # Uncomment to run all scenarios (skips any with existing results):

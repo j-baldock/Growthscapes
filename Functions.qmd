@@ -1874,8 +1874,8 @@ Changing the asymptotic survival probability could be used as a way to induce se
 #| purl: false
 
 expand_grid(
-  asymp = c(seq(from = 0.995, to = 0.999, by = 0.001), 0.9995, 0.9999),
-  days = seq(from = 0, to = 2500, by = 100)
+  asymp = seq(from = 0.9986, to = 0.9998, by = 0.0002),
+  days = seq(from = 0, to = 7500, by = 100)
 ) %>% 
   mutate(survival = asymp^days) %>%
   ggplot(aes(x = days/365, y = survival, group = factor(asymp), color = factor(asymp))) +
@@ -2178,38 +2178,40 @@ fncSurviveConsumption <- function(pcmax_dd, age_days,
 
 ### Senescence
 
-`fncSurviveAge()` applies a senescent mortality penalty to fish that exceed a threshold age. Unlike the logistic (sigmoid) forms used for temperature and starvation mortality — which impose sharp, near-lethal declines over a narrow range — aging effects are assumed to begin slowly and intensify with age, mirroring the concave-down rise of the size and growth survival modules but in the downward direction.
-
-The function uses a Weibull-form exponential with shape parameter `k`:
-
--   For fish at or below `age_thresh`, the function returns 1.0 (no aging penalty).
--   Past the threshold, daily survival initially declines very slowly, then accelerates with further age. Setting `k > 2` ensures the derivative at the threshold is exactly zero — no abrupt onset — and the rate of mortality increase grows linearly with time past threshold.
+`fncSurviveAge()` applies a senescent mortality penalty that increases smoothly with age, using a logistic sigmoid centered on an inflection point `x0`. The logistic form allows mortality to rise gradually over many years, consistent with the diffuse nature of senescence in long-lived fish. The function is structurally symmetric with the logistic forms used for temperature and starvation survival.
 
 $$
-p_{\text{age}} = p_{\min} + (1 - p_{\min})\,e^{-\lambda\,\max(0,\; \text{age} - \text{age\_thresh})^k}
+p_{\text{age}} = p_{\min} + \frac{1 - p_{\min}}{1 + e^{k\,(\text{age} - x_0)}}
 $$
 
-Parameters: default values are tuned so that risk of senescent mortality kicks in past age 5, but fish have basically zero change of survival past age 8.
+For young fish (age $\ll x_0$) the function returns values close to 1.0; for very old fish (age $\gg x_0$) it approaches $p_{\min}$ asymptotically. The steepest decline occurs at the inflection point `x0`, where daily survival equals $(1 + p_{\min})\,/\,2$.
 
--   `age`: numeric vector of fish ages **in years**. In the IBM loop, pass `d / 365` (or track cohort birth day and compute elapsed years).
--   `age_thresh`: age (years) at which senescent mortality begins; default 5.
--   `lambda`: scale parameter; larger values bring `p_min` closer in age.
--   `k`: Weibull shape exponent; `k > 1` gives the desired slow-then-accelerating decline. Default 3.
+Parameters: default values are tuned so that senescence begins to add meaningful mortality around age 8–9, annual survival from aging alone crosses 50% near age 12, and fish rarely persist past age 17.
+
+-   `age`: numeric vector of fish ages **in years**. In the IBM loop, pass `age_days / 365`.
+-   `x0`: inflection point — age (years) at which the senescent decline is steepest; default 14. Onset is gradual roughly 4–6 years before `x0`.
+-   `k`: steepness of the logistic decline; larger values produce a sharper drop. Default 0.7.
 -   `p_min`: asymptotic daily survival floor for very old fish; default 0.99.
 
+References:
+
+- Lorenzen, K. (2022). Size-and age-dependent natural mortality in fish populations: Biology, models, implications, and a generalized length-inverse mortality paradigm. Fisheries Research, 255, 106454.
+- Lorenzen, K., Camp, E. V., & Garlock, T. M. (2022). Natural mortality and body size in fish populations. Fisheries Research, 252, 106327.
+- Dureuil, M., & Froese, R. (2021). A natural constant predicts survival to maximum age. Communications Biology, 4(1), 641.
+
 ```{r}
-fncSurviveAge <- function(age, age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99) {
-  # age:        numeric vector of fish ages in years (pass d / 365 from the IBM loop)
-  # age_thresh: age (years) at which senescent mortality begins (default 5)
-  # lambda:     scale parameter; larger = faster approach to p_min (default 0.25)
-  # k:          Weibull shape exponent; k > 1 gives a slow initial decline that
-  #             accelerates with age — the mirror of the concave-down rise in fncSurvive().
-  #             k = 1 reduces to a simple exponential (fast drop, decelerating). Default 2.
-  # p_min:      asymptotic daily survival floor for very old fish (default 0.99)
-  # Returns a probability vector: 1.0 at/below threshold, declining with increasing age above.
-  # Default parameters: onset ~age 5, annual survival from aging alone approaches ~0 by age 8.
-  excess <- pmax(0, age - age_thresh)
-  p_min + (1 - p_min) * exp(-lambda * excess^k)
+fncSurviveAge <- function(age, x0 = 14, k = 0.7, p_min = 0.99) {
+  # age:   numeric vector of fish ages in years (pass age_days / 365 from the IBM loop)
+  # x0:    inflection point — age (years) at which senescent decline is steepest; default 14.
+  #        Senescence begins gradually several years before x0 and is effectively complete
+  #        several years after. Annual survival from aging alone crosses 50% at roughly x0 - 2.
+  # k:     steepness of the logistic decline; larger = sharper drop. Default 0.7.
+  # p_min: asymptotic daily survival floor for very old fish; default 0.99.
+  # Returns a probability vector in [p_min, 1]: near 1.0 for young fish, declining smoothly
+  # through the inflection at x0, approaching p_min asymptotically for very old fish.
+  # Default parameters: soft onset ~age 8-9, 50% annual survival from aging ~age 12,
+  # near-zero annual survival by ~age 17.
+  p_min + (1 - p_min) / (1 + exp(k * (age - x0)))
 }
 ```
 
@@ -2218,7 +2220,7 @@ Plot the curve to inspect daily and annualised survival across a range of ages a
 ```{r}
 #| purl: false
 
-age_seq <- seq(0, 10, by = 0.05)
+age_seq <- seq(0, 25, by = 0.05)
 
 data.frame(
   age      = age_seq,
@@ -2231,13 +2233,12 @@ data.frame(
     p_annual = "Annual survival (aging only)"
   )) |>
   ggplot(aes(x = age, y = p)) +
-  geom_vline(xintercept = c(5, 8), linetype = "dashed", alpha = 0.4) +
+  # geom_vline(xintercept = c(9), linetype = "dashed", alpha = 0.4) +
   geom_line(linewidth = 0.9) +
   facet_wrap(~ metric, scales = "free_y") +
   theme_bw() + theme(panel.grid = element_blank()) +
   xlab("Age (years)") + ylab("Survival probability") +
-  labs(title = "Senescence-based daily survival (age_thresh = 5, lambda = 0.05, k = 3, p_min = 0.99)",
-       subtitle = "Dashed lines: onset age (5) and near-zero survival target (8)")
+  labs(title = "Senescence-based daily survival (x0 = 14, k = 0.7, p_min = 0.99)")
 ```
 
 ## Reproduction

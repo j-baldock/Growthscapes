@@ -27,7 +27,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   movecost_c        <- params$movecost_c        %||% 0.1       # movement cost allometric function: `c` = scaling constant
   movecost_b        <- params$movecost_b        %||% 0.3       # movement cost allometric function `b` = decay exponent (higher = steeper drop-off)
   sigma_bold        <- params$sigma_bold        %||% 0.002     # SD of boldness distribution, for dispersal propensity (g/g/d units)
-  tau               <- params$tau               %||% 0.001     # sensitivity to growth difference (for probabilistic/softmax variation in movement)
+  tau               <- params$tau               %||% 0.003     # sensitivity to growth difference (for probabilistic/softmax variation in movement)
   s_min             <- params$s_min             %||% 0.96      # minimum size-based daily survival probability
   s_w0              <- params$s_w0              %||% 7         # inflection point of size-based survival logistic curve
   s_k               <- params$s_k               %||% 1         # steepness of size-based survival logistic curve
@@ -35,6 +35,9 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   T9_mort           <- params$T9_mort           %||% 25.8      # temperature (°C) at which daily survival from thermal stress = 0.9
   K9_starv          <- params$K9_starv          %||% 0.55      # relative condition (W_current/W_peak) at which starvation survival = 0.9
   K1_starv          <- params$K1_starv          %||% 0.45      # relative condition at which starvation survival = 0.1
+  age_x0            <- params$age_x0            %||% 14        # logistic inflection point — age (years) at which senescent decline is steepest
+  age_k             <- params$age_k             %||% 0.7       # steepness of logistic senescence decline; larger = sharper drop
+  age_pmin          <- params$age_pmin          %||% 0.99      # asymptotic daily survival floor for very old fish
   dominance_beta    <- params$dominance_beta    %||% 1         # size-based dominance exponent for effective density (0 = pure scramble, 1 = linear dominance, Inf = pure contest)
   egg_wt            <- params$egg_wt            %||% 0.07      # weight of a single egg (g); energetic cost per offspring
   repro_cost        <- params$repro_cost        %||% 0.2       # energetic cost of reproduction in percentage of body mass
@@ -192,6 +195,11 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
       move_cost_vec <- fncMoveCost_allometric(fish_pop$weight[mover_rows],
                                               c = movecost_c, b = movecost_b)  # calculate size-dependent cost of movement
 
+      # Capture pre-step patch for each mover before any assignments this day.
+      # Used by density_all's sequential loop (movement cost direction) and by all
+      # modes for switch detection in step 3.
+      prev_patch    <- fish_pop$patch[mover_rows]
+
       # Pre-compute each mover's hypothetical ration in BOTH patches for patch choice sensing.
       # This initial step is done without accounting for the effect of density on p_cmax/ration.
       # pcmax scalars are day-level constants; cmax_allometric is already in fish_pop from step 1.
@@ -245,126 +253,164 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)
 
       } else if (sense_environment == "density_all") {
-        ### 2.A.3. Individuals sense density-dependent GP across all habitats
-        # Each mover evaluates both patches using its own dominance-weighted effective density:
-        #   Current patch: effective density among current co-occupants (fish is already there).
-        #   Alternative patch: counterfactual effective density — how the fish would rank if it
-        #     joined the alternative patch's current occupants as a new entrant.
+        ### 2.A.3. Sequential dominance-ordered patch selection.
+        # Fish choose patches in descending body-size order within each competitive age class
+        # (largest / most dominant first). Each fish senses density in both patches from the
+        # fish already committed this step — not yesterday's pre-movement snapshot. This
+        # eliminates the mass-synchronous overcrowding caused by the old pre-movement
+        # approximation, and produces biologically realistic distributions: dominant fish
+        # claim the thermally optimal patch, subordinates fill in around them.
+        #
+        # All fish choose anew each day (no incumbency advantage). Movement cost applies
+        # only when the chosen patch differs from the fish's patch at the start of this day
+        # (captured in prev_patch above).
+        #
+        # Patch assignments are written directly to fish_pop$patch here; the generic 2.B
+        # stochasticity block below is skipped for this sensing mode.
+
         mover_weights_vec <- fish_pop$weight[mover_rows]
         age_class_all     <- if_else(fish_pop$cohort == current_year, "age0", "age1plus")
         mover_age_class   <- age_class_all[mover_rows]
 
-        # Current-patch effective competitor density (per unit area, self excluded).
-        # Respects age_structured_competition toggle via eff_grp.
-        eff_density_all      <- fish_pop |>
-          mutate(age_class = age_class_all) |>
-          group_by(across(all_of(eff_grp))) |>
-          mutate(
-            A_patch     = if_else(first(patch) == "warm", A_warm, A_cold),
-            eff_density = (fncEffDensity(weight, beta = dominance_beta) - 1) / A_patch
-          ) |>
-          ungroup() |>
-          pull(eff_density)
-        eff_dens_current_vec <- eff_density_all[mover_rows]
-
-        # Helper: vectorized outer-product effective density (per unit area)
-        eff_join <- function(focal_wts, comp_wts, area) {
-          if (length(focal_wts) == 0) return(numeric(0))
-          if (length(comp_wts)  == 0) return(rep(0, length(focal_wts)))
-          rowSums(outer(focal_wts, comp_wts,
-                        FUN = function(mi, mj) ifelse(mj >= mi, 1, (mj/mi)^dominance_beta))) / area
+        # Scalar helper: effective competitor density for one focal fish (weight wi) against a
+        # vector of already-placed fish weights (comp_wts), per unit area. Returns Inf when
+        # area == 0 (patch inaccessible → growth → 0); returns 0 when no competitors yet.
+        eff_dens_scalar <- function(wi, comp_wts, area) {
+          if (area == 0)              return(Inf)
+          if (length(comp_wts) == 0) return(0)
+          sum(ifelse(comp_wts >= wi, 1, (comp_wts / wi)^dominance_beta)) / area
         }
 
-        # Counterfactual effective competitor density in the alternative patch if the mover joins.
+        # Running placement accumulators: weights of fish already assigned this step.
+        # Split by age class when age_structured_competition = TRUE (independent pools).
         if (age_structured_competition) {
-          # Competitors restricted to the same age class as the focal mover.
-          warm_wts_age0  <- fish_pop$weight[fish_pop$patch == "warm" & age_class_all == "age0"]
-          warm_wts_age1p <- fish_pop$weight[fish_pop$patch == "warm" & age_class_all == "age1plus"]
-          cold_wts_age0  <- fish_pop$weight[fish_pop$patch == "cold" & age_class_all == "age0"]
-          cold_wts_age1p <- fish_pop$weight[fish_pop$patch == "cold" & age_class_all == "age1plus"]
-
-          idx_age0  <- which(mover_age_class == "age0")
-          idx_age1p <- which(mover_age_class == "age1plus")
-
-          eff_dens_if_join_warm <- numeric(length(mover_rows))
-          eff_dens_if_join_cold <- numeric(length(mover_rows))
-
-          if (length(idx_age0)  > 0) {
-            eff_dens_if_join_warm[idx_age0]  <- eff_join(mover_weights_vec[idx_age0],  warm_wts_age0,  A_warm)
-            eff_dens_if_join_cold[idx_age0]  <- eff_join(mover_weights_vec[idx_age0],  cold_wts_age0,  A_cold)
-          }
-          if (length(idx_age1p) > 0) {
-            eff_dens_if_join_warm[idx_age1p] <- eff_join(mover_weights_vec[idx_age1p], warm_wts_age1p, A_warm)
-            eff_dens_if_join_cold[idx_age1p] <- eff_join(mover_weights_vec[idx_age1p], cold_wts_age1p, A_cold)
-          }
+          placed_warm_age0  <- numeric(0);  placed_cold_age0  <- numeric(0)
+          placed_warm_age1p <- numeric(0);  placed_cold_age1p <- numeric(0)
         } else {
-          # All fish in the alternative patch are competitors (original behaviour).
-          warm_weights          <- fish_pop$weight[fish_pop$patch == "warm"]
-          cold_weights          <- fish_pop$weight[fish_pop$patch == "cold"]
-          eff_dens_if_join_warm <- eff_join(mover_weights_vec, warm_weights, A_warm)
-          eff_dens_if_join_cold <- eff_join(mover_weights_vec, cold_weights, A_cold)
+          placed_warm_all <- numeric(0);  placed_cold_all <- numeric(0)
         }
 
-        # Assign per-area effective competitor density per patch per mover:
-        #   current patch → eff_dens_current_vec (fish is already there, self excluded)
-        #   alternative   → eff_dens_if_join_*   (existing residents only, self excluded)
-        eff_dens_warm_vec <- ifelse(in_warm, eff_dens_current_vec, eff_dens_if_join_warm)
-        eff_dens_cold_vec <- ifelse(in_warm, eff_dens_if_join_cold, eff_dens_current_vec)
+        # Processing groups: independent competitive pools, each sorted dominant-first.
+        # When age_structured_competition = TRUE, age-0 and age-1+ are separate pools.
+        proc_groups <- if (age_structured_competition) {
+          list(
+            list(idx = which(mover_age_class == "age1plus"), ac = "age1plus"),
+            list(idx = which(mover_age_class == "age0"),     ac = "age0")
+          )
+        } else {
+          list(list(idx = seq_along(mover_rows), ac = "all"))
+        }
 
-        ra_warm_dd_vec     <- fish_pop$cmax_allometric[mover_rows] * pcmax_warm_adj *
-                              (K_warm / (K_warm + eff_dens_warm_vec))
-        ra_cold_dd_vec     <- fish_pop$cmax_allometric[mover_rows] * pcmax_cold_adj *
-                              (K_cold / (K_cold + eff_dens_cold_vec))
-        ra_idx_warm_dd_vec <- pmax(1L, pmin(400L, map_int(ra_warm_dd_vec, ~which.min(abs(ra_seq_ibm - .x)))))
-        ra_idx_cold_dd_vec <- pmax(1L, pmin(400L, map_int(ra_cold_dd_vec, ~which.min(abs(ra_seq_ibm - .x)))))
+        for (grp in proc_groups) {
+          grp_idx <- grp$idx   # positions within mover_rows / mover_weights_vec
+          ac      <- grp$ac
+          if (length(grp_idx) == 0) next
 
-        # Both patches sensed with dominance-adjusted individual rations
-        g_warm_vec <- wt_growth[cbind(wt_idx_warm, ra_idx_warm_dd_vec, ma_idx_vec)]
-        g_cold_vec <- wt_growth[cbind(wt_idx_cold, ra_idx_cold_dd_vec, ma_idx_vec)]
-        g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec)
-        g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)
+          # Sort dominant-first within this age class
+          grp_idx <- grp_idx[order(mover_weights_vec[grp_idx], decreasing = TRUE)]
+
+          for (ii in grp_idx) {
+            fi       <- mover_rows[ii]          # row index in fish_pop
+            wi       <- mover_weights_vec[ii]   # fish weight (g)
+            cmi      <- fish_pop$cmax_allometric[fi]
+            ma_idx_i <- pmax(1L, pmin(4500L, round(wi)))
+            prev_i   <- prev_patch[ii]          # patch at start of this day
+
+            # Fetch placement accumulators for this age class
+            if (age_structured_competition) {
+              pw <- if (ac == "age0") placed_warm_age0 else placed_warm_age1p
+              pc <- if (ac == "age0") placed_cold_age0 else placed_cold_age1p
+            } else {
+              pw <- placed_warm_all
+              pc <- placed_cold_all
+            }
+
+            # Effective density in each patch given already-placed fish this step
+            ed_warm <- eff_dens_scalar(wi, pw, A_warm)
+            ed_cold <- eff_dens_scalar(wi, pc, A_cold)
+
+            # Density-adjusted rations in each patch
+            ra_warm_i <- cmi * pcmax_warm_adj * (K_warm / (K_warm + ed_warm))
+            ra_cold_i <- cmi * pcmax_cold_adj * (K_cold / (K_cold + ed_cold))
+            ra_idx_w  <- pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - ra_warm_i))))
+            ra_idx_c  <- pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - ra_cold_i))))
+
+            # Growth lookup in each patch
+            g_warm_i <- wt_growth[wt_idx_warm, ra_idx_w, ma_idx_i]
+            g_cold_i <- wt_growth[wt_idx_cold, ra_idx_c, ma_idx_i]
+
+            # Effective growth after movement cost (cost applies only when switching patches).
+            # move_cost_vec[ii] is already computed for all movers above.
+            move_cost_i <- move_cost_vec[ii]
+            gwarm_eff_i <- g_warm_i - if (prev_i == "warm") 0 else move_cost_i
+            gcold_eff_i <- g_cold_i - if (prev_i == "cold") 0 else move_cost_i
+
+            # Patch choice — same stochasticity rule as other sensing modes
+            chose_warm <- if (move_stochastic == "none") {
+              gwarm_eff_i >= gcold_eff_i
+            } else if (move_stochastic == "prob") {
+              runif(1) < fncMoveSoftmax(gwarm = gwarm_eff_i, gcold = gcold_eff_i, tau = tau)
+            } else {  # "indiv": threshold is a per-fish bias on the warm–cold advantage
+              (gwarm_eff_i - gcold_eff_i) > fish_pop$move_threshold[fi]
+            }
+
+            # Assign patch and update placement accumulator for subsequent fish
+            fish_pop$patch[fi] <- if (chose_warm) "warm" else "cold"
+
+            if (age_structured_competition) {
+              if (ac == "age0") {
+                if (chose_warm) placed_warm_age0  <- c(placed_warm_age0,  wi)
+                else            placed_cold_age0  <- c(placed_cold_age0,  wi)
+              } else {
+                if (chose_warm) placed_warm_age1p <- c(placed_warm_age1p, wi)
+                else            placed_cold_age1p <- c(placed_cold_age1p, wi)
+              }
+            } else {
+              if (chose_warm) placed_warm_all <- c(placed_warm_all, wi)
+              else            placed_cold_all <- c(placed_cold_all, wi)
+            }
+          } # end fish loop
+        } # end group loop
       }
-
-      prev_patch <- fish_pop$patch[mover_rows]
 
       ## 2.B. Impose stochasticity in movement
-      if (move_stochastic == "none") {
-        ### 2.B.1. Deterministic: All movers do the same thing
-        # Update patch based on whether moving is beneficial.
-        # 1. If fish is in warm patch and growth potential of moving exceeds growth potential of staying, move to cold.
-        # 2. If fish is in cold patch and growth potential of moving exceeds growth potential of staying, move to warm.
-        fish_pop$patch[mover_rows] <- case_when(
-          in_warm  & g_move_net > g_stay ~ "cold",
-          !in_warm & g_move_net > g_stay ~ "warm",
-          TRUE                           ~ fish_pop$patch[mover_rows]
-        )
-      } else if (move_stochastic == "prob") {
-        ### 2.B.2. Probabilistic (softmax) rule: Instead of a hard threshold, fish switch with a
-        ### probability that increases with the growth advantage. One parameter: τ (sensitivity;
-        ### small = nearly deterministic, large = nearly random).
-        # Use cost-adjusted net growth rates: staying is free, moving incurs move_cost_vec.
-        # g_stay     = growth in current patch (no cost)
-        # g_move_net = growth in alternate patch - move_cost_vec
-        # Re-map to warm/cold perspective for fncMoveSoftmax:
-        gwarm_eff  <- ifelse(in_warm, g_stay, g_move_net)  # effective growth if occupying warm patch
-        gcold_eff  <- ifelse(in_warm, g_move_net, g_stay)  # effective growth if occupying cold patch
-        p_warm     <- fncMoveSoftmax(gwarm = gwarm_eff, gcold = gcold_eff, tau = tau)  # calculate probability of selecting warm habitat
-        choose_warm <- runif(length(mover_rows)) < p_warm  # choose warm if p_warm exceeds a random number between 0 and 1
-        fish_pop$patch[mover_rows] <- if_else(choose_warm, "warm", "cold")  # update patch
-      } else if (move_stochastic == "indiv") {
-        ### 2.B.3. Individual-level movement threshold: each fish has a unique threshold for
-        ### movement, representing individual variation in boldness/dispersal propensity
-        fish_pop$patch[mover_rows] <- case_when(
-          in_warm  & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "cold",
-          !in_warm & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "warm",
-          TRUE                                                                    ~ prev_patch
-        )
+      # density_all handles patch assignment and stochasticity within its sequential loop
+      # above (choices written directly to fish_pop$patch). Skip for that sensing mode.
+      if (sense_environment != "density_all") {
+        if (move_stochastic == "none") {
+          ### 2.B.1. Deterministic: All movers do the same thing
+          # Update patch based on whether moving is beneficial.
+          # 1. If fish is in warm patch and growth potential of moving exceeds growth potential of staying, move to cold.
+          # 2. If fish is in cold patch and growth potential of moving exceeds growth potential of staying, move to warm.
+          fish_pop$patch[mover_rows] <- case_when(
+            in_warm  & g_move_net > g_stay ~ "cold",
+            !in_warm & g_move_net > g_stay ~ "warm",
+            TRUE                           ~ fish_pop$patch[mover_rows]
+          )
+        } else if (move_stochastic == "prob") {
+          ### 2.B.2. Probabilistic (softmax) rule: Instead of a hard threshold, fish switch with a
+          ### probability that increases with the growth advantage. One parameter: τ (sensitivity;
+          ### small = nearly deterministic, large = nearly random).
+          # Use cost-adjusted net growth rates: staying is free, moving incurs move_cost_vec.
+          # g_stay     = growth in current patch (no cost)
+          # g_move_net = growth in alternate patch - move_cost_vec
+          # Re-map to warm/cold perspective for fncMoveSoftmax:
+          gwarm_eff  <- ifelse(in_warm, g_stay, g_move_net)  # effective growth if occupying warm patch
+          gcold_eff  <- ifelse(in_warm, g_move_net, g_stay)  # effective growth if occupying cold patch
+          p_warm     <- fncMoveSoftmax(gwarm = gwarm_eff, gcold = gcold_eff, tau = tau)  # calculate probability of selecting warm habitat
+          choose_warm <- runif(length(mover_rows)) < p_warm  # choose warm if p_warm exceeds a random number between 0 and 1
+          fish_pop$patch[mover_rows] <- if_else(choose_warm, "warm", "cold")  # update patch
+        } else if (move_stochastic == "indiv") {
+          ### 2.B.3. Individual-level movement threshold: each fish has a unique threshold for
+          ### movement, representing individual variation in boldness/dispersal propensity
+          fish_pop$patch[mover_rows] <- case_when(
+            in_warm  & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "cold",
+            !in_warm & (g_move_net - g_stay) > fish_pop$move_threshold[mover_rows] ~ "warm",
+            TRUE                                                                    ~ prev_patch
+          )
+        }
       }
 
-      # Tally switches (indexed by pid so counts remain correct as fish die)
-      switched <- fish_pop$patch[mover_rows] != prev_patch
-      switches[fish_pop$pid[mover_rows]] <- switches[fish_pop$pid[mover_rows]] +
-                                            as.integer(switched)
     } # end patch choice
 
     # Recompute func_temp and pcmax_adjusted based on post-choice patch.
@@ -386,6 +432,18 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     }
     if (A_warm == 0 && any(fish_pop$patch == "warm")) {
       fish_pop$patch[fish_pop$patch == "warm"] <- "cold"
+    }
+
+    # Tally switches and define `switched` AFTER zero-area guards: fish forced
+    # back to their original patch by a guard are not counted as having switched
+    # and incur no movement cost. This prevents spurious energy drain in scenarios
+    # where one patch has A = 0 and the other patch looks more attractive (fish
+    # "choose" the zero-area patch every step but get reversed by the guard).
+    switched <- logical(length(mover_rows))  # default FALSE (no movers)
+    if (length(mover_rows) > 0) {
+      switched <- fish_pop$patch[mover_rows] != prev_patch
+      switches[fish_pop$pid[mover_rows]] <- switches[fish_pop$pid[mover_rows]] +
+                                            as.integer(switched)
     }
 
     # Update density (fish per unit area) and dominance-weighted effective competitor density
@@ -578,9 +636,11 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     condition <- fish_pop$weight / fish_pop$peak_weight
     p_starv   <- fncSurviveStarve(condition, K9 = K9_starv, K1 = K1_starv)
 
-    # Age-based survival (senescence): survival probability declines past 5 years old,
-    # fish older than 8 have ~0 chance of survival.
-    # p_age <- fncSurviveAge(fish_pop$age_days / 365)
+    # Age-based survival (senescence): survival probability declines past age_thresh years old.
+    p_age <- fncSurviveAge(fish_pop$age_days / 365,
+                           x0    = age_x0,
+                           k     = age_k,
+                           p_min = age_pmin)
 
     # Critical-period consumption-based survival (Elliott 1989) — disabled.
     # Replaced by the sigmoid shape of fncSurviveSize, which sustains strong size-dependent
@@ -595,7 +655,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # )
 
     # Calculate combined daily survival rate
-    prb.srv   <- pmin(p_sg * p_temp * p_starv, 1)
+    prb.srv   <- pmin(p_sg * p_temp * p_starv * p_age, 1)
 
     # Minimum weight floor: fish that drop below hatch weight die immediately (backstop)
     prb.srv[fish_pop$weight < start_wt] <- 0

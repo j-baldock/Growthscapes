@@ -429,7 +429,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
- <span class="menu-text">Scenario Results</span></a>
+ <span class="menu-text">Results</span></a>
           <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
@@ -437,26 +437,8 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
       <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./Scenario_1_null_cold.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Null model: cold only</span></span></a>
-  </div>
-</li>
-          <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="./Scenario_2_temp_mult.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Multiplicative temperature</span></span></a>
-  </div>
-</li>
-          <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="./Scenario_3_temp_offset.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Offset temperature</span></span></a>
-  </div>
-</li>
-          <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="./Scenario_4_temp_offset_diffP.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Offset temp, variable Pcmax</span></span></a>
+  <a href="./ViewSimResults.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">View Simulation Results</span></span></a>
   </div>
 </li>
       </ul>
@@ -472,11 +454,35 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
    
   <ul>
   <li><a href="#default-parameters" id="toc-default-parameters" class="nav-link active" data-scroll-target="#default-parameters"><span class="header-section-number">8.1</span> Default parameters</a></li>
-  <li><a href="#define-scenarios" id="toc-define-scenarios" class="nav-link" data-scroll-target="#define-scenarios"><span class="header-section-number">8.2</span> Define scenarios</a>
-  <ul class="collapse">
-  <li><a href="#plot-scenario-habitat-specs." id="toc-plot-scenario-habitat-specs." class="nav-link" data-scroll-target="#plot-scenario-habitat-specs."><span class="header-section-number">8.2.1</span> Plot scenario habitat specs.</a></li>
+  <li><a href="#define-scenarios" id="toc-define-scenarios" class="nav-link" data-scroll-target="#define-scenarios"><span class="header-section-number">8.2</span> Define scenarios</a></li>
+  <li><a href="#plot-scenario-habitat-specs." id="toc-plot-scenario-habitat-specs." class="nav-link" data-scroll-target="#plot-scenario-habitat-specs."><span class="header-section-number">8.3</span> Plot scenario habitat specs.</a>
+  <ul>
+  <li><a href="#fixed-habitat-cold-only-null" id="toc-fixed-habitat-cold-only-null" class="nav-link" data-scroll-target="#fixed-habitat-cold-only-null"><span class="header-section-number">8.3.1</span> Fixed habitat: cold only (null)</a>
+  <ul>
+  <li><a href="#cold-5-warm" id="toc-cold-5-warm" class="nav-link" data-scroll-target="#cold-5-warm"><span class="header-section-number">8.3.1.1</span> 95% cold / 5% warm</a></li>
+  <li><a href="#cold-25-warm" id="toc-cold-25-warm" class="nav-link" data-scroll-target="#cold-25-warm"><span class="header-section-number">8.3.1.2</span> 75% cold / 25% warm</a></li>
+  <li><a href="#cold-50-warm" id="toc-cold-50-warm" class="nav-link" data-scroll-target="#cold-50-warm"><span class="header-section-number">8.3.1.3</span> 50% cold / 50% warm</a></li>
+  <li><a href="#cold-75-warm" id="toc-cold-75-warm" class="nav-link" data-scroll-target="#cold-75-warm"><span class="header-section-number">8.3.1.4</span> 25% cold / 75% warm</a></li>
+  <li><a href="#cold-95-warm" id="toc-cold-95-warm" class="nav-link" data-scroll-target="#cold-95-warm"><span class="header-section-number">8.3.1.5</span> 5% cold / 95% warm</a></li>
   </ul></li>
-  <li><a href="#write-r-file" id="toc-write-r-file" class="nav-link" data-scroll-target="#write-r-file"><span class="header-section-number">8.3</span> Write R file</a></li>
+  <li><a href="#fixed-habitat-cold-warm-same-pcmax" id="toc-fixed-habitat-cold-warm-same-pcmax" class="nav-link" data-scroll-target="#fixed-habitat-cold-warm-same-pcmax"><span class="header-section-number">8.3.2</span> Fixed habitat: cold + warm (same pcmax)</a>
+  <ul>
+  <li><a href="#cold-5-warm-1" id="toc-cold-5-warm-1" class="nav-link" data-scroll-target="#cold-5-warm-1"><span class="header-section-number">8.3.2.1</span> 95% cold / 5% warm</a></li>
+  <li><a href="#cold-25-warm-1" id="toc-cold-25-warm-1" class="nav-link" data-scroll-target="#cold-25-warm-1"><span class="header-section-number">8.3.2.2</span> 75% cold / 25% warm</a></li>
+  <li><a href="#cold-50-warm-1" id="toc-cold-50-warm-1" class="nav-link" data-scroll-target="#cold-50-warm-1"><span class="header-section-number">8.3.2.3</span> 50% cold / 50% warm</a></li>
+  <li><a href="#cold-75-warm-1" id="toc-cold-75-warm-1" class="nav-link" data-scroll-target="#cold-75-warm-1"><span class="header-section-number">8.3.2.4</span> 25% cold / 75% warm</a></li>
+  <li><a href="#cold-95-warm-1" id="toc-cold-95-warm-1" class="nav-link" data-scroll-target="#cold-95-warm-1"><span class="header-section-number">8.3.2.5</span> 5% cold / 95% warm</a></li>
+  </ul></li>
+  <li><a href="#fixed-habitat-cold-warm-high-p" id="toc-fixed-habitat-cold-warm-high-p" class="nav-link" data-scroll-target="#fixed-habitat-cold-warm-high-p"><span class="header-section-number">8.3.3</span> Fixed habitat: cold + warm, high P</a>
+  <ul>
+  <li><a href="#cold-5-warm-2" id="toc-cold-5-warm-2" class="nav-link" data-scroll-target="#cold-5-warm-2"><span class="header-section-number">8.3.3.1</span> 95% cold / 5% warm</a></li>
+  <li><a href="#cold-25-warm-2" id="toc-cold-25-warm-2" class="nav-link" data-scroll-target="#cold-25-warm-2"><span class="header-section-number">8.3.3.2</span> 75% cold / 25% warm</a></li>
+  <li><a href="#cold-50-warm-2" id="toc-cold-50-warm-2" class="nav-link" data-scroll-target="#cold-50-warm-2"><span class="header-section-number">8.3.3.3</span> 50% cold / 50% warm</a></li>
+  <li><a href="#cold-75-warm-2" id="toc-cold-75-warm-2" class="nav-link" data-scroll-target="#cold-75-warm-2"><span class="header-section-number">8.3.3.4</span> 25% cold / 75% warm</a></li>
+  <li><a href="#cold-95-warm-2" id="toc-cold-95-warm-2" class="nav-link" data-scroll-target="#cold-95-warm-2"><span class="header-section-number">8.3.3.5</span> 5% cold / 95% warm</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#write-r-file" id="toc-write-r-file" class="nav-link" data-scroll-target="#write-r-file"><span class="header-section-number">8.4</span> Write R file</a></li>
   </ul>
 </nav>
     </div>
@@ -514,14 +520,14 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>base_params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Timeline ──────────────────────────────────────────</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_burnin     =</span> <span class="dv">40</span>,</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_experiment =</span> <span class="dv">60</span>,</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">ramp_years        =</span> <span class="dv">60</span>, <span class="co"># ramp years should almost always be set to the same as nyears_experiment</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_burnin     =</span> <span class="dv">50</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_experiment =</span> <span class="dv">50</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">ramp_years        =</span> <span class="dv">0</span>,</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">mindate           =</span> <span class="fu">as.Date</span>(<span class="st">"2001-05-01"</span>),</span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Temperature — warm patch ───────────────────────────</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_temp_warm  =</span> <span class="dv">11</span>,</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_warm  =</span> <span class="dv">14</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_temp_warm  =</span> <span class="dv">15</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_warm  =</span> <span class="fl">9.5</span>,</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">peak_doy_warm   =</span> <span class="dv">196</span>,</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_min_warm   =</span> <span class="fl">0.5</span>,</span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_noise_warm =</span> <span class="dv">0</span>,</span>
@@ -536,19 +542,19 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Patch burn-in values ───────────────────────────────</span></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">pcmax_warm =</span> <span class="fl">0.5</span>,  <span class="at">pcmax_cold =</span> <span class="fl">0.5</span>,</span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">A_warm     =</span> <span class="fl">1.0</span>,  <span class="at">A_cold     =</span> <span class="fl">1.0</span>,</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">K_warm     =</span> <span class="dv">400</span>,  <span class="at">K_cold     =</span> <span class="dv">400</span>,  <span class="co"># reduced from 500; needed for density signal in critical-period function</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">K_warm     =</span> <span class="dv">400</span>,  <span class="at">K_cold     =</span> <span class="dv">400</span>, </span>
 <span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">S_max_warm =</span> <span class="fl">0.9994</span>, <span class="at">S_max_cold =</span> <span class="fl">0.9994</span>,</span>
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Experiment targets (NA = no change) ───────────────</span></span>
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">pcmax_warm_target =</span> <span class="cn">NA</span>,  <span class="at">pcmax_cold_target =</span> <span class="cn">NA</span>,</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">A_warm_target     =</span> <span class="dv">2</span>,   <span class="at">A_cold_target     =</span> <span class="dv">0</span>,</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">A_warm_target     =</span> <span class="cn">NA</span>,  <span class="at">A_cold_target     =</span> <span class="cn">NA</span>,</span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">K_warm_target     =</span> <span class="cn">NA</span>,  <span class="at">K_cold_target     =</span> <span class="cn">NA</span>,</span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">S_max_warm_target =</span> <span class="cn">NA</span>,  <span class="at">S_max_cold_target =</span> <span class="cn">NA</span>,</span>
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Behavioural / movement ─────────────────────────────</span></span>
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">move_stochastic   =</span> <span class="st">"prob"</span>,</span>
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">food_densdepen    =</span> <span class="st">"hyperbolic"</span>,</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">sense_environment =</span> <span class="st">"density_current"</span>,</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">sense_environment =</span> <span class="st">"density_all"</span>,</span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Population ─────────────────────────────────────────</span></span>
 <span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_fish_per_strat  =</span> <span class="dv">50</span>,</span>
@@ -556,7 +562,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  <span class="at">wt_sd             =</span> <span class="fl">0.05</span>,</span>
 <span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Movement cost ──────────────────────────────────────</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">movecost_c   =</span> <span class="fl">0.1</span>,</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">movecost_c   =</span> <span class="fl">0.0</span>, <span class="co"># previously 0.1. 0.0 is effective no cost</span></span>
 <span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">movecost_b   =</span> <span class="fl">0.3</span>,</span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_bold   =</span> <span class="fl">0.002</span>,</span>
 <span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau          =</span> <span class="fl">0.001</span>,</span>
@@ -603,38 +609,96 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">null_cold                   =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_warm =</span> <span class="dv">0</span>, </span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">A_warm_target =</span> <span class="cn">NA</span>)),</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_mult                   =</span> base_params,</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_offset                 =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">base_temp_warm  =</span> <span class="dv">15</span>,</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_warm  =</span> <span class="fl">9.5</span>,</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_warm   =</span> <span class="fl">0.5</span>,</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">base_temp_cold  =</span> <span class="fl">6.6</span>,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_cold  =</span> <span class="fl">8.4</span>,</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_cold   =</span> <span class="dv">0</span>)),</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_offset_diffP           =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">base_temp_warm  =</span> <span class="dv">15</span>,</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_warm  =</span> <span class="fl">9.5</span>,</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_warm   =</span> <span class="fl">0.5</span>,</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">base_temp_cold  =</span> <span class="fl">6.6</span>,</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_cold  =</span> <span class="fl">8.4</span>,</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_cold   =</span> <span class="dv">0</span>,</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">pcmax_warm      =</span> <span class="fl">0.6</span>,</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">pcmax_cold      =</span> <span class="fl">0.4</span>))</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># null_cold                   = modifyList(base_params, list(A_warm = 0, </span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            A_warm_target = NA)),</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># temp_mult                   = base_params,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># temp_offset                 = modifyList(base_params, list(base_temp_warm  = 15,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_warm  = 9.5,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_warm   = 0.5,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            base_temp_cold  = 6.6,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_cold  = 8.4,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_cold   = 0)),</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># temp_offset_diffP           = modifyList(base_params, list(base_temp_warm  = 15,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_warm  = 9.5,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_warm   = 0.5,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            base_temp_cold  = 6.6,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_cold  = 8.4,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_cold   = 0,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            pcmax_warm      = 0.6,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            pcmax_cold      = 0.4)),</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Fixed habitat scenarios: changing habitat availability is tested by comparing among scenarios</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="do">### Null (cold only)</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_95percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_75percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_50percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_25percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_05percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  <span class="do">### Cold + Warm, same Pcmax</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_95percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.1</span>)),</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_75percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.5</span>)),</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_50percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.0</span>)),</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_25percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.5</span>)),</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_05percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.9</span>)),</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>  <span class="do">### Cold + Warm, high Pcmax in warm</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_95percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_75percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_50percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_25percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_05percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>))</span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<section id="plot-scenario-habitat-specs." class="level3" data-number="8.2.1">
-<h3 data-number="8.2.1" class="anchored" data-anchor-id="plot-scenario-habitat-specs."><span class="header-section-number">8.2.1</span> Plot scenario habitat specs.</h3>
-<section id="null-cold-habitat-only" class="level4" data-number="8.2.1.1">
-<h4 data-number="8.2.1.1" class="anchored" data-anchor-id="null-cold-habitat-only"><span class="header-section-number">8.2.1.1</span> Null: cold habitat only</h4>
+</section>
+<section id="plot-scenario-habitat-specs." class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="plot-scenario-habitat-specs."><span class="header-section-number">8.3</span> Plot scenario habitat specs.</h2>
+<section id="fixed-habitat-cold-only-null" class="level3" data-number="8.3.1">
+<h3 data-number="8.3.1" class="anchored" data-anchor-id="fixed-habitat-cold-only-null"><span class="header-section-number">8.3.1</span> Fixed habitat: cold only (null)</h3>
+<section id="cold-5-warm" class="level4" data-number="8.3.1.1">
+<h4 data-number="8.3.1.1" class="anchored" data-anchor-id="cold-5-warm"><span class="header-section-number">8.3.1.1</span> 95% cold / 5% warm</h4>
 <ul>
-<li>Cold habitat only; warm habitat total unavailable. This is effectively equivalent to running a simulation with only resident fish.</li>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 95% cold, 5% warm</li>
 </ul>
-<p><em>Note that we specify warm habitat conditions (temp, food availability, survival, etc.), these have no bearing on the results because area is always 0; fish can never occupy the warm habitat</em></p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"null_cold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"null_cold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"null_cold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_95percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_95percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_95percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -659,16 +723,16 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 </div>
 </div>
 </section>
-<section id="multiplicative-temperature" class="level4" data-number="8.2.1.2">
-<h4 data-number="8.2.1.2" class="anchored" data-anchor-id="multiplicative-temperature"><span class="header-section-number">8.2.1.2</span> Multiplicative temperature</h4>
+<section id="cold-25-warm" class="level4" data-number="8.3.1.2">
+<h4 data-number="8.3.1.2" class="anchored" data-anchor-id="cold-25-warm"><span class="header-section-number">8.3.1.2</span> 75% cold / 25% warm</h4>
 <ul>
-<li>Thermal regimes are ~multiplicative of each other: maximum thermal heterogeneity during summer, but heterogeneity collapses to ~0 during winter (everything is cold).</li>
-<li>Habitat area is equal during burn-in; cold habitat is entirely replaced by warm habitat over experiment</li>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 75% cold, 25% warm</li>
 </ul>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"temp_mult"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"temp_mult"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"temp_mult"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_75percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_75percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_75percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -693,16 +757,16 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 </div>
 </div>
 </section>
-<section id="offset-temperature" class="level4" data-number="8.2.1.3">
-<h4 data-number="8.2.1.3" class="anchored" data-anchor-id="offset-temperature"><span class="header-section-number">8.2.1.3</span> Offset temperature</h4>
+<section id="cold-50-warm" class="level4" data-number="8.3.1.3">
+<h4 data-number="8.3.1.3" class="anchored" data-anchor-id="cold-50-warm"><span class="header-section-number">8.3.1.3</span> 50% cold / 50% warm</h4>
 <ul>
-<li>Thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
-<li>Everything else the same as is base parameter set</li>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 50% cold, 50% warm</li>
 </ul>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"temp_offset"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"temp_offset"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"temp_offset"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_50percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_50percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_50percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -727,16 +791,16 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 </div>
 </div>
 </section>
-<section id="pcmax-warm-high-cold-low" class="level4" data-number="8.2.1.4">
-<h4 data-number="8.2.1.4" class="anchored" data-anchor-id="pcmax-warm-high-cold-low"><span class="header-section-number">8.2.1.4</span> Pcmax: warm-high, cold-low</h4>
+<section id="cold-75-warm" class="level4" data-number="8.3.1.4">
+<h4 data-number="8.3.1.4" class="anchored" data-anchor-id="cold-75-warm"><span class="header-section-number">8.3.1.4</span> 25% cold / 75% warm</h4>
 <ul>
 <li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
-<li>Threshold Pcmax is high in the warm habitat and low in the cold habitat (gradients/controls on food availability and foraging opportunity)</li>
+<li>Habitat availability is fixed throughout the simulation: 25% cold, 75% warm</li>
 </ul>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"temp_offset_diffP"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"temp_offset_diffP"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"temp_offset_diffP"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_25percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_25percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_25percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -761,15 +825,400 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 </div>
 </div>
 </section>
-</section>
-</section>
-<section id="write-r-file" class="level2" data-number="8.3">
-<h2 data-number="8.3" class="anchored" data-anchor-id="write-r-file"><span class="header-section-number">8.3</span> Write R file</h2>
+<section id="cold-95-warm" class="level4" data-number="8.3.1.5">
+<h4 data-number="8.3.1.5" class="anchored" data-anchor-id="cold-95-warm"><span class="header-section-number">8.3.1.5</span> 5% cold / 95% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 5% cold, 95% warm</li>
+</ul>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"ScenarioDefs.R"</span>)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"ScenarioDefs.qmd"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_05percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_05percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_05percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-9-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-9-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="fixed-habitat-cold-warm-same-pcmax" class="level3" data-number="8.3.2">
+<h3 data-number="8.3.2" class="anchored" data-anchor-id="fixed-habitat-cold-warm-same-pcmax"><span class="header-section-number">8.3.2</span> Fixed habitat: cold + warm (same pcmax)</h3>
+<section id="cold-5-warm-1" class="level4" data-number="8.3.2.1">
+<h4 data-number="8.3.2.1" class="anchored" data-anchor-id="cold-5-warm-1"><span class="header-section-number">8.3.2.1</span> 95% cold / 5% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 95% cold, 5% warm</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_95percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-10-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-10-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-25-warm-1" class="level4" data-number="8.3.2.2">
+<h4 data-number="8.3.2.2" class="anchored" data-anchor-id="cold-25-warm-1"><span class="header-section-number">8.3.2.2</span> 75% cold / 25% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 75% cold, 25% warm</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_75percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-11-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-11-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-50-warm-1" class="level4" data-number="8.3.2.3">
+<h4 data-number="8.3.2.3" class="anchored" data-anchor-id="cold-50-warm-1"><span class="header-section-number">8.3.2.3</span> 50% cold / 50% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 50% cold, 50% warm</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_50percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-12-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-12-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-75-warm-1" class="level4" data-number="8.3.2.4">
+<h4 data-number="8.3.2.4" class="anchored" data-anchor-id="cold-75-warm-1"><span class="header-section-number">8.3.2.4</span> 25% cold / 75% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 25% cold, 75% warm</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_25percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-13-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-13-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-95-warm-1" class="level4" data-number="8.3.2.5">
+<h4 data-number="8.3.2.5" class="anchored" data-anchor-id="cold-95-warm-1"><span class="header-section-number">8.3.2.5</span> 5% cold / 95% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 5% cold, 95% warm</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_05percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-14-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-14-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="fixed-habitat-cold-warm-high-p" class="level3" data-number="8.3.3">
+<h3 data-number="8.3.3" class="anchored" data-anchor-id="fixed-habitat-cold-warm-high-p"><span class="header-section-number">8.3.3</span> Fixed habitat: cold + warm, high P</h3>
+<section id="cold-5-warm-2" class="level4" data-number="8.3.3.1">
+<h4 data-number="8.3.3.1" class="anchored" data-anchor-id="cold-5-warm-2"><span class="header-section-number">8.3.3.1</span> 95% cold / 5% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 95% cold, 5% warm</li>
+<li>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_95percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-15-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-15-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-25-warm-2" class="level4" data-number="8.3.3.2">
+<h4 data-number="8.3.3.2" class="anchored" data-anchor-id="cold-25-warm-2"><span class="header-section-number">8.3.3.2</span> 75% cold / 25% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 75% cold, 25% warm</li>
+<li>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_75percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-16-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-16-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-50-warm-2" class="level4" data-number="8.3.3.3">
+<h4 data-number="8.3.3.3" class="anchored" data-anchor-id="cold-50-warm-2"><span class="header-section-number">8.3.3.3</span> 50% cold / 50% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 50% cold, 50% warm</li>
+<li>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_50percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-17-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-17-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-75-warm-2" class="level4" data-number="8.3.3.4">
+<h4 data-number="8.3.3.4" class="anchored" data-anchor-id="cold-75-warm-2"><span class="header-section-number">8.3.3.4</span> 25% cold / 75% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 25% cold, 75% warm</li>
+<li>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_25percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-18-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-18-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cold-95-warm-2" class="level4" data-number="8.3.3.5">
+<h4 data-number="8.3.3.5" class="anchored" data-anchor-id="cold-95-warm-2"><span class="header-section-number">8.3.3.5</span> 5% cold / 95% warm</h4>
+<ul>
+<li>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</li>
+<li>Habitat availability is fixed throughout the simulation: 5% cold, 95% warm</li>
+<li>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_05percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-19-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ScenarioDefs_files/figure-html/unnamed-chunk-19-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="write-r-file" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="write-r-file"><span class="header-section-number">8.4</span> Write R file</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"ScenarioDefs.R"</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"ScenarioDefs.qmd"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 
@@ -1255,193 +1704,358 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
       </a>
   </div>
 </nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Define Scenarios &amp; Experiments"</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, include = FALSE}</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggpubr)</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(egg)</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>***if any changes are made, need to re-run `qmd_to_r_script()` at end, in console***</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>**Purpose:** This script defines parameter sets for each scenario/experiment.</span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Habitat.R"</span>)</span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a><span class="fu">## Default parameters</span></span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>Set the default/base parameter values that each experiment will adjust. Note that both the habitat and simulation parameters are rolled into a single list here. </span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>base_params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Timeline ──────────────────────────────────────────</span></span>
-<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_burnin     =</span> <span class="dv">40</span>,</span>
-<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_experiment =</span> <span class="dv">60</span>,</span>
-<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">ramp_years        =</span> <span class="dv">60</span>, <span class="co"># ramp years should almost always be set to the same as nyears_experiment</span></span>
-<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">mindate           =</span> <span class="fu">as.Date</span>(<span class="st">"2001-05-01"</span>),</span>
-<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Temperature — warm patch ───────────────────────────</span></span>
-<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_temp_warm  =</span> <span class="dv">11</span>,</span>
-<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_warm  =</span> <span class="dv">14</span>,</span>
-<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">peak_doy_warm   =</span> <span class="dv">196</span>,</span>
-<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_min_warm   =</span> <span class="fl">0.5</span>,</span>
-<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_noise_warm =</span> <span class="dv">0</span>,</span>
-<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Temperature — cold patch ───────────────────────────</span></span>
-<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_temp_cold  =</span> <span class="fl">6.6</span>,</span>
-<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_cold  =</span> <span class="fl">8.4</span>,</span>
-<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">peak_doy_cold   =</span> <span class="dv">196</span>,</span>
-<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_min_cold   =</span> <span class="fl">0.3</span>,</span>
-<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_noise_cold =</span> <span class="dv">0</span>,</span>
-<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Patch burn-in values ───────────────────────────────</span></span>
-<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">pcmax_warm =</span> <span class="fl">0.5</span>,  <span class="at">pcmax_cold =</span> <span class="fl">0.5</span>,</span>
-<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">A_warm     =</span> <span class="fl">1.0</span>,  <span class="at">A_cold     =</span> <span class="fl">1.0</span>,</span>
-<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">K_warm     =</span> <span class="dv">400</span>,  <span class="at">K_cold     =</span> <span class="dv">400</span>,  <span class="co"># reduced from 500; needed for density signal in critical-period function</span></span>
-<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">S_max_warm =</span> <span class="fl">0.9994</span>, <span class="at">S_max_cold =</span> <span class="fl">0.9994</span>,</span>
-<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Experiment targets (NA = no change) ───────────────</span></span>
-<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a>  <span class="at">pcmax_warm_target =</span> <span class="cn">NA</span>,  <span class="at">pcmax_cold_target =</span> <span class="cn">NA</span>,</span>
-<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a>  <span class="at">A_warm_target     =</span> <span class="dv">2</span>,   <span class="at">A_cold_target     =</span> <span class="dv">0</span>,</span>
-<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a>  <span class="at">K_warm_target     =</span> <span class="cn">NA</span>,  <span class="at">K_cold_target     =</span> <span class="cn">NA</span>,</span>
-<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a>  <span class="at">S_max_warm_target =</span> <span class="cn">NA</span>,  <span class="at">S_max_cold_target =</span> <span class="cn">NA</span>,</span>
-<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Behavioural / movement ─────────────────────────────</span></span>
-<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a>  <span class="at">move_stochastic   =</span> <span class="st">"prob"</span>,</span>
-<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a>  <span class="at">food_densdepen    =</span> <span class="st">"hyperbolic"</span>,</span>
-<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a>  <span class="at">sense_environment =</span> <span class="st">"density_current"</span>,</span>
-<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Population ─────────────────────────────────────────</span></span>
-<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_fish_per_strat  =</span> <span class="dv">50</span>,</span>
-<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a>  <span class="at">start_wt          =</span> <span class="fl">0.5</span>,</span>
-<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a>  <span class="at">wt_sd             =</span> <span class="fl">0.05</span>,</span>
-<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Movement cost ──────────────────────────────────────</span></span>
-<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a>  <span class="at">movecost_c   =</span> <span class="fl">0.1</span>,</span>
-<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a>  <span class="at">movecost_b   =</span> <span class="fl">0.3</span>,</span>
-<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_bold   =</span> <span class="fl">0.002</span>,</span>
-<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau          =</span> <span class="fl">0.001</span>,</span>
-<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-79"><a href="#cb8-79" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Survival ──────────────────────────────────────────</span></span>
-<span id="cb8-80"><a href="#cb8-80" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_min             =</span> <span class="fl">0.96</span>,</span>
-<span id="cb8-81"><a href="#cb8-81" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_w0              =</span> <span class="dv">5</span>,</span>
-<span id="cb8-82"><a href="#cb8-82" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_k               =</span> <span class="fl">0.8</span>,</span>
-<span id="cb8-83"><a href="#cb8-83" aria-hidden="true" tabindex="-1"></a>  <span class="at">T1_mort           =</span> <span class="dv">30</span>,</span>
-<span id="cb8-84"><a href="#cb8-84" aria-hidden="true" tabindex="-1"></a>  <span class="at">T9_mort           =</span> <span class="fl">25.8</span>,</span>
-<span id="cb8-85"><a href="#cb8-85" aria-hidden="true" tabindex="-1"></a>  <span class="at">K9_starv          =</span> <span class="fl">0.55</span>,</span>
-<span id="cb8-86"><a href="#cb8-86" aria-hidden="true" tabindex="-1"></a>  <span class="at">K1_starv          =</span> <span class="fl">0.45</span>,</span>
-<span id="cb8-87"><a href="#cb8-87" aria-hidden="true" tabindex="-1"></a>  <span class="at">MaxDensity4Growth =</span> <span class="dv">50</span>,</span>
-<span id="cb8-88"><a href="#cb8-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-89"><a href="#cb8-89" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Critical-period consumption-based survival (Elliott 1989)</span></span>
-<span id="cb8-90"><a href="#cb8-90" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Applies fncSurviveConsumption() to age-0 fry for their first crit_period_days.</span></span>
-<span id="cb8-91"><a href="#cb8-91" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Parameterised so that sustained pcmax_dd ≤ crit_pcmax_lo ≈ 1% 60-day survival;</span></span>
-<span id="cb8-92"><a href="#cb8-92" aria-hidden="true" tabindex="-1"></a>  <span class="co"># sustained pcmax_dd ≥ crit_pcmax_hi ≈ 99% 60-day survival (negligible cost).</span></span>
-<span id="cb8-93"><a href="#cb8-93" aria-hidden="true" tabindex="-1"></a>  <span class="at">crit_pcmax_lo    =</span> <span class="fl">0.30</span>,</span>
-<span id="cb8-94"><a href="#cb8-94" aria-hidden="true" tabindex="-1"></a>  <span class="at">crit_pcmax_hi    =</span> <span class="fl">0.40</span>,</span>
-<span id="cb8-95"><a href="#cb8-95" aria-hidden="true" tabindex="-1"></a>  <span class="at">crit_period_days =</span> <span class="dv">60</span>L,</span>
-<span id="cb8-96"><a href="#cb8-96" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb8-97"><a href="#cb8-97" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Competition ───────────────────────────────────────</span></span>
-<span id="cb8-98"><a href="#cb8-98" aria-hidden="true" tabindex="-1"></a>  <span class="at">dominance_beta             =</span> <span class="dv">1</span>,</span>
-<span id="cb8-99"><a href="#cb8-99" aria-hidden="true" tabindex="-1"></a>  <span class="at">age_structured_competition =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb8-100"><a href="#cb8-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-101"><a href="#cb8-101" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Reproduction ──────────────────────────────────────</span></span>
-<span id="cb8-102"><a href="#cb8-102" aria-hidden="true" tabindex="-1"></a>  <span class="at">egg_wt       =</span> <span class="fl">0.07</span>,</span>
-<span id="cb8-103"><a href="#cb8-103" aria-hidden="true" tabindex="-1"></a>  <span class="at">repro_cost   =</span> <span class="fl">0.2</span>,</span>
-<span id="cb8-104"><a href="#cb8-104" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_fecund =</span> <span class="fl">0.085</span>,</span>
-<span id="cb8-105"><a href="#cb8-105" aria-hidden="true" tabindex="-1"></a>  <span class="at">egg_surv     =</span> <span class="fl">0.15</span>, </span>
-<span id="cb8-106"><a href="#cb8-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-107"><a href="#cb8-107" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Seeds ─────────────────────────────────────────────</span></span>
-<span id="cb8-108"><a href="#cb8-108" aria-hidden="true" tabindex="-1"></a>  <span class="at">hab_seed =</span> <span class="dv">123</span>,</span>
-<span id="cb8-109"><a href="#cb8-109" aria-hidden="true" tabindex="-1"></a>  <span class="at">sim_seed =</span> <span class="dv">7843</span></span>
-<span id="cb8-110"><a href="#cb8-110" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-111"><a href="#cb8-111" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-112"><a href="#cb8-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-113"><a href="#cb8-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-114"><a href="#cb8-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-115"><a href="#cb8-115" aria-hidden="true" tabindex="-1"></a><span class="fu">## Define scenarios</span></span>
-<span id="cb8-116"><a href="#cb8-116" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-117"><a href="#cb8-117" aria-hidden="true" tabindex="-1"></a>Define scenarios as variants on the default parameters</span>
-<span id="cb8-120"><a href="#cb8-120" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb8-121"><a href="#cb8-121" aria-hidden="true" tabindex="-1"></a>scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb8-122"><a href="#cb8-122" aria-hidden="true" tabindex="-1"></a>  <span class="at">null_cold                   =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_warm =</span> <span class="dv">0</span>, </span>
-<span id="cb8-123"><a href="#cb8-123" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">A_warm_target =</span> <span class="cn">NA</span>)),</span>
-<span id="cb8-124"><a href="#cb8-124" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_mult                   =</span> base_params,</span>
-<span id="cb8-125"><a href="#cb8-125" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_offset                 =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">base_temp_warm  =</span> <span class="dv">15</span>,</span>
-<span id="cb8-126"><a href="#cb8-126" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_warm  =</span> <span class="fl">9.5</span>,</span>
-<span id="cb8-127"><a href="#cb8-127" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_warm   =</span> <span class="fl">0.5</span>,</span>
-<span id="cb8-128"><a href="#cb8-128" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">base_temp_cold  =</span> <span class="fl">6.6</span>,</span>
-<span id="cb8-129"><a href="#cb8-129" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_cold  =</span> <span class="fl">8.4</span>,</span>
-<span id="cb8-130"><a href="#cb8-130" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_cold   =</span> <span class="dv">0</span>)),</span>
-<span id="cb8-131"><a href="#cb8-131" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_offset_diffP           =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">base_temp_warm  =</span> <span class="dv">15</span>,</span>
-<span id="cb8-132"><a href="#cb8-132" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_warm  =</span> <span class="fl">9.5</span>,</span>
-<span id="cb8-133"><a href="#cb8-133" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_warm   =</span> <span class="fl">0.5</span>,</span>
-<span id="cb8-134"><a href="#cb8-134" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">base_temp_cold  =</span> <span class="fl">6.6</span>,</span>
-<span id="cb8-135"><a href="#cb8-135" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">amplitude_cold  =</span> <span class="fl">8.4</span>,</span>
-<span id="cb8-136"><a href="#cb8-136" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">temp_min_cold   =</span> <span class="dv">0</span>,</span>
-<span id="cb8-137"><a href="#cb8-137" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">pcmax_warm      =</span> <span class="fl">0.6</span>,</span>
-<span id="cb8-138"><a href="#cb8-138" aria-hidden="true" tabindex="-1"></a>                                                             <span class="at">pcmax_cold      =</span> <span class="fl">0.4</span>))</span>
-<span id="cb8-139"><a href="#cb8-139" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-140"><a href="#cb8-140" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-141"><a href="#cb8-141" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-142"><a href="#cb8-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-143"><a href="#cb8-143" aria-hidden="true" tabindex="-1"></a><span class="fu">### Plot scenario habitat specs.</span></span>
-<span id="cb8-144"><a href="#cb8-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-145"><a href="#cb8-145" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Null: cold habitat only</span></span>
-<span id="cb8-146"><a href="#cb8-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-147"><a href="#cb8-147" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Cold habitat only; warm habitat total unavailable. This is effectively equivalent to running a simulation with only resident fish. </span>
-<span id="cb8-148"><a href="#cb8-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-149"><a href="#cb8-149" aria-hidden="true" tabindex="-1"></a>*Note that we specify warm habitat conditions (temp, food availability, survival, etc.), these have no bearing on the results because area is always 0; fish can never occupy the warm habitat*</span>
-<span id="cb8-150"><a href="#cb8-150" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-153"><a href="#cb8-153" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb8-154"><a href="#cb8-154" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"null_cold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"null_cold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"null_cold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
-<span id="cb8-155"><a href="#cb8-155" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-156"><a href="#cb8-156" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-157"><a href="#cb8-157" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-158"><a href="#cb8-158" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Multiplicative temperature</span></span>
-<span id="cb8-159"><a href="#cb8-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-160"><a href="#cb8-160" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Thermal regimes are ~multiplicative of each other: maximum thermal heterogeneity during summer, but heterogeneity collapses to ~0 during winter (everything is cold). </span>
-<span id="cb8-161"><a href="#cb8-161" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat area is equal during burn-in; cold habitat is entirely replaced by warm habitat over experiment</span>
-<span id="cb8-162"><a href="#cb8-162" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-165"><a href="#cb8-165" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb8-166"><a href="#cb8-166" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"temp_mult"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"temp_mult"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"temp_mult"</span>]]<span class="sc">$</span>nyears_burnin))</span>
-<span id="cb8-167"><a href="#cb8-167" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-168"><a href="#cb8-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-169"><a href="#cb8-169" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Offset temperature</span></span>
-<span id="cb8-170"><a href="#cb8-170" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-171"><a href="#cb8-171" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
-<span id="cb8-172"><a href="#cb8-172" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Everything else the same as is base parameter set</span>
-<span id="cb8-173"><a href="#cb8-173" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-176"><a href="#cb8-176" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb8-177"><a href="#cb8-177" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"temp_offset"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"temp_offset"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"temp_offset"</span>]]<span class="sc">$</span>nyears_burnin))</span>
-<span id="cb8-178"><a href="#cb8-178" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-179"><a href="#cb8-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-180"><a href="#cb8-180" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-181"><a href="#cb8-181" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Pcmax: warm-high, cold-low</span></span>
-<span id="cb8-182"><a href="#cb8-182" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-183"><a href="#cb8-183" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
-<span id="cb8-184"><a href="#cb8-184" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Threshold Pcmax is high in the warm habitat and low in the cold habitat (gradients/controls on food availability and foraging opportunity)</span>
-<span id="cb8-185"><a href="#cb8-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-188"><a href="#cb8-188" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb8-189"><a href="#cb8-189" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"temp_offset_diffP"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"temp_offset_diffP"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"temp_offset_diffP"</span>]]<span class="sc">$</span>nyears_burnin))</span>
-<span id="cb8-190"><a href="#cb8-190" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-191"><a href="#cb8-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-192"><a href="#cb8-192" aria-hidden="true" tabindex="-1"></a><span class="fu">## Write R file</span></span>
-<span id="cb8-193"><a href="#cb8-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-196"><a href="#cb8-196" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb8-197"><a href="#cb8-197" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb8-198"><a href="#cb8-198" aria-hidden="true" tabindex="-1"></a><span class="co">#| purl: false</span></span>
-<span id="cb8-199"><a href="#cb8-199" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"ScenarioDefs.R"</span>)</span>
-<span id="cb8-200"><a href="#cb8-200" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"ScenarioDefs.qmd"</span>)</span>
-<span id="cb8-201"><a href="#cb8-201" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Define Scenarios &amp; Experiments"</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, include = FALSE}</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggpubr)</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(egg)</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>***if any changes are made, need to re-run `qmd_to_r_script()` at end, in console***</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>**Purpose:** This script defines parameter sets for each scenario/experiment.</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Habitat.R"</span>)</span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a><span class="fu">## Default parameters</span></span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>Set the default/base parameter values that each experiment will adjust. Note that both the habitat and simulation parameters are rolled into a single list here. </span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a>base_params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Timeline ──────────────────────────────────────────</span></span>
+<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_burnin     =</span> <span class="dv">50</span>,</span>
+<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">nyears_experiment =</span> <span class="dv">50</span>,</span>
+<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">ramp_years        =</span> <span class="dv">0</span>,</span>
+<span id="cb19-35"><a href="#cb19-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">mindate           =</span> <span class="fu">as.Date</span>(<span class="st">"2001-05-01"</span>),</span>
+<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Temperature — warm patch ───────────────────────────</span></span>
+<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_temp_warm  =</span> <span class="dv">15</span>,</span>
+<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_warm  =</span> <span class="fl">9.5</span>,</span>
+<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">peak_doy_warm   =</span> <span class="dv">196</span>,</span>
+<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_min_warm   =</span> <span class="fl">0.5</span>,</span>
+<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_noise_warm =</span> <span class="dv">0</span>,</span>
+<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Temperature — cold patch ───────────────────────────</span></span>
+<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_temp_cold  =</span> <span class="fl">6.6</span>,</span>
+<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_cold  =</span> <span class="fl">8.4</span>,</span>
+<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">peak_doy_cold   =</span> <span class="dv">196</span>,</span>
+<span id="cb19-48"><a href="#cb19-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_min_cold   =</span> <span class="fl">0.3</span>,</span>
+<span id="cb19-49"><a href="#cb19-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp_noise_cold =</span> <span class="dv">0</span>,</span>
+<span id="cb19-50"><a href="#cb19-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-51"><a href="#cb19-51" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Patch burn-in values ───────────────────────────────</span></span>
+<span id="cb19-52"><a href="#cb19-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">pcmax_warm =</span> <span class="fl">0.5</span>,  <span class="at">pcmax_cold =</span> <span class="fl">0.5</span>,</span>
+<span id="cb19-53"><a href="#cb19-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">A_warm     =</span> <span class="fl">1.0</span>,  <span class="at">A_cold     =</span> <span class="fl">1.0</span>,</span>
+<span id="cb19-54"><a href="#cb19-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">K_warm     =</span> <span class="dv">400</span>,  <span class="at">K_cold     =</span> <span class="dv">400</span>, </span>
+<span id="cb19-55"><a href="#cb19-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">S_max_warm =</span> <span class="fl">0.9994</span>, <span class="at">S_max_cold =</span> <span class="fl">0.9994</span>,</span>
+<span id="cb19-56"><a href="#cb19-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-57"><a href="#cb19-57" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Experiment targets (NA = no change) ───────────────</span></span>
+<span id="cb19-58"><a href="#cb19-58" aria-hidden="true" tabindex="-1"></a>  <span class="at">pcmax_warm_target =</span> <span class="cn">NA</span>,  <span class="at">pcmax_cold_target =</span> <span class="cn">NA</span>,</span>
+<span id="cb19-59"><a href="#cb19-59" aria-hidden="true" tabindex="-1"></a>  <span class="at">A_warm_target     =</span> <span class="cn">NA</span>,  <span class="at">A_cold_target     =</span> <span class="cn">NA</span>,</span>
+<span id="cb19-60"><a href="#cb19-60" aria-hidden="true" tabindex="-1"></a>  <span class="at">K_warm_target     =</span> <span class="cn">NA</span>,  <span class="at">K_cold_target     =</span> <span class="cn">NA</span>,</span>
+<span id="cb19-61"><a href="#cb19-61" aria-hidden="true" tabindex="-1"></a>  <span class="at">S_max_warm_target =</span> <span class="cn">NA</span>,  <span class="at">S_max_cold_target =</span> <span class="cn">NA</span>,</span>
+<span id="cb19-62"><a href="#cb19-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-63"><a href="#cb19-63" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Behavioural / movement ─────────────────────────────</span></span>
+<span id="cb19-64"><a href="#cb19-64" aria-hidden="true" tabindex="-1"></a>  <span class="at">move_stochastic   =</span> <span class="st">"prob"</span>,</span>
+<span id="cb19-65"><a href="#cb19-65" aria-hidden="true" tabindex="-1"></a>  <span class="at">food_densdepen    =</span> <span class="st">"hyperbolic"</span>,</span>
+<span id="cb19-66"><a href="#cb19-66" aria-hidden="true" tabindex="-1"></a>  <span class="at">sense_environment =</span> <span class="st">"density_all"</span>,</span>
+<span id="cb19-67"><a href="#cb19-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-68"><a href="#cb19-68" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Population ─────────────────────────────────────────</span></span>
+<span id="cb19-69"><a href="#cb19-69" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_fish_per_strat  =</span> <span class="dv">50</span>,</span>
+<span id="cb19-70"><a href="#cb19-70" aria-hidden="true" tabindex="-1"></a>  <span class="at">start_wt          =</span> <span class="fl">0.5</span>,</span>
+<span id="cb19-71"><a href="#cb19-71" aria-hidden="true" tabindex="-1"></a>  <span class="at">wt_sd             =</span> <span class="fl">0.05</span>,</span>
+<span id="cb19-72"><a href="#cb19-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-73"><a href="#cb19-73" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Movement cost ──────────────────────────────────────</span></span>
+<span id="cb19-74"><a href="#cb19-74" aria-hidden="true" tabindex="-1"></a>  <span class="at">movecost_c   =</span> <span class="fl">0.0</span>, <span class="co"># previously 0.1. 0.0 is effective no cost</span></span>
+<span id="cb19-75"><a href="#cb19-75" aria-hidden="true" tabindex="-1"></a>  <span class="at">movecost_b   =</span> <span class="fl">0.3</span>,</span>
+<span id="cb19-76"><a href="#cb19-76" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_bold   =</span> <span class="fl">0.002</span>,</span>
+<span id="cb19-77"><a href="#cb19-77" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau          =</span> <span class="fl">0.001</span>,</span>
+<span id="cb19-78"><a href="#cb19-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-79"><a href="#cb19-79" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Survival ──────────────────────────────────────────</span></span>
+<span id="cb19-80"><a href="#cb19-80" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_min             =</span> <span class="fl">0.96</span>,</span>
+<span id="cb19-81"><a href="#cb19-81" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_w0              =</span> <span class="dv">5</span>,</span>
+<span id="cb19-82"><a href="#cb19-82" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_k               =</span> <span class="fl">0.8</span>,</span>
+<span id="cb19-83"><a href="#cb19-83" aria-hidden="true" tabindex="-1"></a>  <span class="at">T1_mort           =</span> <span class="dv">30</span>,</span>
+<span id="cb19-84"><a href="#cb19-84" aria-hidden="true" tabindex="-1"></a>  <span class="at">T9_mort           =</span> <span class="fl">25.8</span>,</span>
+<span id="cb19-85"><a href="#cb19-85" aria-hidden="true" tabindex="-1"></a>  <span class="at">K9_starv          =</span> <span class="fl">0.55</span>,</span>
+<span id="cb19-86"><a href="#cb19-86" aria-hidden="true" tabindex="-1"></a>  <span class="at">K1_starv          =</span> <span class="fl">0.45</span>,</span>
+<span id="cb19-87"><a href="#cb19-87" aria-hidden="true" tabindex="-1"></a>  <span class="at">MaxDensity4Growth =</span> <span class="dv">50</span>,</span>
+<span id="cb19-88"><a href="#cb19-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-89"><a href="#cb19-89" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Critical-period consumption-based survival (Elliott 1989)</span></span>
+<span id="cb19-90"><a href="#cb19-90" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Applies fncSurviveConsumption() to age-0 fry for their first crit_period_days.</span></span>
+<span id="cb19-91"><a href="#cb19-91" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Parameterised so that sustained pcmax_dd ≤ crit_pcmax_lo ≈ 1% 60-day survival;</span></span>
+<span id="cb19-92"><a href="#cb19-92" aria-hidden="true" tabindex="-1"></a>  <span class="co"># sustained pcmax_dd ≥ crit_pcmax_hi ≈ 99% 60-day survival (negligible cost).</span></span>
+<span id="cb19-93"><a href="#cb19-93" aria-hidden="true" tabindex="-1"></a>  <span class="at">crit_pcmax_lo    =</span> <span class="fl">0.30</span>,</span>
+<span id="cb19-94"><a href="#cb19-94" aria-hidden="true" tabindex="-1"></a>  <span class="at">crit_pcmax_hi    =</span> <span class="fl">0.40</span>,</span>
+<span id="cb19-95"><a href="#cb19-95" aria-hidden="true" tabindex="-1"></a>  <span class="at">crit_period_days =</span> <span class="dv">60</span>L,</span>
+<span id="cb19-96"><a href="#cb19-96" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-97"><a href="#cb19-97" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Competition ───────────────────────────────────────</span></span>
+<span id="cb19-98"><a href="#cb19-98" aria-hidden="true" tabindex="-1"></a>  <span class="at">dominance_beta             =</span> <span class="dv">1</span>,</span>
+<span id="cb19-99"><a href="#cb19-99" aria-hidden="true" tabindex="-1"></a>  <span class="at">age_structured_competition =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb19-100"><a href="#cb19-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-101"><a href="#cb19-101" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Reproduction ──────────────────────────────────────</span></span>
+<span id="cb19-102"><a href="#cb19-102" aria-hidden="true" tabindex="-1"></a>  <span class="at">egg_wt       =</span> <span class="fl">0.07</span>,</span>
+<span id="cb19-103"><a href="#cb19-103" aria-hidden="true" tabindex="-1"></a>  <span class="at">repro_cost   =</span> <span class="fl">0.2</span>,</span>
+<span id="cb19-104"><a href="#cb19-104" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_fecund =</span> <span class="fl">0.085</span>,</span>
+<span id="cb19-105"><a href="#cb19-105" aria-hidden="true" tabindex="-1"></a>  <span class="at">egg_surv     =</span> <span class="fl">0.15</span>, </span>
+<span id="cb19-106"><a href="#cb19-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-107"><a href="#cb19-107" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Seeds ─────────────────────────────────────────────</span></span>
+<span id="cb19-108"><a href="#cb19-108" aria-hidden="true" tabindex="-1"></a>  <span class="at">hab_seed =</span> <span class="dv">123</span>,</span>
+<span id="cb19-109"><a href="#cb19-109" aria-hidden="true" tabindex="-1"></a>  <span class="at">sim_seed =</span> <span class="dv">7843</span></span>
+<span id="cb19-110"><a href="#cb19-110" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb19-111"><a href="#cb19-111" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-112"><a href="#cb19-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-113"><a href="#cb19-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-114"><a href="#cb19-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-115"><a href="#cb19-115" aria-hidden="true" tabindex="-1"></a><span class="fu">## Define scenarios</span></span>
+<span id="cb19-116"><a href="#cb19-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-117"><a href="#cb19-117" aria-hidden="true" tabindex="-1"></a>Define scenarios as variants on the default parameters</span>
+<span id="cb19-120"><a href="#cb19-120" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-121"><a href="#cb19-121" aria-hidden="true" tabindex="-1"></a>scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb19-122"><a href="#cb19-122" aria-hidden="true" tabindex="-1"></a>  <span class="co"># null_cold                   = modifyList(base_params, list(A_warm = 0, </span></span>
+<span id="cb19-123"><a href="#cb19-123" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            A_warm_target = NA)),</span></span>
+<span id="cb19-124"><a href="#cb19-124" aria-hidden="true" tabindex="-1"></a>  <span class="co"># temp_mult                   = base_params,</span></span>
+<span id="cb19-125"><a href="#cb19-125" aria-hidden="true" tabindex="-1"></a>  <span class="co"># temp_offset                 = modifyList(base_params, list(base_temp_warm  = 15,</span></span>
+<span id="cb19-126"><a href="#cb19-126" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_warm  = 9.5,</span></span>
+<span id="cb19-127"><a href="#cb19-127" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_warm   = 0.5,</span></span>
+<span id="cb19-128"><a href="#cb19-128" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            base_temp_cold  = 6.6,</span></span>
+<span id="cb19-129"><a href="#cb19-129" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_cold  = 8.4,</span></span>
+<span id="cb19-130"><a href="#cb19-130" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_cold   = 0)),</span></span>
+<span id="cb19-131"><a href="#cb19-131" aria-hidden="true" tabindex="-1"></a>  <span class="co"># temp_offset_diffP           = modifyList(base_params, list(base_temp_warm  = 15,</span></span>
+<span id="cb19-132"><a href="#cb19-132" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_warm  = 9.5,</span></span>
+<span id="cb19-133"><a href="#cb19-133" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_warm   = 0.5,</span></span>
+<span id="cb19-134"><a href="#cb19-134" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            base_temp_cold  = 6.6,</span></span>
+<span id="cb19-135"><a href="#cb19-135" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            amplitude_cold  = 8.4,</span></span>
+<span id="cb19-136"><a href="#cb19-136" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            temp_min_cold   = 0,</span></span>
+<span id="cb19-137"><a href="#cb19-137" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            pcmax_warm      = 0.6,</span></span>
+<span id="cb19-138"><a href="#cb19-138" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                            pcmax_cold      = 0.4)),</span></span>
+<span id="cb19-139"><a href="#cb19-139" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-140"><a href="#cb19-140" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Fixed habitat scenarios: changing habitat availability is tested by comparing among scenarios</span></span>
+<span id="cb19-141"><a href="#cb19-141" aria-hidden="true" tabindex="-1"></a>  <span class="do">### Null (cold only)</span></span>
+<span id="cb19-142"><a href="#cb19-142" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_95percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb19-143"><a href="#cb19-143" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb19-144"><a href="#cb19-144" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-145"><a href="#cb19-145" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_75percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb19-146"><a href="#cb19-146" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb19-147"><a href="#cb19-147" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-148"><a href="#cb19-148" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_50percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb19-149"><a href="#cb19-149" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb19-150"><a href="#cb19-150" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-151"><a href="#cb19-151" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_25percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb19-152"><a href="#cb19-152" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb19-153"><a href="#cb19-153" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-154"><a href="#cb19-154" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdOnly_05percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb19-155"><a href="#cb19-155" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="dv">0</span>)),</span>
+<span id="cb19-156"><a href="#cb19-156" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-157"><a href="#cb19-157" aria-hidden="true" tabindex="-1"></a>  <span class="do">### Cold + Warm, same Pcmax</span></span>
+<span id="cb19-158"><a href="#cb19-158" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_95percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb19-159"><a href="#cb19-159" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.1</span>)),</span>
+<span id="cb19-160"><a href="#cb19-160" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-161"><a href="#cb19-161" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_75percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb19-162"><a href="#cb19-162" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.5</span>)),</span>
+<span id="cb19-163"><a href="#cb19-163" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-164"><a href="#cb19-164" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_50percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb19-165"><a href="#cb19-165" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.0</span>)),</span>
+<span id="cb19-166"><a href="#cb19-166" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-167"><a href="#cb19-167" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_25percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb19-168"><a href="#cb19-168" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.5</span>)),</span>
+<span id="cb19-169"><a href="#cb19-169" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-170"><a href="#cb19-170" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_05percold      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb19-171"><a href="#cb19-171" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.9</span>)),</span>
+<span id="cb19-172"><a href="#cb19-172" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-173"><a href="#cb19-173" aria-hidden="true" tabindex="-1"></a>  <span class="do">### Cold + Warm, high Pcmax in warm</span></span>
+<span id="cb19-174"><a href="#cb19-174" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_95percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb19-175"><a href="#cb19-175" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb19-176"><a href="#cb19-176" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb19-177"><a href="#cb19-177" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-178"><a href="#cb19-178" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_75percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb19-179"><a href="#cb19-179" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb19-180"><a href="#cb19-180" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb19-181"><a href="#cb19-181" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-182"><a href="#cb19-182" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_50percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb19-183"><a href="#cb19-183" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.0</span>,</span>
+<span id="cb19-184"><a href="#cb19-184" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb19-185"><a href="#cb19-185" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-186"><a href="#cb19-186" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_25percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.5</span>,</span>
+<span id="cb19-187"><a href="#cb19-187" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.5</span>,</span>
+<span id="cb19-188"><a href="#cb19-188" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>)),</span>
+<span id="cb19-189"><a href="#cb19-189" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-190"><a href="#cb19-190" aria-hidden="true" tabindex="-1"></a>  <span class="at">TempOffset_ColdWarm_05percold_highPwarm      =</span> <span class="fu">modifyList</span>(base_params, <span class="fu">list</span>(<span class="at">A_cold    =</span> <span class="fl">0.1</span>,</span>
+<span id="cb19-191"><a href="#cb19-191" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">A_warm    =</span> <span class="fl">1.9</span>,</span>
+<span id="cb19-192"><a href="#cb19-192" aria-hidden="true" tabindex="-1"></a>                                                                    <span class="at">pcmax_warm =</span> <span class="fl">0.6</span>))</span>
+<span id="cb19-193"><a href="#cb19-193" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb19-194"><a href="#cb19-194" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb19-195"><a href="#cb19-195" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-196"><a href="#cb19-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-197"><a href="#cb19-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-198"><a href="#cb19-198" aria-hidden="true" tabindex="-1"></a><span class="fu">## Plot scenario habitat specs.</span></span>
+<span id="cb19-199"><a href="#cb19-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-200"><a href="#cb19-200" aria-hidden="true" tabindex="-1"></a><span class="fu">### Fixed habitat: cold only (null)</span></span>
+<span id="cb19-201"><a href="#cb19-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-202"><a href="#cb19-202" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 95% cold / 5% warm</span></span>
+<span id="cb19-203"><a href="#cb19-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-204"><a href="#cb19-204" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-205"><a href="#cb19-205" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 95% cold, 5% warm</span>
+<span id="cb19-206"><a href="#cb19-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-209"><a href="#cb19-209" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-210"><a href="#cb19-210" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_95percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_95percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_95percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-211"><a href="#cb19-211" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-212"><a href="#cb19-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-213"><a href="#cb19-213" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 75% cold / 25% warm</span></span>
+<span id="cb19-214"><a href="#cb19-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-215"><a href="#cb19-215" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-216"><a href="#cb19-216" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 75% cold, 25% warm</span>
+<span id="cb19-217"><a href="#cb19-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-220"><a href="#cb19-220" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-221"><a href="#cb19-221" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_75percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_75percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_75percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-222"><a href="#cb19-222" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-223"><a href="#cb19-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-224"><a href="#cb19-224" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 50% cold / 50% warm</span></span>
+<span id="cb19-225"><a href="#cb19-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-226"><a href="#cb19-226" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-227"><a href="#cb19-227" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 50% cold, 50% warm</span>
+<span id="cb19-228"><a href="#cb19-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-231"><a href="#cb19-231" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-232"><a href="#cb19-232" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_50percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_50percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_50percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-233"><a href="#cb19-233" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-234"><a href="#cb19-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-235"><a href="#cb19-235" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 25% cold / 75% warm</span></span>
+<span id="cb19-236"><a href="#cb19-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-237"><a href="#cb19-237" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-238"><a href="#cb19-238" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 25% cold, 75% warm</span>
+<span id="cb19-239"><a href="#cb19-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-242"><a href="#cb19-242" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-243"><a href="#cb19-243" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_25percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_25percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_25percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-244"><a href="#cb19-244" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-245"><a href="#cb19-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-246"><a href="#cb19-246" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 5% cold / 95% warm</span></span>
+<span id="cb19-247"><a href="#cb19-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-248"><a href="#cb19-248" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-249"><a href="#cb19-249" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 5% cold, 95% warm</span>
+<span id="cb19-250"><a href="#cb19-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-253"><a href="#cb19-253" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-254"><a href="#cb19-254" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_05percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdOnly_05percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdOnly_05percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-255"><a href="#cb19-255" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-256"><a href="#cb19-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-257"><a href="#cb19-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-258"><a href="#cb19-258" aria-hidden="true" tabindex="-1"></a><span class="fu">### Fixed habitat: cold + warm (same pcmax)</span></span>
+<span id="cb19-259"><a href="#cb19-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-260"><a href="#cb19-260" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 95% cold / 5% warm</span></span>
+<span id="cb19-261"><a href="#cb19-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-262"><a href="#cb19-262" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-263"><a href="#cb19-263" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 95% cold, 5% warm</span>
+<span id="cb19-264"><a href="#cb19-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-267"><a href="#cb19-267" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-268"><a href="#cb19-268" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_95percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-269"><a href="#cb19-269" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-270"><a href="#cb19-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-271"><a href="#cb19-271" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 75% cold / 25% warm</span></span>
+<span id="cb19-272"><a href="#cb19-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-273"><a href="#cb19-273" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-274"><a href="#cb19-274" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 75% cold, 25% warm</span>
+<span id="cb19-275"><a href="#cb19-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-278"><a href="#cb19-278" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-279"><a href="#cb19-279" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_75percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-280"><a href="#cb19-280" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-281"><a href="#cb19-281" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-282"><a href="#cb19-282" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 50% cold / 50% warm</span></span>
+<span id="cb19-283"><a href="#cb19-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-284"><a href="#cb19-284" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-285"><a href="#cb19-285" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 50% cold, 50% warm</span>
+<span id="cb19-286"><a href="#cb19-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-289"><a href="#cb19-289" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-290"><a href="#cb19-290" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_50percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-291"><a href="#cb19-291" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-292"><a href="#cb19-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-293"><a href="#cb19-293" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 25% cold / 75% warm</span></span>
+<span id="cb19-294"><a href="#cb19-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-295"><a href="#cb19-295" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-296"><a href="#cb19-296" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 25% cold, 75% warm</span>
+<span id="cb19-297"><a href="#cb19-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-300"><a href="#cb19-300" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-301"><a href="#cb19-301" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_25percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-302"><a href="#cb19-302" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-303"><a href="#cb19-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-304"><a href="#cb19-304" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 5% cold / 95% warm</span></span>
+<span id="cb19-305"><a href="#cb19-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-306"><a href="#cb19-306" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-307"><a href="#cb19-307" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 5% cold, 95% warm</span>
+<span id="cb19-308"><a href="#cb19-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-311"><a href="#cb19-311" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-312"><a href="#cb19-312" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_05percold"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-313"><a href="#cb19-313" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-314"><a href="#cb19-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-315"><a href="#cb19-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-316"><a href="#cb19-316" aria-hidden="true" tabindex="-1"></a><span class="fu">### Fixed habitat: cold + warm, high P</span></span>
+<span id="cb19-317"><a href="#cb19-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-318"><a href="#cb19-318" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 95% cold / 5% warm</span></span>
+<span id="cb19-319"><a href="#cb19-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-320"><a href="#cb19-320" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-321"><a href="#cb19-321" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 95% cold, 5% warm</span>
+<span id="cb19-322"><a href="#cb19-322" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</span>
+<span id="cb19-323"><a href="#cb19-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-326"><a href="#cb19-326" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-327"><a href="#cb19-327" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_95percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_95percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-328"><a href="#cb19-328" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-329"><a href="#cb19-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-330"><a href="#cb19-330" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 75% cold / 25% warm</span></span>
+<span id="cb19-331"><a href="#cb19-331" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-332"><a href="#cb19-332" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-333"><a href="#cb19-333" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 75% cold, 25% warm</span>
+<span id="cb19-334"><a href="#cb19-334" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</span>
+<span id="cb19-335"><a href="#cb19-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-338"><a href="#cb19-338" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-339"><a href="#cb19-339" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_75percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_75percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-340"><a href="#cb19-340" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-341"><a href="#cb19-341" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-342"><a href="#cb19-342" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 50% cold / 50% warm</span></span>
+<span id="cb19-343"><a href="#cb19-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-344"><a href="#cb19-344" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-345"><a href="#cb19-345" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 50% cold, 50% warm</span>
+<span id="cb19-346"><a href="#cb19-346" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</span>
+<span id="cb19-347"><a href="#cb19-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-350"><a href="#cb19-350" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-351"><a href="#cb19-351" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_50percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_50percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-352"><a href="#cb19-352" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-353"><a href="#cb19-353" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-354"><a href="#cb19-354" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 25% cold / 75% warm</span></span>
+<span id="cb19-355"><a href="#cb19-355" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-356"><a href="#cb19-356" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-357"><a href="#cb19-357" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 25% cold, 75% warm</span>
+<span id="cb19-358"><a href="#cb19-358" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</span>
+<span id="cb19-359"><a href="#cb19-359" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-362"><a href="#cb19-362" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-363"><a href="#cb19-363" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_25percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_25percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-364"><a href="#cb19-364" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-365"><a href="#cb19-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-366"><a href="#cb19-366" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 5% cold / 95% warm</span></span>
+<span id="cb19-367"><a href="#cb19-367" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-368"><a href="#cb19-368" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>As above, thermal regimes are offset of each other: warm habitat is 5-10 degrees warmer than the cold habitat. Warm habitat persists overwinter</span>
+<span id="cb19-369"><a href="#cb19-369" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Habitat availability is fixed throughout the simulation: 5% cold, 95% warm</span>
+<span id="cb19-370"><a href="#cb19-370" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Maximum P_cmax is 10% greater in warm (0.6) relative to cold (0.5)</span>
+<span id="cb19-371"><a href="#cb19-371" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-374"><a href="#cb19-374" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-375"><a href="#cb19-375" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_habitat</span>(<span class="fu">build_habitat</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold_highPwarm"</span>]]), <span class="at">exp_start_date =</span> scenarios[[<span class="st">"TempOffset_ColdWarm_05percold_highPwarm"</span>]]<span class="sc">$</span>mindate <span class="sc">+</span> <span class="fu">years</span>(scenarios[[<span class="st">"TempOffset_ColdWarm_05percold_highPwarm"</span>]]<span class="sc">$</span>nyears_burnin))</span>
+<span id="cb19-376"><a href="#cb19-376" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-377"><a href="#cb19-377" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-378"><a href="#cb19-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-379"><a href="#cb19-379" aria-hidden="true" tabindex="-1"></a><span class="fu">## Write R file</span></span>
+<span id="cb19-380"><a href="#cb19-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-383"><a href="#cb19-383" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb19-384"><a href="#cb19-384" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb19-385"><a href="#cb19-385" aria-hidden="true" tabindex="-1"></a><span class="co">#| purl: false</span></span>
+<span id="cb19-386"><a href="#cb19-386" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"ScenarioDefs.R"</span>)</span>
+<span id="cb19-387"><a href="#cb19-387" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"ScenarioDefs.qmd"</span>)</span>
+<span id="cb19-388"><a href="#cb19-388" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

@@ -32,12 +32,10 @@ book:
       chapters:
         - ScenarioDefs.qmd
         - SensitivityAnalysis.qmd
-    - part: "Scenario Results"
+    - part: "Results"
       chapters:
-        - Scenario_1_null_cold.qmd
-        - Scenario_2_temp_mult.qmd
-        - Scenario_3_temp_offset.qmd
-        - Scenario_4_temp_offset_diffP.qmd
+        - ViewSimResults.qmd
+        # - CompareFixedHab.qmd
 
 
 format:
@@ -49,6 +47,8 @@ format:
     code-tools: true
     code-overflow: wrap
     number-depth: 4
+    toc: true
+    toc-depth: 5
         
     include-in-header:
       - file: github-corner.html

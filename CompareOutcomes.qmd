@@ -292,6 +292,53 @@ p_cv_b   <- ab_plot(pop_sum, "cv_b",   "CV of biomass",       "(D) CV of biomass
   theme(legend.position = "right")
 ```
 
+```{r}
+#| fig-width: 9.5
+#| fig-height: 4
+#| 
+p_rd_n <- pop_sum %>% 
+  select(hab_type, label, prop_cold, mean_n) %>%
+  pivot_wider(names_from = hab_type, values_from = mean_n) %>%
+  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
+  mutate(rd_coldwarm = (cold_warm - cold_only)/cold_only,
+         rd_highp = (high_P - cold_only)/cold_only) %>%
+  pivot_longer(rd_coldwarm:rd_highp, names_to = "hab_type", values_to = "reldiff") %>%
+  mutate(hab_type = recode(hab_type, "rd_coldwarm" = "Cold + Warm", "rd_highp" = "Cold + Warm (high P)")) %>%
+  ggplot(aes(x = prop_cold, y = reldiff, color = hab_type)) +
+  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
+  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
+  scale_color_manual(values = hab_cols, name = "Scenario") +
+  labs(y = "Relative difference in abundance") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid.minor = element_blank()) +
+  cold_x("Proportion cold habitat") +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1), limits = c(0,5))
+
+p_rd_b <- pop_sum %>% 
+  select(hab_type, label, prop_cold, mean_b) %>%
+  pivot_wider(names_from = hab_type, values_from = mean_b) %>%
+  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
+  mutate(rd_coldwarm = (cold_warm - cold_only)/cold_only,
+         rd_highp = (high_P - cold_only)/cold_only) %>%
+  pivot_longer(rd_coldwarm:rd_highp, names_to = "hab_type", values_to = "reldiff") %>%
+  mutate(hab_type = recode(hab_type, "rd_coldwarm" = "Cold + Warm", "rd_highp" = "Cold + Warm (high P)")) %>%
+  ggplot(aes(x = prop_cold, y = reldiff, color = hab_type)) +
+  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
+  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
+  scale_color_manual(values = hab_cols, name = "Scenario") +
+  labs(y = "Relative difference in biomass") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid.minor = element_blank()) +
+  cold_x("Proportion cold habitat") +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1), limits = c(0,5))
+
+
+p_rd_n + p_rd_b +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
+  plot_annotation(title = "Marginal benefit of seasonally warm habitat to population outcomes",
+                  subtitle = "Relative difference between cold+warm and cold-only") 
+```
 
 
 ## Weight-at-age

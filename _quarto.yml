@@ -35,7 +35,8 @@ book:
     - part: "Results"
       chapters:
         - ViewSimResults.qmd
-        # - CompareFixedHab.qmd
+        - CompareOutcomes.qmd
+        - MechanisticDrivers.qmd
 
 
 format:

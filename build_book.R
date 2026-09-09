@@ -19,7 +19,8 @@ quarto::quarto_render("ScenarioDefs.qmd", output_format = "html", cache_refresh 
 quarto::quarto_render("SensitivityAnalysis.qmd", output_format = "html", cache_refresh = FALSE)
 
 quarto::quarto_render("ViewSimResults.qmd", output_format = "html", cache_refresh = TRUE)
-quarto::quarto_render("CompareFixedHab.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("CompareOutcomes.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("MechanisticDrivers.qmd", output_format = "html", cache_refresh = TRUE)
 
 
 # quarto::quarto_render("Scenario_1_null_cold.qmd", output_format = "html", cache_refresh = TRUE)

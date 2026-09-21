@@ -18,99 +18,45 @@ source("PlotResults.R")
 
 **Purpose:** View raw simulation results of fixed habitat/equilibrium simulation runs. 
 
+## Setup
+
+Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as `ibm_long` is extracted, avoiding duplicate references that would force R to copy the data frames.
 ```{r}
 #| cache: false
 
-## Null/cold only
-
-# 95% cold
-res           <- readRDS("results/TempOffset_ColdOnly_95percold.rds")
-ibm_long_95null   <- res$ibm_long
-habitat_df_95null <- res$habitat_df
-
-# 75% cold 
-res           <- readRDS("results/TempOffset_ColdOnly_75percold.rds")
-ibm_long_75null   <- res$ibm_long
-habitat_df_75null <- res$habitat_df
-
-# 50% cold
-res           <- readRDS("results/TempOffset_ColdOnly_50percold.rds")
-ibm_long_50null   <- res$ibm_long
-habitat_df_50null <- res$habitat_df
-
-# 25% cold
-res           <- readRDS("results/TempOffset_ColdOnly_25percold.rds")
-ibm_long_25null   <- res$ibm_long
-habitat_df_25null <- res$habitat_df
-
-# 5% cold
-res           <- readRDS("results/TempOffset_ColdOnly_05percold.rds")
-ibm_long_05null   <- res$ibm_long
-habitat_df_05null <- res$habitat_df
-
-
-## Cold + warm (same max pcmax)
-
-# 95% cold / 5% warm
-res           <- readRDS("results/TempOffset_ColdWarm_95percold.rds")
-ibm_long_95   <- res$ibm_long
-habitat_df_95 <- res$habitat_df
-
-# 75% cold / 25% warm
-res           <- readRDS("results/TempOffset_ColdWarm_75percold.rds")
-ibm_long_75   <- res$ibm_long
-habitat_df_75 <- res$habitat_df
-
-# 50% cold / 50% warm
-res           <- readRDS("results/TempOffset_ColdWarm_50percold.rds")
-ibm_long_50   <- res$ibm_long
-habitat_df_50 <- res$habitat_df
-
-# 25% cold / 75% warm
-res           <- readRDS("results/TempOffset_ColdWarm_25percold.rds")
-ibm_long_25   <- res$ibm_long
-habitat_df_25 <- res$habitat_df
-
-# 5% cold / 95% warm
-res           <- readRDS("results/TempOffset_ColdWarm_05percold.rds")
-ibm_long_05   <- res$ibm_long
-habitat_df_05 <- res$habitat_df
-
-
-## Cold + warm (+0.1 max pcmax in warm)
-
-# 95% cold / 5% warm
-res           <- readRDS("results/TempOffset_ColdWarm_95percold_highPwarm.rds")
-ibm_long_95_highpcm   <- res$ibm_long
-habitat_df_95_highpcm <- res$habitat_df
-
-# 75% cold / 25% warm
-res           <- readRDS("results/TempOffset_ColdWarm_75percold_highPwarm.rds")
-ibm_long_75_highpcm   <- res$ibm_long
-habitat_df_75_highpcm <- res$habitat_df
-
-# 50% cold / 50% warm
-res           <- readRDS("results/TempOffset_ColdWarm_50percold_highPwarm.rds")
-ibm_long_50_highpcm   <- res$ibm_long
-habitat_df_50_highpcm <- res$habitat_df
-
-# 25% cold / 75% warm
-res           <- readRDS("results/TempOffset_ColdWarm_25percold_highPwarm.rds")
-ibm_long_25_highpcm   <- res$ibm_long
-habitat_df_25_highpcm <- res$habitat_df
-
-# 5% cold / 95% warm
-res           <- readRDS("results/TempOffset_ColdWarm_05percold_highPwarm.rds")
-ibm_long_05_highpcm   <- res$ibm_long
-habitat_df_05_highpcm <- res$habitat_df
-
-
-sim_params    <- res$params
+# Extract params from one file (small object)
+res            <- readRDS("results/TempOffset_ColdWarm_05percold_highPwarm.rds")
+sim_params     <- res$params
+habitat_df     <- res$habitat_df
 exp_start_date <- sim_params$mindate + years(sim_params$nyears_burnin)
-
 rm(res)
-```
 
+# Helper: read one scenario, extract ibm_long, and free res before returning
+load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
+  res <- readRDS(path)
+  list(df = res$ibm_long, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+}
+
+ibm_list_mech <- list(
+  load_scen("results/TempOffset_ColdOnly_95percold.rds",             0.95, "Cold only",            0.5, NA_real_),
+  load_scen("results/TempOffset_ColdOnly_75percold.rds",             0.75, "Cold only",            0.5, NA_real_),
+  load_scen("results/TempOffset_ColdOnly_50percold.rds",             0.50, "Cold only",            0.5, NA_real_),
+  load_scen("results/TempOffset_ColdOnly_25percold.rds",             0.25, "Cold only",            0.5, NA_real_),
+  load_scen("results/TempOffset_ColdOnly_05percold.rds",             0.05, "Cold only",            0.5, NA_real_),
+
+  load_scen("results/TempOffset_ColdWarm_95percold.rds",             0.95, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_75percold.rds",             0.75, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_50percold.rds",             0.50, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_25percold.rds",             0.25, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_05percold.rds",             0.05, "Cold + Warm",          0.5, 0.5),
+  
+  load_scen("results/TempOffset_ColdWarm_95percold_highPwarm.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdWarm_75percold_highPwarm.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdWarm_50percold_highPwarm.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdWarm_25percold_highPwarm.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdWarm_05percold_highPwarm.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+)
+```
 
 
 ## Null: cold only
@@ -123,8 +69,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_95null,
-  habitat_df     = habitat_df_95null,
+  ibm_long       = ibm_list_mech[[1]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -137,8 +83,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_75null,
-  habitat_df     = habitat_df_75null,
+  ibm_long       = ibm_list_mech[[2]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -151,8 +97,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_50null,
-  habitat_df     = habitat_df_50null,
+  ibm_long       = ibm_list_mech[[3]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -165,8 +111,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_25null,
-  habitat_df     = habitat_df_25null,
+  ibm_long       = ibm_list_mech[[4]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -179,8 +125,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_05null,
-  habitat_df     = habitat_df_05null,
+  ibm_long       = ibm_list_mech[[5]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -197,8 +143,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_95,
-  habitat_df     = habitat_df_95,
+  ibm_long       = ibm_list_mech[[6]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -211,8 +157,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_75,
-  habitat_df     = habitat_df_75,
+  ibm_long       = ibm_list_mech[[7]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -225,8 +171,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_50,
-  habitat_df     = habitat_df_50,
+  ibm_long       = ibm_list_mech[[8]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -239,8 +185,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_25,
-  habitat_df     = habitat_df_25,
+  ibm_long       = ibm_list_mech[[9]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -253,8 +199,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_05,
-  habitat_df     = habitat_df_05,
+  ibm_long       = ibm_list_mech[[10]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -271,8 +217,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_95_highpcm,
-  habitat_df     = habitat_df_95_highpcm,
+  ibm_long       = ibm_list_mech[[11]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -285,8 +231,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_75_highpcm,
-  habitat_df     = habitat_df_75_highpcm,
+  ibm_long       = ibm_list_mech[[12]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -299,8 +245,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_50_highpcm,
-  habitat_df     = habitat_df_50_highpcm,
+  ibm_long       = ibm_list_mech[[13]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -313,8 +259,8 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_25_highpcm,
-  habitat_df     = habitat_df_25_highpcm,
+  ibm_long       = ibm_list_mech[[14]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -327,11 +273,10 @@ Daily and annual abundance/biomass, age structure, weight-at-age, body-size dist
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_long_05_highpcm,
-  habitat_df     = habitat_df_05_highpcm,
+  ibm_long       = ibm_list_mech[[15]][[1]],
+  habitat_df     = habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ---
-

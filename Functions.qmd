@@ -2844,11 +2844,11 @@ Show daily probability of maturation as a function of day of year and duration o
 
 # --- Visualise: vary duration, fix peak ---
 expand_grid(
-  doy      = 50:150,
+  doy      = 80:160,
   duration = c(5, 10, 20, 40)
 ) |>
   mutate(
-    p        = fncMaturityDate(doy, peak_doy = 90, duration = duration),
+    p        = fncMaturityDate(doy, peak_doy = 121, duration = duration),
     duration = factor(paste0(duration, " days"), levels = paste0(c(5, 10, 20, 40), " days"))
   ) |>
   ggplot(aes(x = doy, y = p, colour = duration)) +
@@ -2880,7 +2880,7 @@ p_heat <- expand_grid(
   weight = seq(100, 600, by = 5)
 ) |>
   mutate(
-    p_date  = fncMaturityDate(doy, peak_doy = 90, duration = 60),
+    p_date  = fncMaturityDate(doy, peak_doy = 120, duration = 15),
     p_size  = fncMaturitySize(weight),
     p_cond  = fncMaturityCondition(0.85),
     p_comb  = p_date * p_size * p_cond
@@ -2904,7 +2904,7 @@ p_cond_lines <- expand_grid(
   condition = c(0.70, 0.80, 0.85, 0.90, 1.00)
 ) |>
   mutate(
-    p_date = fncMaturityDate(doy, peak_doy = 90, duration = 60),
+    p_date = fncMaturityDate(doy, peak_doy = 120, duration = 15),
     p_size = fncMaturitySize(400),
     p_cond = fncMaturityCondition(condition),
     p_comb = p_date * p_size * p_cond,

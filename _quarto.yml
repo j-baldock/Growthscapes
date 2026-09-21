@@ -37,6 +37,7 @@ book:
         - ViewSimResults.qmd
         - CompareOutcomes.qmd
         - MechanisticDrivers.qmd
+        - SurplusProduction.qmd
 
 
 format:

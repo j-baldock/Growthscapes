@@ -48,11 +48,17 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   crit_pcmax_hi              <- params$crit_pcmax_hi              %||% 0.40   # pcmax_adjusted_dd at which ~99% critical-period survival is achieved (negligible cost)
   crit_period_days           <- params$crit_period_days           %||% 60L    # length of the critical period (days post-hatch)
   sim_seed                   <- params$sim_seed                   %||% 7843
+  harvest_rate               <- params$harvest_rate               %||% 0          # h: per-individual harvest probability applied to all eligible (weight ≥ 200 g) adults (0 = no harvest)
+  harvest_doy                <- params$harvest_doy                %||% 1L         # day-of-year on which the annual harvest pulse is applied (must precede spawning season)
+  nyears_burnin              <- params$nyears_burnin              %||% 50L        # burn-in years; harvest is suppressed during this period
 
   # Competition grouping vector: used in group_by(across(all_of(eff_grp))) in Steps 2 and 3.
   # When age_structured_competition = TRUE, eff_density is computed within patch × age class.
   # When FALSE, all fish in the same patch compete (original behaviour).
   eff_grp <- if (age_structured_competition) c("patch", "age_class") else "patch"
+
+  # Harvest is suppressed during burn-in; derive the first date of the experimental period.
+  exp_start_date <- min(habitat_df$date) + lubridate::years(nyears_burnin)
 
   # A_warm, A_cold, K_warm, K_cold, S_max_warm, S_max_cold are read from habitat_df each day (see Habitat.qmd)
 
@@ -111,20 +117,28 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   n_fish <- nrow(fish_pop)
 
   # fish_registry: grows throughout the simulation as offspring are born.
-  # Used in place of fish_pop_init in summaries once reproduction is active.
-  # One row per fish (founders + all offspring), ordered by pid.
-  fish_registry <- fish_pop |>
-    select(pid, strategy, parent_pid, cohort) |>
-    mutate(birth_dayofsim = 0L)
+  # Accumulated as a list of data.frames (one element per spawning day) and
+  # bound once at the end to avoid O(N²) copying from repeated bind_rows() calls.
+  fish_registry_list <- list(
+    fish_pop |>
+      select(pid, strategy, parent_pid, cohort) |>
+      mutate(birth_dayofsim = 0L)
+  )
 
-  # Pre-allocate per-day record list; one data.frame per loop iteration.
-  # Avoids large sparse matrices — only alive (fish × day) combos are stored.
-  ibm_records <- vector("list", n_days)
+  # Pre-allocate per-day record/summary lists; one element per loop iteration.
+  # ibm_records is filled only for the experimental period (see step 7).
+  # ibm_summary_list is filled for every day and assembled into ibm_summary at the end.
+  ibm_records      <- vector("list", n_days)
+  ibm_summary_list <- vector("list", n_days)
   switches    <- integer(n_fish)  # count patch switches per fish (indexed by pid)
   next_pid    <- n_fish + 1L      # next available pid (grows as offspring are born)
 
-  # Spawn log: one row per spawning event, recording parent-offspring relationships
-  spawn_log <- tibble(
+  # Spawn log: accumulated as a list of tibbles (one element per spawning event)
+  # and bound once at the end to avoid O(N²) memory growth.
+  spawn_log_list <- list()
+
+  # Placeholder tibble (schema only) — used if no spawning ever occurs.
+  spawn_log_empty <- tibble(
     parent_pid          = integer(),  # pid of the spawning parent
     dayofsim            = integer(),  # simulation day of spawning
     n_offspring         = integer(),  # number of offspring produced
@@ -132,6 +146,18 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     condition           = numeric(),  # pre-spawn relative condition (weight / peak_weight)
     offspring_pid_start = integer(),  # first pid assigned to offspring
     offspring_pid_end   = integer()   # last pid assigned to offspring
+  )
+
+  # Harvest log: one row per harvested fish (individual-level)
+  harvest_log_list  <- list()
+  harvest_log_empty <- tibble(
+    dayofsim  = integer(),   # simulation day on which harvest was applied
+    year      = integer(),   # calendar year of harvest event
+    pid       = integer(),   # pid of the harvested fish
+    weight    = numeric(),   # body weight at time of harvest (g)
+    age       = numeric(),   # age in years at time of harvest
+    patch     = character(), # patch occupied at time of harvest
+    condition = numeric()    # relative condition (weight / peak_weight) at time of harvest
   )
 
   # ── Simulation loop ──────────────────────────────────────────────────────────
@@ -271,6 +297,8 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         mover_weights_vec <- fish_pop$weight[mover_rows]
         age_class_all     <- if_else(fish_pop$cohort == current_year, "age0", "age1plus")
         mover_age_class   <- age_class_all[mover_rows]
+        n_age0_total      <- sum(mover_age_class == "age0")
+        n_age1p_total     <- length(mover_rows) - n_age0_total
 
         # Scalar helper: effective competitor density for one focal fish (weight wi) against a
         # vector of already-placed fish weights (comp_wts), per unit area. Returns Inf when
@@ -282,12 +310,17 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         }
 
         # Running placement accumulators: weights of fish already assigned this step.
-        # Split by age class when age_structured_competition = TRUE (independent pools).
+        # Pre-allocated to the maximum possible size (all movers in one patch/age class)
+        # to avoid O(N²) copying from c(accumulator, wi) inside the inner loop.
+        # A separate integer counter tracks how many positions have been filled.
         if (age_structured_competition) {
-          placed_warm_age0  <- numeric(0);  placed_cold_age0  <- numeric(0)
-          placed_warm_age1p <- numeric(0);  placed_cold_age1p <- numeric(0)
+          placed_warm_age0  <- numeric(n_age0_total);  placed_warm_age0_n  <- 0L
+          placed_cold_age0  <- numeric(n_age0_total);  placed_cold_age0_n  <- 0L
+          placed_warm_age1p <- numeric(n_age1p_total); placed_warm_age1p_n <- 0L
+          placed_cold_age1p <- numeric(n_age1p_total); placed_cold_age1p_n <- 0L
         } else {
-          placed_warm_all <- numeric(0);  placed_cold_all <- numeric(0)
+          placed_warm_all   <- numeric(length(mover_rows)); placed_warm_all_n <- 0L
+          placed_cold_all   <- numeric(length(mover_rows)); placed_cold_all_n <- 0L
         }
 
         # Processing groups: independent competitive pools, each sorted dominant-first.
@@ -316,13 +349,16 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
             ma_idx_i <- pmax(1L, pmin(4500L, round(wi)))
             prev_i   <- prev_patch[ii]          # patch at start of this day
 
-            # Fetch placement accumulators for this age class
+            # Fetch the filled slice of each accumulator for this age class.
+            # seq_len(0) = integer(0) when count is 0; eff_dens_scalar handles that.
             if (age_structured_competition) {
-              pw <- if (ac == "age0") placed_warm_age0 else placed_warm_age1p
-              pc <- if (ac == "age0") placed_cold_age0 else placed_cold_age1p
+              pw <- if (ac == "age0") placed_warm_age0[seq_len(placed_warm_age0_n)]
+                    else              placed_warm_age1p[seq_len(placed_warm_age1p_n)]
+              pc <- if (ac == "age0") placed_cold_age0[seq_len(placed_cold_age0_n)]
+                    else              placed_cold_age1p[seq_len(placed_cold_age1p_n)]
             } else {
-              pw <- placed_warm_all
-              pc <- placed_cold_all
+              pw <- placed_warm_all[seq_len(placed_warm_all_n)]
+              pc <- placed_cold_all[seq_len(placed_cold_all_n)]
             }
 
             # Effective density in each patch given already-placed fish this step
@@ -357,17 +393,18 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
             # Assign patch and update placement accumulator for subsequent fish
             fish_pop$patch[fi] <- if (chose_warm) "warm" else "cold"
 
+            # Fill the next slot in the appropriate accumulator (no copy, O(1)).
             if (age_structured_competition) {
               if (ac == "age0") {
-                if (chose_warm) placed_warm_age0  <- c(placed_warm_age0,  wi)
-                else            placed_cold_age0  <- c(placed_cold_age0,  wi)
+                if (chose_warm) { placed_warm_age0_n <- placed_warm_age0_n + 1L; placed_warm_age0[placed_warm_age0_n] <- wi }
+                else            { placed_cold_age0_n <- placed_cold_age0_n + 1L; placed_cold_age0[placed_cold_age0_n] <- wi }
               } else {
-                if (chose_warm) placed_warm_age1p <- c(placed_warm_age1p, wi)
-                else            placed_cold_age1p <- c(placed_cold_age1p, wi)
+                if (chose_warm) { placed_warm_age1p_n <- placed_warm_age1p_n + 1L; placed_warm_age1p[placed_warm_age1p_n] <- wi }
+                else            { placed_cold_age1p_n <- placed_cold_age1p_n + 1L; placed_cold_age1p[placed_cold_age1p_n] <- wi }
               }
             } else {
-              if (chose_warm) placed_warm_all <- c(placed_warm_all, wi)
-              else            placed_cold_all <- c(placed_cold_all, wi)
+              if (chose_warm) { placed_warm_all_n <- placed_warm_all_n + 1L; placed_warm_all[placed_warm_all_n] <- wi }
+              else            { placed_cold_all_n <- placed_cold_all_n + 1L; placed_cold_all[placed_cold_all_n] <- wi }
             }
           } # end fish loop
         } # end group loop
@@ -512,8 +549,45 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
       if (current_year != prev_year) fish_pop$spawned_this_year <- FALSE
     }
 
-    # Day-of-year and relative condition needed for spawning probability
-    doy_d         <- yday(habitat_df$date[d])
+    # Day-of-year needed for harvest timing and spawning probability
+    doy_d <- yday(habitat_df$date[d])
+
+    # ── 5a. PRE-SPAWN HARVEST ────────────────────────────────────────────────
+    # Annual pulse on harvest_doy. Eligible fish: weight ≥ w_min (200 g), with
+    # no size selectivity above that floor. Each eligible fish is harvested
+    # independently with probability harvest_rate (Bernoulli trial), so the
+    # actual number removed is binomially distributed around
+    # E[n] = harvest_rate × n_eligible. One row per harvested fish is appended
+    # to harvest_log_list.
+    if (harvest_rate > 0 &&
+        doy_d == harvest_doy && habitat_df$date[d] >= exp_start_date) {
+      eligible <- which(fish_pop$weight >= 200)
+
+      if (length(eligible) > 0) {
+        harvested   <- as.logical(rbinom(length(eligible), size = 1, prob = harvest_rate))
+        harvest_idx <- eligible[harvested]
+
+        if (length(harvest_idx) > 0) {
+          harvest_log_list[[length(harvest_log_list) + 1L]] <- tibble(
+            dayofsim  = d,
+            year      = current_year,
+            pid       = fish_pop$pid[harvest_idx],
+            weight    = fish_pop$weight[harvest_idx],
+            age       = fish_pop$age_days[harvest_idx] / 365,
+            patch     = fish_pop$patch[harvest_idx],
+            condition = fish_pop$weight[harvest_idx] / fish_pop$peak_weight[harvest_idx]
+          )
+
+          fish_pop  <- fish_pop[-harvest_idx, ]
+          growth_df <- growth_df[-harvest_idx, ]  # keep growth_df aligned with fish_pop
+        }
+      }
+    }
+    
+    # If harvest removed every fish, skip spawning/survival/recording and end the sim.
+    if (nrow(fish_pop) == 0) break
+
+    # ── 5b. SPAWNING PROBABILITY ──────────────────────────────────────────────
     condition_spw <- fish_pop$weight / fish_pop$peak_weight
 
     # Combined daily spawning probability: size × condition × date
@@ -588,7 +662,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         )
 
         # Log the spawning event (weight and condition are pre-spawn values)
-        spawn_log <- bind_rows(spawn_log, tibble(
+        spawn_log_list[[length(spawn_log_list) + 1L]] <- tibble(
           parent_pid          = parent$pid,
           dayofsim            = d,
           n_offspring         = n_off,
@@ -596,7 +670,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
           condition           = parent$weight / parent$peak_weight,
           offspring_pid_start = next_pid,
           offspring_pid_end   = next_pid + n_off - 1L
-        ))
+        )
 
         next_pid <- next_pid + n_off
       }
@@ -614,12 +688,9 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
                              data.frame(WT.actual = off_wt_actual, growth = NA_real_))
 
       # Register and add offspring to live population
-      fish_registry <- bind_rows(
-        fish_registry,
-        new_fish |>
-          select(pid, strategy, parent_pid, cohort) |>
-          mutate(birth_dayofsim = d)
-      )
+      fish_registry_list[[length(fish_registry_list) + 1L]] <- new_fish |>
+        select(pid, strategy, parent_pid, cohort) |>
+        mutate(birth_dayofsim = d)
       fish_pop <- bind_rows(fish_pop, new_fish)
     }
 
@@ -665,18 +736,52 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
       mutate(prob_surv = prb.srv, survive = survivors)
 
     # 7. STORE RESULTS AND REMOVE NON-SURVIVORS ────────────────────────────────
-    ibm_records[[d]] <- data.frame(
-      pid       = fish_pop$pid,
-      dayofsim  = d,
+    # Daily summary (all days): one row per strategy, no per-fish detail.
+    # Avoids building a massive ibm_long just to summarise it post-loop.
+    ibm_summary_list[[d]] <- data.frame(
       strategy  = fish_pop$strategy,
       weight    = fish_pop$weight,
       patch     = fish_pop$patch,
-      temp      = growth_df$WT.actual,   # includes offspring stub (their patch temp)
-      ggd       = growth_df$growth,      # NA for offspring on birth day
+      temp      = growth_df$WT.actual,
+      ggd       = growth_df$growth,
       survived  = growth_df$survive,
-      condition = condition,
-      age       = fish_pop$age_days / 365,
-      p_survive = prb.srv                # worth keeping — used in later analyses
+      condition = condition
+    ) |>
+      group_by(strategy) |>
+      summarise(
+        dayofsim       = d,
+        date           = habitat_df$date[d],
+        mean_weight    = mean(weight,    na.rm = TRUE),
+        sd_weight      = sd(weight,      na.rm = TRUE),
+        mean_temp      = mean(temp,      na.rm = TRUE),
+        sd_temp        = sd(temp,        na.rm = TRUE),
+        mean_ggd       = mean(ggd,       na.rm = TRUE),
+        sd_ggd         = sd(ggd,         na.rm = TRUE),
+        prop_warm      = mean(patch == "warm", na.rm = TRUE),
+        n_alive        = sum(survived,   na.rm = TRUE),
+        mean_condition = mean(condition, na.rm = TRUE),
+        sd_condition   = sd(condition,   na.rm = TRUE),
+        .groups        = "drop"
+      )
+
+    # Per-fish records (all days): join columns embedded directly so
+    # no post-loop left_join against fish_registry or habitat_df is needed.
+    ibm_records[[d]] <- data.frame(
+      pid            = fish_pop$pid,
+      dayofsim       = d,
+      date           = habitat_df$date[d],
+      strategy       = fish_pop$strategy,
+      weight         = fish_pop$weight,
+      patch          = fish_pop$patch,
+      temp           = growth_df$WT.actual,
+      ggd            = growth_df$growth,
+      survived       = growth_df$survive,
+      condition      = condition,
+      age            = fish_pop$age_days / 365,
+      p_survive      = prb.srv,
+      cohort         = fish_pop$cohort,
+      parent_pid     = fish_pop$parent_pid,
+      birth_dayofsim = d - fish_pop$age_days
     )
 
     # Remove non-survivors — only living fish carry forward to next iteration
@@ -686,27 +791,18 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     if (nrow(fish_pop) == 0) break
   }
 
-  # ── Collate ibm_long ─────────────────────────────────────────────────────────
-  ibm_long <- bind_rows(ibm_records) |>
-    left_join(fish_registry |> select(pid, parent_pid, cohort, birth_dayofsim), by = "pid") |>
-    left_join(habitat_df |> select(dayofsim, date), by = "dayofsim")
+  # ── Collate accumulated lists into final data frames ─────────────────────────
+  fish_registry <- bind_rows(fish_registry_list)
+  spawn_log     <- if (length(spawn_log_list)   > 0) bind_rows(spawn_log_list)   else spawn_log_empty
+  harvest_log   <- if (length(harvest_log_list) > 0) bind_rows(harvest_log_list) else harvest_log_empty
 
-  # ── Standard daily summary by strategy ───────────────────────────────────────
-  ibm_summary <- ibm_long |>
-    group_by(strategy, dayofsim, date) |>
-    summarise(
-      mean_weight    = mean(weight,    na.rm = TRUE),
-      sd_weight      = sd(weight,      na.rm = TRUE),
-      mean_temp      = mean(temp,      na.rm = TRUE),
-      sd_temp        = sd(temp,        na.rm = TRUE),
-      mean_ggd       = mean(ggd,       na.rm = TRUE),
-      sd_ggd         = sd(ggd,         na.rm = TRUE),
-      prop_warm      = mean(patch == "warm", na.rm = TRUE),
-      n_alive        = sum(survived,   na.rm = TRUE),
-      mean_condition = mean(condition, na.rm = TRUE),
-      sd_condition   = sd(condition,   na.rm = TRUE),
-      .groups        = "drop"
-    )
+  # ── Collate ibm_long (experimental period only; join columns embedded) ────────
+  # No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored
+  # directly in each ibm_records[[d]] during step 7.
+  ibm_long <- bind_rows(ibm_records)
+
+  # ── Daily summary (all days, pre-computed in the loop) ────────────────────────
+  ibm_summary <- bind_rows(ibm_summary_list)
 
   list(
     ibm_records   = ibm_records,
@@ -714,6 +810,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     ibm_summary   = ibm_summary,
     fish_registry = fish_registry,
     spawn_log     = spawn_log,
+    harvest_log   = harvest_log,
     switches      = switches,
     params        = params,
     habitat_df    = habitat_df

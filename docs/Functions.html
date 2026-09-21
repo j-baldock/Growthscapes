@@ -484,6 +484,12 @@ window.Quarto = {
  <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Mechanistic Drivers</span></span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./SurplusProduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Surplus Production</span></span></a>
+  </div>
+</li>
       </ul>
   </li>
     </ul>
@@ -3874,11 +3880,11 @@ F = aL^b
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb79"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Visualise: vary duration, fix peak ---</span></span>
 <span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a><span class="fu">expand_grid</span>(</span>
-<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">doy      =</span> <span class="dv">50</span><span class="sc">:</span><span class="dv">150</span>,</span>
+<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">doy      =</span> <span class="dv">80</span><span class="sc">:</span><span class="dv">160</span>,</span>
 <span id="cb79-4"><a href="#cb79-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">duration =</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">40</span>)</span>
 <span id="cb79-5"><a href="#cb79-5" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
 <span id="cb79-6"><a href="#cb79-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb79-7"><a href="#cb79-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">p        =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">90</span>, <span class="at">duration =</span> duration),</span>
+<span id="cb79-7"><a href="#cb79-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">p        =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">121</span>, <span class="at">duration =</span> duration),</span>
 <span id="cb79-8"><a href="#cb79-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">duration =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(duration, <span class="st">" days"</span>), <span class="at">levels =</span> <span class="fu">paste0</span>(<span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">40</span>), <span class="st">" days"</span>))</span>
 <span id="cb79-9"><a href="#cb79-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
 <span id="cb79-10"><a href="#cb79-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> doy, <span class="at">y =</span> p, <span class="at">colour =</span> duration)) <span class="sc">+</span></span>
@@ -3917,7 +3923,7 @@ F = aL^b
 <span id="cb80-4"><a href="#cb80-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">weight =</span> <span class="fu">seq</span>(<span class="dv">100</span>, <span class="dv">600</span>, <span class="at">by =</span> <span class="dv">5</span>)</span>
 <span id="cb80-5"><a href="#cb80-5" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
 <span id="cb80-6"><a href="#cb80-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb80-7"><a href="#cb80-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date  =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">90</span>, <span class="at">duration =</span> <span class="dv">60</span>),</span>
+<span id="cb80-7"><a href="#cb80-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date  =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">120</span>, <span class="at">duration =</span> <span class="dv">15</span>),</span>
 <span id="cb80-8"><a href="#cb80-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_size  =</span> <span class="fu">fncMaturitySize</span>(weight),</span>
 <span id="cb80-9"><a href="#cb80-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_cond  =</span> <span class="fu">fncMaturityCondition</span>(<span class="fl">0.85</span>),</span>
 <span id="cb80-10"><a href="#cb80-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_comb  =</span> p_date <span class="sc">*</span> p_size <span class="sc">*</span> p_cond</span>
@@ -3941,7 +3947,7 @@ F = aL^b
 <span id="cb80-28"><a href="#cb80-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">condition =</span> <span class="fu">c</span>(<span class="fl">0.70</span>, <span class="fl">0.80</span>, <span class="fl">0.85</span>, <span class="fl">0.90</span>, <span class="fl">1.00</span>)</span>
 <span id="cb80-29"><a href="#cb80-29" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
 <span id="cb80-30"><a href="#cb80-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb80-31"><a href="#cb80-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">90</span>, <span class="at">duration =</span> <span class="dv">60</span>),</span>
+<span id="cb80-31"><a href="#cb80-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">120</span>, <span class="at">duration =</span> <span class="dv">15</span>),</span>
 <span id="cb80-32"><a href="#cb80-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_size =</span> <span class="fu">fncMaturitySize</span>(<span class="dv">400</span>),</span>
 <span id="cb80-33"><a href="#cb80-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_cond =</span> <span class="fu">fncMaturityCondition</span>(condition),</span>
 <span id="cb80-34"><a href="#cb80-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_comb =</span> p_date <span class="sc">*</span> p_size <span class="sc">*</span> p_cond,</span>
@@ -7452,11 +7458,11 @@ window._ojs.runtime.interpretFromScriptTags();
 <span id="cb86-2992"><a href="#cb86-2992" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb86-2993"><a href="#cb86-2993" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Visualise: vary duration, fix peak ---</span></span>
 <span id="cb86-2994"><a href="#cb86-2994" aria-hidden="true" tabindex="-1"></a><span class="fu">expand_grid</span>(</span>
-<span id="cb86-2995"><a href="#cb86-2995" aria-hidden="true" tabindex="-1"></a>  <span class="at">doy      =</span> <span class="dv">50</span><span class="sc">:</span><span class="dv">150</span>,</span>
+<span id="cb86-2995"><a href="#cb86-2995" aria-hidden="true" tabindex="-1"></a>  <span class="at">doy      =</span> <span class="dv">80</span><span class="sc">:</span><span class="dv">160</span>,</span>
 <span id="cb86-2996"><a href="#cb86-2996" aria-hidden="true" tabindex="-1"></a>  <span class="at">duration =</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">40</span>)</span>
 <span id="cb86-2997"><a href="#cb86-2997" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
 <span id="cb86-2998"><a href="#cb86-2998" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb86-2999"><a href="#cb86-2999" aria-hidden="true" tabindex="-1"></a>    <span class="at">p        =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">90</span>, <span class="at">duration =</span> duration),</span>
+<span id="cb86-2999"><a href="#cb86-2999" aria-hidden="true" tabindex="-1"></a>    <span class="at">p        =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">121</span>, <span class="at">duration =</span> duration),</span>
 <span id="cb86-3000"><a href="#cb86-3000" aria-hidden="true" tabindex="-1"></a>    <span class="at">duration =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(duration, <span class="st">" days"</span>), <span class="at">levels =</span> <span class="fu">paste0</span>(<span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">40</span>), <span class="st">" days"</span>))</span>
 <span id="cb86-3001"><a href="#cb86-3001" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
 <span id="cb86-3002"><a href="#cb86-3002" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> doy, <span class="at">y =</span> p, <span class="at">colour =</span> duration)) <span class="sc">+</span></span>
@@ -7488,7 +7494,7 @@ window._ojs.runtime.interpretFromScriptTags();
 <span id="cb86-3030"><a href="#cb86-3030" aria-hidden="true" tabindex="-1"></a>  <span class="at">weight =</span> <span class="fu">seq</span>(<span class="dv">100</span>, <span class="dv">600</span>, <span class="at">by =</span> <span class="dv">5</span>)</span>
 <span id="cb86-3031"><a href="#cb86-3031" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
 <span id="cb86-3032"><a href="#cb86-3032" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb86-3033"><a href="#cb86-3033" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date  =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">90</span>, <span class="at">duration =</span> <span class="dv">60</span>),</span>
+<span id="cb86-3033"><a href="#cb86-3033" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date  =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">120</span>, <span class="at">duration =</span> <span class="dv">15</span>),</span>
 <span id="cb86-3034"><a href="#cb86-3034" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_size  =</span> <span class="fu">fncMaturitySize</span>(weight),</span>
 <span id="cb86-3035"><a href="#cb86-3035" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_cond  =</span> <span class="fu">fncMaturityCondition</span>(<span class="fl">0.85</span>),</span>
 <span id="cb86-3036"><a href="#cb86-3036" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_comb  =</span> p_date <span class="sc">*</span> p_size <span class="sc">*</span> p_cond</span>
@@ -7512,7 +7518,7 @@ window._ojs.runtime.interpretFromScriptTags();
 <span id="cb86-3054"><a href="#cb86-3054" aria-hidden="true" tabindex="-1"></a>  <span class="at">condition =</span> <span class="fu">c</span>(<span class="fl">0.70</span>, <span class="fl">0.80</span>, <span class="fl">0.85</span>, <span class="fl">0.90</span>, <span class="fl">1.00</span>)</span>
 <span id="cb86-3055"><a href="#cb86-3055" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
 <span id="cb86-3056"><a href="#cb86-3056" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb86-3057"><a href="#cb86-3057" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">90</span>, <span class="at">duration =</span> <span class="dv">60</span>),</span>
+<span id="cb86-3057"><a href="#cb86-3057" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_date =</span> <span class="fu">fncMaturityDate</span>(doy, <span class="at">peak_doy =</span> <span class="dv">120</span>, <span class="at">duration =</span> <span class="dv">15</span>),</span>
 <span id="cb86-3058"><a href="#cb86-3058" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_size =</span> <span class="fu">fncMaturitySize</span>(<span class="dv">400</span>),</span>
 <span id="cb86-3059"><a href="#cb86-3059" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_cond =</span> <span class="fu">fncMaturityCondition</span>(condition),</span>
 <span id="cb86-3060"><a href="#cb86-3060" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_comb =</span> p_date <span class="sc">*</span> p_size <span class="sc">*</span> p_cond,</span>

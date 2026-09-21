@@ -21,12 +21,7 @@ quarto::quarto_render("SensitivityAnalysis.qmd", output_format = "html", cache_r
 quarto::quarto_render("ViewSimResults.qmd", output_format = "html", cache_refresh = TRUE)
 quarto::quarto_render("CompareOutcomes.qmd", output_format = "html", cache_refresh = TRUE)
 quarto::quarto_render("MechanisticDrivers.qmd", output_format = "html", cache_refresh = TRUE)
-
-
-# quarto::quarto_render("Scenario_1_null_cold.qmd", output_format = "html", cache_refresh = TRUE)
-# quarto::quarto_render("Scenario_2_temp_mult.qmd", output_format = "html", cache_refresh = TRUE)
-# quarto::quarto_render("Scenario_3_temp_offset.qmd", output_format = "html", cache_refresh = TRUE)
-# quarto::quarto_render("Scenario_4_temp_offset_diffP.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("SurplusProduction.qmd", output_format = "html", cache_refresh = TRUE)
 
 
 

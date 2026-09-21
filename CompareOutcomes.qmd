@@ -23,102 +23,43 @@ source("ScenarioDefs.R")
 
 ## Setup
 
-Load simulation results
+Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as `ibm_long` is extracted, avoiding duplicate references that would force R to copy the data frames.
 ```{r}
 #| cache: false
 
-## Null/cold only
-
-# 95% cold
-res           <- readRDS("results/TempOffset_ColdOnly_95percold.rds")
-ibm_long_95null   <- res$ibm_long
-habitat_df_95null <- res$habitat_df
-
-# 75% cold 
-res           <- readRDS("results/TempOffset_ColdOnly_75percold.rds")
-ibm_long_75null   <- res$ibm_long
-habitat_df_75null <- res$habitat_df
-
-# 50% cold
-res           <- readRDS("results/TempOffset_ColdOnly_50percold.rds")
-ibm_long_50null   <- res$ibm_long
-habitat_df_50null <- res$habitat_df
-
-# 25% cold
-res           <- readRDS("results/TempOffset_ColdOnly_25percold.rds")
-ibm_long_25null   <- res$ibm_long
-habitat_df_25null <- res$habitat_df
-
-# 5% cold
-res           <- readRDS("results/TempOffset_ColdOnly_05percold.rds")
-ibm_long_05null   <- res$ibm_long
-habitat_df_05null <- res$habitat_df
-
-
-## Cold + warm (same max pcmax)
-
-# 95% cold / 5% warm
-res           <- readRDS("results/TempOffset_ColdWarm_95percold.rds")
-ibm_long_95   <- res$ibm_long
-habitat_df_95 <- res$habitat_df
-
-# 75% cold / 25% warm
-res           <- readRDS("results/TempOffset_ColdWarm_75percold.rds")
-ibm_long_75   <- res$ibm_long
-habitat_df_75 <- res$habitat_df
-
-# 50% cold / 50% warm
-res           <- readRDS("results/TempOffset_ColdWarm_50percold.rds")
-ibm_long_50   <- res$ibm_long
-habitat_df_50 <- res$habitat_df
-
-# 25% cold / 75% warm
-res           <- readRDS("results/TempOffset_ColdWarm_25percold.rds")
-ibm_long_25   <- res$ibm_long
-habitat_df_25 <- res$habitat_df
-
-# 5% cold / 95% warm
-res           <- readRDS("results/TempOffset_ColdWarm_05percold.rds")
-ibm_long_05   <- res$ibm_long
-habitat_df_05 <- res$habitat_df
-
-
-## Cold + warm (+0.1 max pcmax in warm)
-
-# 95% cold / 5% warm
-res           <- readRDS("results/TempOffset_ColdWarm_95percold_highPwarm.rds")
-ibm_long_95_highpcm   <- res$ibm_long
-habitat_df_95_highpcm <- res$habitat_df
-
-# 75% cold / 25% warm
-res           <- readRDS("results/TempOffset_ColdWarm_75percold_highPwarm.rds")
-ibm_long_75_highpcm   <- res$ibm_long
-habitat_df_75_highpcm <- res$habitat_df
-
-# 50% cold / 50% warm
-res           <- readRDS("results/TempOffset_ColdWarm_50percold_highPwarm.rds")
-ibm_long_50_highpcm   <- res$ibm_long
-habitat_df_50_highpcm <- res$habitat_df
-
-# 25% cold / 75% warm
-res           <- readRDS("results/TempOffset_ColdWarm_25percold_highPwarm.rds")
-ibm_long_25_highpcm   <- res$ibm_long
-habitat_df_25_highpcm <- res$habitat_df
-
-# 5% cold / 95% warm
-res           <- readRDS("results/TempOffset_ColdWarm_05percold_highPwarm.rds")
-ibm_long_05_highpcm   <- res$ibm_long
-habitat_df_05_highpcm <- res$habitat_df
-
-
-sim_params    <- res$params
+# Extract params from one file (small object)
+res            <- readRDS("results/TempOffset_ColdWarm_05percold_highPwarm.rds")
+sim_params     <- res$params
 exp_start_date <- sim_params$mindate + years(sim_params$nyears_burnin)
-
 rm(res)
+
+# Helper: read one scenario, extract ibm_long, and free res before returning
+load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
+  res <- readRDS(path)
+  list(df = res$ibm_long, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+}
+
+ibm_list_mech <- list(
+  load_scen("results/TempOffset_ColdOnly_95percold.rds",             0.95, "Cold only",           0.5, NA_real_),
+  load_scen("results/TempOffset_ColdWarm_95percold.rds",             0.95, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_95percold_highPwarm.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdOnly_75percold.rds",             0.75, "Cold only",           0.5, NA_real_),
+  load_scen("results/TempOffset_ColdWarm_75percold.rds",             0.75, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_75percold_highPwarm.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdOnly_50percold.rds",             0.50, "Cold only",           0.5, NA_real_),
+  load_scen("results/TempOffset_ColdWarm_50percold.rds",             0.50, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_50percold_highPwarm.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdOnly_25percold.rds",             0.25, "Cold only",           0.5, NA_real_),
+  load_scen("results/TempOffset_ColdWarm_25percold.rds",             0.25, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_25percold_highPwarm.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/TempOffset_ColdOnly_05percold.rds",             0.05, "Cold only",           0.5, NA_real_),
+  load_scen("results/TempOffset_ColdWarm_05percold.rds",             0.05, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/TempOffset_ColdWarm_05percold_highPwarm.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+)
 ```
 
 
-Summarize within each scenario before combining to avoid loading all five full data frames into memory simultaneously. The Oct 1 census data (1 row per fish per year) and the patch-level growth totals (1 row per year × patch) are the only data structures that need to be combined across scenarios.
+Summarize within each scenario before combining to avoid loading all fifteen full data frames into memory simultaneously. The Oct 1 census data (1 row per fish per year) and the patch-level growth totals (1 row per year × patch) are the only data structures that need to be combined across scenarios.
 ```{r}
 #| cache: false
 
@@ -134,11 +75,13 @@ scen_pal <- setNames(
   scen_meta$label
 )
 
-
 # Linetype and shape palettes for habitat availability
 hab_cols  <- c("Cold only" = "#6BAED6",  "Cold + Warm" = "#FC8D59",   "Cold + Warm (high P)" = "#B30000")
 hab_lty   <- c("Cold only" = "solid" ,   "Cold + Warm" = "solid",     "Cold + Warm (high P)" = "solid")
 hab_shape <- c("Cold only" = 16,         "Cold + Warm" = 16,          "Cold + Warm (high P)" = 16)
+
+# Helper: derive scen_key string from numeric prop_cold
+pc_to_key <- function(pc) sprintf("%02d", round(pc * 100))
 
 # Helper: extract Oct 1 experimental-period rows from one ibm_long
 # Filtering before bind_rows() keeps only ~1/365th of each data frame.
@@ -163,60 +106,22 @@ compute_patch_growth <- function(ibm_long, scen_key) {
     mutate(scen_key = scen_key)
 }
 
-# ── Oct 1 census: experimental period, both hab types, all scenarios ──────────
-exp_oct1 <- bind_rows(
-  bind_rows(
-    extract_oct1_exp(ibm_long_95, "95"),
-    extract_oct1_exp(ibm_long_75, "75"),
-    extract_oct1_exp(ibm_long_50, "50"),
-    extract_oct1_exp(ibm_long_25, "25"),
-    extract_oct1_exp(ibm_long_05, "05")
-  ) |> mutate(hab_type = "Cold + Warm"),
-  bind_rows(
-    extract_oct1_exp(ibm_long_95_highpcm, "95"),
-    extract_oct1_exp(ibm_long_75_highpcm, "75"),
-    extract_oct1_exp(ibm_long_50_highpcm, "50"),
-    extract_oct1_exp(ibm_long_25_highpcm, "25"),
-    extract_oct1_exp(ibm_long_05_highpcm, "05")
-  ) |> mutate(hab_type = "Cold + Warm (high P)"),
-  bind_rows(
-    extract_oct1_exp(ibm_long_95null, "95"),
-    extract_oct1_exp(ibm_long_75null, "75"),
-    extract_oct1_exp(ibm_long_50null, "50"),
-    extract_oct1_exp(ibm_long_25null, "25"),
-    extract_oct1_exp(ibm_long_05null, "05")
-  ) |> mutate(hab_type = "Cold only")
-) |>
+# ── Oct 1 census: experimental period, all hab types, all scenarios ───────────
+exp_oct1 <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  extract_oct1_exp(scen$df, pc_to_key(scen$pc)) |>
+    mutate(hab_type = scen$ht)
+}) |>
   left_join(scen_meta, by = "scen_key") |>
   mutate(
     label    = factor(label,    levels = scen_meta$label),
     hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))
   )
 
-# ── Annual biomass accrual by patch, both hab types, all scenarios ────────────
-patch_growth <- bind_rows(
-  bind_rows(
-    compute_patch_growth(ibm_long_95, "95"),
-    compute_patch_growth(ibm_long_75, "75"),
-    compute_patch_growth(ibm_long_50, "50"),
-    compute_patch_growth(ibm_long_25, "25"),
-    compute_patch_growth(ibm_long_05, "05")
-  ) |> mutate(hab_type = "Cold + Warm"),
-  bind_rows(
-    compute_patch_growth(ibm_long_95_highpcm, "95"),
-    compute_patch_growth(ibm_long_75_highpcm, "75"),
-    compute_patch_growth(ibm_long_50_highpcm, "50"),
-    compute_patch_growth(ibm_long_25_highpcm, "25"),
-    compute_patch_growth(ibm_long_05_highpcm, "05")
-  ) |> mutate(hab_type = "Cold + Warm (high P)"),
-  bind_rows(
-    compute_patch_growth(ibm_long_95null, "95"),
-    compute_patch_growth(ibm_long_75null, "75"),
-    compute_patch_growth(ibm_long_50null, "50"),
-    compute_patch_growth(ibm_long_25null, "25"),
-    compute_patch_growth(ibm_long_05null, "05")
-  ) |> mutate(hab_type = "Cold only")
-) |>
+# ── Annual biomass accrual by patch, all hab types, all scenarios ─────────────
+patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  compute_patch_growth(scen$df, pc_to_key(scen$pc)) |>
+    mutate(hab_type = scen$ht)
+}) |>
   left_join(scen_meta, by = "scen_key") |>
   mutate(
     label    = factor(label,    levels = scen_meta$label),
@@ -229,6 +134,124 @@ exp_pop_yr <- exp_oct1 |>
   summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
 ```
 
+
+Compute unfished adult abundance (the portion of the population eligible to spawn, >200g) on a specified day of year and export as a .csv. This is used to derive the target harvest abundance for scenarios with variable exploitation rates.
+```{r}
+#| cache: false
+
+# ── Unfished adult abundance on harvest day ───────────────────────────────────
+# Computes mean annual count of fish >= 200 g (the harvest eligibility floor,
+# w_min in fncMaturitySize) on a specified day-of-year across all experimental-
+# period years. Used to parameterise n_unfished in harvest simulations.
+#
+# Census is taken on harvest_doy to match the demographic snapshot seen by the
+# harvest module — accounting for seasonal weight cycles and post-spawn weight
+# loss that can shift fish across the 200 g threshold relative to the Oct 1
+# census used elsewhere.
+
+harvest_doy <- 91L  # day-of-year of harvest pulse (change to match harvest_doy in params)
+
+adult_sum <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  scen$df |>
+    filter(
+      date       >= exp_start_date,
+      yday(date) == harvest_doy,
+      weight     >= 200,
+      survived   == 1
+    ) |>
+    mutate(year = year(date)) |>
+    count(year) |>
+    summarise(mean_n = mean(n)) |>
+    mutate(
+      hab_type  = scen$ht,
+      prop_cold = scen$pc,
+      A_cold    = scen$pc * 2,
+      A_warm    = if (scen$ht == "Cold only") 0 else (1 - scen$pc) * 2
+    )
+}) |>
+  left_join(scen_meta |> select(prop_cold, label), by = "prop_cold") |>
+  select(hab_type, label, prop_cold, A_cold, A_warm, mean_n) |>
+  mutate(
+    hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")),
+    label    = factor(label,    levels = scen_meta$label)
+  ) |>
+  arrange(hab_type, desc(prop_cold))
+
+write_csv(adult_sum, "adult_sum.csv")
+
+adult_sum
+```
+
+
+## Reproduction
+
+Distribution of spawning dates (day of year of fry birth) pooled across all experimental-period cohort-years, shown by scenario class and cold proportion. ()
+```{r eval=FALSE}
+#| cache: false
+
+# Birth events only — filtered and immediately aggregated to doy counts to
+# avoid carrying 18 M individual rows forward into geom_density()
+f_spawn_dates <- function(df) {
+  df |>
+    filter(!is.na(parent_pid),
+           dayofsim == birth_dayofsim,
+           date >= exp_start_date) |>
+    mutate(doy = yday(date)) |>
+    count(doy, name = "n")
+}
+
+# Pre-aggregate: one row per (scenario, cold proportion, doy)
+spawn_date_df <- bind_rows(lapply(ibm_list_mech, \(s) {
+  f_spawn_dates(s$df) |>
+    mutate(prop_cold = s$pc,
+           hab_type  = s$ht,
+           label     = scen_meta$label[scen_meta$prop_cold == s$pc])
+})) |>
+  mutate(
+    label    = factor(label, levels = scen_meta$label),
+    hab_type = factor(hab_type,
+                      levels = c("Cold + Warm (high P)", "Cold + Warm", "Cold only"))
+  ) |>
+  group_by(hab_type, label) |>
+  mutate(density = n / sum(n)) |>   # normalise to density within each group
+  ungroup()
+```
+
+```{r eval=FALSE}
+#| fig-width: 11
+#| fig-height: 4
+
+# Month-of-year breaks for the x-axis (limit to spawning window)
+mo_breaks <- yday(as.Date(paste0("2001-", 2:6, "-01")))
+mo_labs   <- month.abb[2:6]
+
+ggplot(spawn_date_df, aes(x = doy, y = density, color = hab_type,
+                          fill = hab_type, group = hab_type)) +
+  # geom_vline(xintercept = yday(as.Date("2001-04-01")),
+  #            linetype = "dashed", linewidth = 0.5, color = "grey30") +
+  # geom_vline(xintercept = yday(as.Date("2001-05-01")),
+  #            linetype = "dotdash", linewidth = 0.5, color = "grey30") +
+  geom_area(alpha = 0.20, position = "identity") +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~ label, nrow = 1) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  scale_fill_manual( values = hab_cols, name = NULL) +
+  scale_x_continuous(breaks = mo_breaks, labels = mo_labs,
+                     limits = c(80, 140)) +
+  labs(
+    x       = "Day of year",
+    y       = "Proportion of births",
+    title   = "Distribution of spawning dates by scenario",
+    caption = paste(
+      "Pooled across all experimental-period cohort-years.",
+      "Dashed = April 1 (cohort tracking reference); dot-dash = May 1 (msb = 1)."
+    )
+  ) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        strip.background = element_rect(fill = "grey92"),
+        legend.position  = "bottom")
+```
 
 
 ## Abundance and biomass
@@ -294,8 +317,43 @@ p_cv_b   <- ab_plot(pop_sum, "cv_b",   "CV of biomass",       "(D) CV of biomass
 
 ```{r}
 #| fig-width: 9.5
-#| fig-height: 4
+#| fig-height: 8
 #| 
+p_ad_n <- pop_sum %>% 
+  select(hab_type, label, prop_cold, mean_n) %>%
+  pivot_wider(names_from = hab_type, values_from = mean_n) %>%
+  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
+  mutate(ad_coldwarm = cold_warm - cold_only,
+         ad_highp = high_P - cold_only) %>%
+  pivot_longer(ad_coldwarm:ad_highp, names_to = "hab_type", values_to = "absdiff") %>%
+  mutate(hab_type = recode(hab_type, "ad_coldwarm" = "Cold + Warm", "ad_highp" = "Cold + Warm (high P)")) %>%
+  ggplot(aes(x = prop_cold, y = absdiff, color = hab_type)) +
+  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
+  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
+  scale_color_manual(values = hab_cols, name = "Scenario") +
+  labs(y = "Absolute difference in abundance (N)") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid.minor = element_blank()) +
+  cold_x()
+
+p_ad_b <- pop_sum %>% 
+  select(hab_type, label, prop_cold, mean_b) %>%
+  pivot_wider(names_from = hab_type, values_from = mean_b) %>%
+  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
+  mutate(ad_coldwarm = cold_warm - cold_only,
+         ad_highp = high_P - cold_only) %>%
+  pivot_longer(ad_coldwarm:ad_highp, names_to = "hab_type", values_to = "absdiff") %>%
+  mutate(hab_type = recode(hab_type, "ad_coldwarm" = "Cold + Warm", "ad_highp" = "Cold + Warm (high P)")) %>%
+  ggplot(aes(x = prop_cold, y = absdiff, color = hab_type)) +
+  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
+  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
+  scale_color_manual(values = hab_cols, name = "Scenario") +
+  labs(y = "Absolute difference in biomass (kg)") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid.minor = element_blank()) +
+  cold_x()
+
+
 p_rd_n <- pop_sum %>% 
   select(hab_type, label, prop_cold, mean_n) %>%
   pivot_wider(names_from = hab_type, values_from = mean_n) %>%
@@ -308,7 +366,7 @@ p_rd_n <- pop_sum %>%
   geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
   geom_point(aes(shape = hab_type), size = 3, shape = 16) +
   scale_color_manual(values = hab_cols, name = "Scenario") +
-  labs(y = "Relative difference in abundance") +
+  labs(y = "Relative difference in abundance (%)") +
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank()) +
   cold_x("Proportion cold habitat") +
@@ -326,18 +384,17 @@ p_rd_b <- pop_sum %>%
   geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
   geom_point(aes(shape = hab_type), size = 3, shape = 16) +
   scale_color_manual(values = hab_cols, name = "Scenario") +
-  labs(y = "Relative difference in biomass") +
+  labs(y = "Relative difference in biomass (%)") +
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank()) +
   cold_x("Proportion cold habitat") +
   scale_y_continuous(labels = scales::label_percent(accuracy = 1), limits = c(0,5))
 
-
-p_rd_n + p_rd_b +
+(p_ad_n + p_ad_b) / (p_rd_n + p_rd_b) +
   plot_layout(guides = "collect") &
   theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
   plot_annotation(title = "Marginal benefit of seasonally warm habitat to population outcomes",
-                  subtitle = "Relative difference between cold+warm and cold-only") 
+                  subtitle = "Absolute and relative difference between cold+warm and cold-only") 
 ```
 
 
@@ -564,21 +621,12 @@ compute_patch_growth_seasonal <- function(ibm_long, scen_key) {
     mutate(scen_key = scen_key)
 }
 
-patch_growth_seasonal <- bind_rows(
-  bind_rows(
-    compute_patch_growth_seasonal(ibm_long_95, "95"),
-    compute_patch_growth_seasonal(ibm_long_75, "75"),
-    compute_patch_growth_seasonal(ibm_long_50, "50"),
-    compute_patch_growth_seasonal(ibm_long_25, "25"),
-    compute_patch_growth_seasonal(ibm_long_05, "05")
-  ) |> mutate(hab_type = "Cold + Warm"),
-  bind_rows(
-    compute_patch_growth_seasonal(ibm_long_95_highpcm, "95"),
-    compute_patch_growth_seasonal(ibm_long_75_highpcm, "75"),
-    compute_patch_growth_seasonal(ibm_long_50_highpcm, "50"),
-    compute_patch_growth_seasonal(ibm_long_25_highpcm, "25"),
-    compute_patch_growth_seasonal(ibm_long_05_highpcm, "05")
-  ) |> mutate(hab_type = "Cold + Warm (high P)")
+patch_growth_seasonal <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht != "Cold only")],
+  function(scen) {
+    compute_patch_growth_seasonal(scen$df, pc_to_key(scen$pc)) |>
+      mutate(hab_type = scen$ht)
+  }
 ) |>
   left_join(scen_meta, by = "scen_key") |>
   mutate(

@@ -109,6 +109,30 @@ run_scenario("TempOffset_ColdWarm_50percold_highPwarm", overwrite = TRUE)
 run_scenario("TempOffset_ColdWarm_25percold_highPwarm", overwrite = TRUE)
 run_scenario("TempOffset_ColdWarm_05percold_highPwarm", overwrite = TRUE)
 
+
+# Variable Harvest, 50% cold, harvest rates = 0.1-0.5
+run_scenario("Harvest_10_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_20_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_30_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_40_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_50_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_70_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_90_ColdOnly_50percold", overwrite = TRUE)
+
+run_scenario("Harvest_10_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_20_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_30_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_40_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_50_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_70_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_90_ColdWarm_50percold", overwrite = TRUE)
+
+run_scenario("Harvest_10_ColdWarmHigh_50percold", overwrite = TRUE)
+run_scenario("Harvest_20_ColdWarmHigh_50percold", overwrite = TRUE)
+run_scenario("Harvest_30_ColdWarmHigh_50percold", overwrite = TRUE)
+run_scenario("Harvest_40_ColdWarmHigh_50percold", overwrite = TRUE)
+run_scenario("Harvest_50_ColdWarmHigh_50percold", overwrite = TRUE)
+
 # ── Batch run ─────────────────────────────────────────────────────────────────
 # Uncomment to run all scenarios (skips any with existing results):
 

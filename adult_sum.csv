@@ -1,0 +1,16 @@
+hab_type,label,prop_cold,A_cold,A_warm,mean_n
+Cold only,95% cold,0.95,1.9,0,112.8
+Cold only,75% cold,0.75,1.5,0,85.42
+Cold only,50% cold,0.5,1,0,59.04
+Cold only,25% cold,0.25,0.5,0,29.4
+Cold only,5% cold,0.05,0.1,0,5.48
+Cold + Warm,95% cold,0.95,1.9,0.10000000000000009,100.96
+Cold + Warm,75% cold,0.75,1.5,0.5,159.84
+Cold + Warm,50% cold,0.5,1,1,169.64
+Cold + Warm,25% cold,0.25,0.5,1.5,94.42
+Cold + Warm,5% cold,0.05,0.1,1.9,19.5
+Cold + Warm (high P),95% cold,0.95,1.9,0.10000000000000009,106.08
+Cold + Warm (high P),75% cold,0.75,1.5,0.5,191.04
+Cold + Warm (high P),50% cold,0.5,1,1,193.24
+Cold + Warm (high P),25% cold,0.25,0.5,1.5,101.6
+Cold + Warm (high P),5% cold,0.05,0.1,1.9,25.6

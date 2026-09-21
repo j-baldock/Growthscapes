@@ -90,6 +90,10 @@ base_params <- list(
   repro_cost   = 0.2,
   sigma_fecund = 0.085,
   egg_surv     = 0.15, 
+  
+  # ── Harvest ───────────────────────────────────────────
+  harvest_rate  = 0,
+  harvest_doy   = 91L,
 
   # ── Seeds ─────────────────────────────────────────────
   hab_seed = 123,
@@ -97,78 +101,60 @@ base_params <- list(
 )
 
 
+# summary table from CompareOutcomes.qmd
+# adult_sum <- read.csv("adult_sum.csv")
+# adult_sum
+# adult_sum$mean_n[adult_sum$hab_type == "Cold only" & adult_sum$prop_cold == 0.50]
+
+
 scenarios <- list(
-  # null_cold                   = modifyList(base_params, list(A_warm = 0, 
-  #                                                            A_warm_target = NA)),
-  # temp_mult                   = base_params,
-  # temp_offset                 = modifyList(base_params, list(base_temp_warm  = 15,
-  #                                                            amplitude_warm  = 9.5,
-  #                                                            temp_min_warm   = 0.5,
-  #                                                            base_temp_cold  = 6.6,
-  #                                                            amplitude_cold  = 8.4,
-  #                                                            temp_min_cold   = 0)),
-  # temp_offset_diffP           = modifyList(base_params, list(base_temp_warm  = 15,
-  #                                                            amplitude_warm  = 9.5,
-  #                                                            temp_min_warm   = 0.5,
-  #                                                            base_temp_cold  = 6.6,
-  #                                                            amplitude_cold  = 8.4,
-  #                                                            temp_min_cold   = 0,
-  #                                                            pcmax_warm      = 0.6,
-  #                                                            pcmax_cold      = 0.4)),
-  
-  # Fixed habitat scenarios: changing habitat availability is tested by comparing among scenarios
+
   ### Null (cold only)
-  TempOffset_ColdOnly_95percold      = modifyList(base_params, list(A_cold    = 1.9,
-                                                                    A_warm    = 0)),
-  
-  TempOffset_ColdOnly_75percold      = modifyList(base_params, list(A_cold    = 1.5,
-                                                                    A_warm    = 0)),
-  
-  TempOffset_ColdOnly_50percold      = modifyList(base_params, list(A_cold    = 1.0,
-                                                                    A_warm    = 0)),
-  
-  TempOffset_ColdOnly_25percold      = modifyList(base_params, list(A_cold    = 0.5,
-                                                                    A_warm    = 0)),
-  
-  TempOffset_ColdOnly_05percold      = modifyList(base_params, list(A_cold    = 0.1,
-                                                                    A_warm    = 0)),
+  TempOffset_ColdOnly_95percold             = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0)),
+  TempOffset_ColdOnly_75percold             = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0)),
+  TempOffset_ColdOnly_50percold             = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0)),
+  TempOffset_ColdOnly_25percold             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0)),
+  TempOffset_ColdOnly_05percold             = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0)),
   
   ### Cold + Warm, same Pcmax
-  TempOffset_ColdWarm_95percold      = modifyList(base_params, list(A_cold    = 1.9,
-                                                                    A_warm    = 0.1)),
-  
-  TempOffset_ColdWarm_75percold      = modifyList(base_params, list(A_cold    = 1.5,
-                                                                    A_warm    = 0.5)),
-  
-  TempOffset_ColdWarm_50percold      = modifyList(base_params, list(A_cold    = 1.0,
-                                                                    A_warm    = 1.0)),
-  
-  TempOffset_ColdWarm_25percold      = modifyList(base_params, list(A_cold    = 0.5,
-                                                                    A_warm    = 1.5)),
-  
-  TempOffset_ColdWarm_05percold      = modifyList(base_params, list(A_cold    = 0.1,
-                                                                    A_warm    = 1.9)),
+  TempOffset_ColdWarm_95percold             = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1)),
+  TempOffset_ColdWarm_75percold             = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5)),
+  TempOffset_ColdWarm_50percold             = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0)),
+  TempOffset_ColdWarm_25percold             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5)),
+  TempOffset_ColdWarm_05percold             = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9)),
   
   ### Cold + Warm, high Pcmax in warm
-  TempOffset_ColdWarm_95percold_highPwarm      = modifyList(base_params, list(A_cold    = 1.9,
-                                                                    A_warm    = 0.1,
-                                                                    pcmax_warm = 0.6)),
+  TempOffset_ColdWarm_95percold_highPwarm   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6)),
+  TempOffset_ColdWarm_75percold_highPwarm   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6)),
+  TempOffset_ColdWarm_50percold_highPwarm   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6)),
+  TempOffset_ColdWarm_25percold_highPwarm   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6)),
+  TempOffset_ColdWarm_05percold_highPwarm   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6)),
   
-  TempOffset_ColdWarm_75percold_highPwarm      = modifyList(base_params, list(A_cold    = 1.5,
-                                                                    A_warm    = 0.5,
-                                                                    pcmax_warm = 0.6)),
   
-  TempOffset_ColdWarm_50percold_highPwarm      = modifyList(base_params, list(A_cold    = 1.0,
-                                                                    A_warm    = 1.0,
-                                                                    pcmax_warm = 0.6)),
   
-  TempOffset_ColdWarm_25percold_highPwarm      = modifyList(base_params, list(A_cold    = 0.5,
-                                                                    A_warm    = 1.5,
-                                                                    pcmax_warm = 0.6)),
+  # Harvested
+  Harvest_10_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.1)),
+  Harvest_20_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.2)),
+  Harvest_30_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.3)),
+  Harvest_40_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.4)),
+  Harvest_50_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.5)),
+  Harvest_70_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.7)),
+  Harvest_90_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.9)),
   
-  TempOffset_ColdWarm_05percold_highPwarm      = modifyList(base_params, list(A_cold    = 0.1,
-                                                                    A_warm    = 1.9,
-                                                                    pcmax_warm = 0.6))
+  Harvest_10_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.1)),
+  Harvest_20_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.2)),
+  Harvest_30_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.3)),
+  Harvest_40_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.4)),
+  Harvest_50_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.5)),
+  Harvest_70_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.7)),
+  Harvest_90_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.9)),
+  
+  Harvest_10_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.1)),
+  Harvest_20_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.2)),
+  Harvest_30_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.3)),
+  Harvest_40_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.4)),
+  Harvest_50_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.5))
+
   
 )
 
@@ -201,5 +187,20 @@ plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_25percold"]]), exp_st
 
 
 plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_05percold"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_05percold"]]$mindate + years(scenarios[["TempOffset_ColdWarm_05percold"]]$nyears_burnin))
+
+
+plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_95percold_highPwarm"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_95percold_highPwarm"]]$mindate + years(scenarios[["TempOffset_ColdWarm_95percold_highPwarm"]]$nyears_burnin))
+
+
+plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_75percold_highPwarm"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_75percold_highPwarm"]]$mindate + years(scenarios[["TempOffset_ColdWarm_75percold_highPwarm"]]$nyears_burnin))
+
+
+plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_50percold_highPwarm"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_50percold_highPwarm"]]$mindate + years(scenarios[["TempOffset_ColdWarm_50percold_highPwarm"]]$nyears_burnin))
+
+
+plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_25percold_highPwarm"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_25percold_highPwarm"]]$mindate + years(scenarios[["TempOffset_ColdWarm_25percold_highPwarm"]]$nyears_burnin))
+
+
+plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_05percold_highPwarm"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_05percold_highPwarm"]]$mindate + years(scenarios[["TempOffset_ColdWarm_05percold_highPwarm"]]$nyears_burnin))
 
 

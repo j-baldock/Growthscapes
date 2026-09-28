@@ -48,9 +48,17 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   crit_pcmax_hi              <- params$crit_pcmax_hi              %||% 0.40   # pcmax_adjusted_dd at which ~99% critical-period survival is achieved (negligible cost)
   crit_period_days           <- params$crit_period_days           %||% 60L    # length of the critical period (days post-hatch)
   sim_seed                   <- params$sim_seed                   %||% 7843
-  harvest_rate               <- params$harvest_rate               %||% 0          # h: per-individual harvest probability applied to all eligible (weight ≥ 200 g) adults (0 = no harvest)
-  harvest_doy                <- params$harvest_doy                %||% 1L         # day-of-year on which the annual harvest pulse is applied (must precede spawning season)
-  nyears_burnin              <- params$nyears_burnin              %||% 50L        # burn-in years; harvest is suppressed during this period
+  harvest_rate               <- params$harvest_rate               %||% 0           # target seasonal exploitation rate E (proportion of eligible fish removed per harvest season; 0 = no harvest)
+  harvest_window             <- params$harvest_window             %||% c(91L, 91L) # DOY range of the harvest season (default = April 1 single-pulse; e.g. c(152L, 273L) for June 1–Sept 30)
+  nyears_burnin              <- params$nyears_burnin              %||% 50L         # burn-in years; harvest is suppressed during this period
+
+  # Back-calculate the daily exploitation rate d from the target seasonal rate E and window length N:
+  #   E = 1 - (1 - d)^N  →  d = 1 - (1 - E)^(1/N)
+  # For a single-day pulse (harvest_window[1] == harvest_window[2], N = 1) this reduces to d = E,
+  # preserving backward-compatibility with the original per-individual harvest probability.
+  harvest_window_N  <- harvest_window[2] - harvest_window[1] + 1L
+  harvest_daily_d   <- if (harvest_window_N == 1L || harvest_rate == 0) harvest_rate
+                       else 1 - (1 - harvest_rate)^(1 / harvest_window_N)
 
   # Competition grouping vector: used in group_by(across(all_of(eff_grp))) in Steps 2 and 3.
   # When age_structured_competition = TRUE, eff_density is computed within patch × age class.
@@ -132,6 +140,25 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   ibm_summary_list <- vector("list", n_days)
   switches    <- integer(n_fish)  # count patch switches per fish (indexed by pid)
   next_pid    <- n_fish + 1L      # next available pid (grows as offspring are born)
+
+  # Eligible PIDs for distributed harvest: assessed once at the start of each harvest window
+  # (static eligibility — peak_weight ≥ 200 g on the first day of the window) and carried
+  # forward across days. Fish that die or are harvested mid-window are removed from this set.
+  # Initialised to empty; populated on the first day of the harvest window each year.
+  harvest_eligible_pids      <- integer(0)
+  harvest_window_n_eligible  <- 0L   # eligible count recorded at window open (reset each year)
+  harvest_window_n_harvested <- 0L   # cumulative fish removed within the current window (reset each year)
+
+  # Harvest summary: one row per harvest year; collated post-loop from harvest_summary_list.
+  harvest_summary_list  <- list()
+  harvest_summary_empty <- tibble(
+    year        = integer(),  # calendar year of the harvest window
+    n_eligible  = integer(),  # fish eligible at window open (peak_weight ≥ 200 g)
+    n_harvested = integer(),  # total fish removed during the window
+    d           = numeric(),  # daily exploitation rate (back-calculated from E and N)
+    E           = numeric(),  # target seasonal exploitation rate (params$harvest_rate)
+    E_hat       = numeric()   # realised exploitation rate = n_harvested / n_eligible
+  )
 
   # Spawn log: accumulated as a list of tibbles (one element per spawning event)
   # and bound once at the end to avoid O(N²) memory growth.
@@ -552,35 +579,73 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # Day-of-year needed for harvest timing and spawning probability
     doy_d <- yday(habitat_df$date[d])
 
-    # ── 5a. PRE-SPAWN HARVEST ────────────────────────────────────────────────
-    # Annual pulse on harvest_doy. Eligible fish: weight ≥ w_min (200 g), with
-    # no size selectivity above that floor. Each eligible fish is harvested
-    # independently with probability harvest_rate (Bernoulli trial), so the
-    # actual number removed is binomially distributed around
-    # E[n] = harvest_rate × n_eligible. One row per harvested fish is appended
-    # to harvest_log_list.
-    if (harvest_rate > 0 &&
-        doy_d == harvest_doy && habitat_df$date[d] >= exp_start_date) {
-      eligible <- which(fish_pop$weight >= 200)
+    # ── 5a. HARVEST ──────────────────────────────────────────────────────────
+    # Distributed harvest over a seasonal window (harvest_window[1]:harvest_window[2] DOY).
+    # A single-day pulse is a special case where harvest_window[1] == harvest_window[2].
+    #
+    # Design:
+    #   (i)   On the FIRST day of the window: assess static eligibility (peak_weight ≥ 200 g),
+    #         record eligible PIDs, and reset within-window counters.
+    #   (ii)  On EACH day in the window: apply daily rate harvest_daily_d as an independent
+    #         Bernoulli trial for each eligible fish still alive. Harvested fish are removed
+    #         from fish_pop and the eligible set; naturally dead fish are absent automatically.
+    #   (iii) On the LAST day of the window: compute and log the annual harvest summary
+    #         (n_eligible, n_harvested, d, E, Ê = n_harvested / n_eligible).
+    if (harvest_rate > 0 && habitat_df$date[d] >= exp_start_date) {
 
-      if (length(eligible) > 0) {
-        harvested   <- as.logical(rbinom(length(eligible), size = 1, prob = harvest_rate))
-        harvest_idx <- eligible[harvested]
+      # (i) Window open: assess static eligibility and reset within-window counters
+      if (doy_d == harvest_window[1]) {
+        harvest_eligible_pids      <- fish_pop$pid[fish_pop$peak_weight >= 200]
+        harvest_window_n_eligible  <- length(harvest_eligible_pids)
+        harvest_window_n_harvested <- 0L
+      }
 
-        if (length(harvest_idx) > 0) {
-          harvest_log_list[[length(harvest_log_list) + 1L]] <- tibble(
-            dayofsim  = d,
-            year      = current_year,
-            pid       = fish_pop$pid[harvest_idx],
-            weight    = fish_pop$weight[harvest_idx],
-            age       = fish_pop$age_days[harvest_idx] / 365,
-            patch     = fish_pop$patch[harvest_idx],
-            condition = fish_pop$weight[harvest_idx] / fish_pop$peak_weight[harvest_idx]
-          )
+      # (ii) Daily draw within the window
+      if (doy_d >= harvest_window[1] && doy_d <= harvest_window[2] &&
+          length(harvest_eligible_pids) > 0) {
+        # Rows of eligible fish that are still alive (intersection of alive pop with eligible set)
+        eligible_rows <- which(fish_pop$pid %in% harvest_eligible_pids)
 
-          fish_pop  <- fish_pop[-harvest_idx, ]
-          growth_df <- growth_df[-harvest_idx, ]  # keep growth_df aligned with fish_pop
+        if (length(eligible_rows) > 0) {
+          harvested   <- as.logical(rbinom(length(eligible_rows), size = 1, prob = harvest_daily_d))
+          harvest_idx <- eligible_rows[harvested]
+
+          if (length(harvest_idx) > 0) {
+            harvested_pids <- fish_pop$pid[harvest_idx]  # capture before removal
+
+            harvest_log_list[[length(harvest_log_list) + 1L]] <- tibble(
+              dayofsim    = d,
+              year        = current_year,
+              pid         = fish_pop$pid[harvest_idx],
+              weight      = fish_pop$weight[harvest_idx],
+              peak_weight = fish_pop$peak_weight[harvest_idx],
+              age         = fish_pop$age_days[harvest_idx] / 365,
+              patch       = fish_pop$patch[harvest_idx],
+              condition   = fish_pop$weight[harvest_idx] / fish_pop$peak_weight[harvest_idx]
+            )
+
+            fish_pop  <- fish_pop[-harvest_idx, ]
+            growth_df <- growth_df[-harvest_idx, ]  # keep growth_df row-aligned with fish_pop
+
+            # Drop harvested PIDs from the eligible set so they are not re-sampled
+            harvest_eligible_pids      <- setdiff(harvest_eligible_pids, harvested_pids)
+            harvest_window_n_harvested <- harvest_window_n_harvested + length(harvested_pids)
+          }
         }
+      }
+
+      # (iii) Window close: log annual harvest summary
+      if (doy_d == harvest_window[2]) {
+        harvest_summary_list[[length(harvest_summary_list) + 1L]] <- tibble(
+          year        = current_year,
+          n_eligible  = harvest_window_n_eligible,
+          n_harvested = harvest_window_n_harvested,
+          d           = harvest_daily_d,
+          E           = harvest_rate,
+          E_hat       = if (harvest_window_n_eligible > 0)
+                          harvest_window_n_harvested / harvest_window_n_eligible
+                        else NA_real_
+        )
       }
     }
     
@@ -792,9 +857,10 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   }
 
   # ── Collate accumulated lists into final data frames ─────────────────────────
-  fish_registry <- bind_rows(fish_registry_list)
-  spawn_log     <- if (length(spawn_log_list)   > 0) bind_rows(spawn_log_list)   else spawn_log_empty
-  harvest_log   <- if (length(harvest_log_list) > 0) bind_rows(harvest_log_list) else harvest_log_empty
+  fish_registry    <- bind_rows(fish_registry_list)
+  spawn_log        <- if (length(spawn_log_list)        > 0) bind_rows(spawn_log_list)        else spawn_log_empty
+  harvest_log      <- if (length(harvest_log_list)      > 0) bind_rows(harvest_log_list)      else harvest_log_empty
+  harvest_summary  <- if (length(harvest_summary_list)  > 0) bind_rows(harvest_summary_list)  else harvest_summary_empty
 
   # ── Collate ibm_long (experimental period only; join columns embedded) ────────
   # No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored
@@ -805,15 +871,16 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   ibm_summary <- bind_rows(ibm_summary_list)
 
   list(
-    ibm_records   = ibm_records,
-    ibm_long      = ibm_long,
-    ibm_summary   = ibm_summary,
-    fish_registry = fish_registry,
-    spawn_log     = spawn_log,
-    harvest_log   = harvest_log,
-    switches      = switches,
-    params        = params,
-    habitat_df    = habitat_df
+    ibm_records      = ibm_records,
+    ibm_long         = ibm_long,
+    ibm_summary      = ibm_summary,
+    fish_registry    = fish_registry,
+    spawn_log        = spawn_log,
+    harvest_log      = harvest_log,
+    harvest_summary  = harvest_summary,
+    switches         = switches,
+    params           = params,
+    habitat_df       = habitat_df
   )
 }
 

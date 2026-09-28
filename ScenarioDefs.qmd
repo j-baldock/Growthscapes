@@ -103,8 +103,8 @@ base_params <- list(
   egg_surv     = 0.15, 
   
   # ── Harvest ───────────────────────────────────────────
-  harvest_rate  = 0,
-  harvest_doy   = 91L,
+  harvest_rate     = 0,
+  harvest_window   = c(91L, 91L),
 
   # ── Seeds ─────────────────────────────────────────────
   hab_seed = 123,
@@ -153,29 +153,40 @@ scenarios <- list(
   
   
   # Harvested
-  Harvest_10_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.1)),
-  Harvest_20_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.2)),
-  Harvest_30_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.3)),
-  Harvest_40_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.4)),
-  Harvest_50_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.5)),
-  Harvest_70_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.7)),
-  Harvest_90_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.9)),
+  Harvest_10_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.10,   harvest_window = c(152L, 273L))),
+  Harvest_20_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.20,   harvest_window = c(152L, 273L))),
+  Harvest_30_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.30,   harvest_window = c(152L, 273L))),
+  Harvest_40_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.40,   harvest_window = c(152L, 273L))),
+  Harvest_50_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.50,   harvest_window = c(152L, 273L))),
+  Harvest_55_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.55,   harvest_window = c(152L, 273L))),
+  Harvest_60_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.60,   harvest_window = c(152L, 273L))),
+  Harvest_65_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.65,   harvest_window = c(152L, 273L))),
+  Harvest_70_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.70,   harvest_window = c(152L, 273L))),
+  Harvest_75_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.75,   harvest_window = c(152L, 273L))),
+  Harvest_80_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.80,   harvest_window = c(152L, 273L))),
+  Harvest_90_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.90,   harvest_window = c(152L, 273L))),
   
-  Harvest_10_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.1)),
-  Harvest_20_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.2)),
-  Harvest_30_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.3)),
-  Harvest_40_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.4)),
-  Harvest_50_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.5)),
-  Harvest_70_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.7)),
-  Harvest_90_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.9)),
+  Harvest_10_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.10,   harvest_window = c(152L, 273L))),
+  Harvest_20_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.20,   harvest_window = c(152L, 273L))),
+  Harvest_30_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.30,   harvest_window = c(152L, 273L))),
+  Harvest_40_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.40,   harvest_window = c(152L, 273L))),
+  Harvest_50_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.50,   harvest_window = c(152L, 273L))),
+  Harvest_55_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.55,   harvest_window = c(152L, 273L))),
+  Harvest_60_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.60,   harvest_window = c(152L, 273L))),
+  Harvest_65_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.65,   harvest_window = c(152L, 273L))),
+  Harvest_70_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.70,   harvest_window = c(152L, 273L))),
+  Harvest_75_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.75,   harvest_window = c(152L, 273L))),
+  Harvest_80_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.80,   harvest_window = c(152L, 273L))),
+  Harvest_90_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.90,   harvest_window = c(152L, 273L))),
   
   Harvest_10_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.1)),
   Harvest_20_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.2)),
   Harvest_30_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.3)),
   Harvest_40_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.4)),
-  Harvest_50_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.5))
+  Harvest_50_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.5)),
 
   
+  Harvest_50_ColdOnly_50percold_DISTRIBUTEDTEST      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.5,   harvest_window = c(152L, 273L)))
 )
 ```
 

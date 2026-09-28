@@ -116,7 +116,12 @@ run_scenario("Harvest_20_ColdOnly_50percold", overwrite = TRUE)
 run_scenario("Harvest_30_ColdOnly_50percold", overwrite = TRUE)
 run_scenario("Harvest_40_ColdOnly_50percold", overwrite = TRUE)
 run_scenario("Harvest_50_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_55_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_60_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_65_ColdOnly_50percold", overwrite = TRUE)
 run_scenario("Harvest_70_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_75_ColdOnly_50percold", overwrite = TRUE)
+run_scenario("Harvest_80_ColdOnly_50percold", overwrite = TRUE)
 run_scenario("Harvest_90_ColdOnly_50percold", overwrite = TRUE)
 
 run_scenario("Harvest_10_ColdWarm_50percold", overwrite = TRUE)
@@ -124,7 +129,12 @@ run_scenario("Harvest_20_ColdWarm_50percold", overwrite = TRUE)
 run_scenario("Harvest_30_ColdWarm_50percold", overwrite = TRUE)
 run_scenario("Harvest_40_ColdWarm_50percold", overwrite = TRUE)
 run_scenario("Harvest_50_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_55_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_60_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_65_ColdWarm_50percold", overwrite = TRUE)
 run_scenario("Harvest_70_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_75_ColdWarm_50percold", overwrite = TRUE)
+run_scenario("Harvest_80_ColdWarm_50percold", overwrite = TRUE)
 run_scenario("Harvest_90_ColdWarm_50percold", overwrite = TRUE)
 
 run_scenario("Harvest_10_ColdWarmHigh_50percold", overwrite = TRUE)
@@ -132,6 +142,10 @@ run_scenario("Harvest_20_ColdWarmHigh_50percold", overwrite = TRUE)
 run_scenario("Harvest_30_ColdWarmHigh_50percold", overwrite = TRUE)
 run_scenario("Harvest_40_ColdWarmHigh_50percold", overwrite = TRUE)
 run_scenario("Harvest_50_ColdWarmHigh_50percold", overwrite = TRUE)
+
+
+
+run_scenario("Harvest_50_ColdOnly_50percold_DISTRIBUTEDTEST", overwrite = TRUE)
 
 # ── Batch run ─────────────────────────────────────────────────────────────────
 # Uncomment to run all scenarios (skips any with existing results):

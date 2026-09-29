@@ -111,6 +111,35 @@ run_scenario("TempOffset_ColdWarm_05percold_highPwarm", overwrite = TRUE)
 
 
 # Variable Harvest, 50% cold, harvest rates = 0.1-0.5
+
+### 75% cold
+run_scenario("Harvest_10_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_20_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_30_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_40_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_50_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_55_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_60_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_65_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_70_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_75_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_80_ColdOnly_75percold", overwrite = TRUE)
+run_scenario("Harvest_90_ColdOnly_75percold", overwrite = TRUE)
+
+run_scenario("Harvest_10_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_20_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_30_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_40_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_50_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_55_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_60_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_65_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_70_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_75_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_80_ColdWarm_75percold", overwrite = TRUE)
+run_scenario("Harvest_90_ColdWarm_75percold", overwrite = TRUE)
+
+### 50% cold
 run_scenario("Harvest_10_ColdOnly_50percold", overwrite = TRUE)
 run_scenario("Harvest_20_ColdOnly_50percold", overwrite = TRUE)
 run_scenario("Harvest_30_ColdOnly_50percold", overwrite = TRUE)
@@ -137,15 +166,34 @@ run_scenario("Harvest_75_ColdWarm_50percold", overwrite = TRUE)
 run_scenario("Harvest_80_ColdWarm_50percold", overwrite = TRUE)
 run_scenario("Harvest_90_ColdWarm_50percold", overwrite = TRUE)
 
-run_scenario("Harvest_10_ColdWarmHigh_50percold", overwrite = TRUE)
-run_scenario("Harvest_20_ColdWarmHigh_50percold", overwrite = TRUE)
-run_scenario("Harvest_30_ColdWarmHigh_50percold", overwrite = TRUE)
-run_scenario("Harvest_40_ColdWarmHigh_50percold", overwrite = TRUE)
-run_scenario("Harvest_50_ColdWarmHigh_50percold", overwrite = TRUE)
 
+### 25% cold
+run_scenario("Harvest_10_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_20_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_30_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_40_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_50_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_55_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_60_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_65_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_70_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_75_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_80_ColdOnly_25percold", overwrite = TRUE)
+run_scenario("Harvest_90_ColdOnly_25percold", overwrite = TRUE)
 
+run_scenario("Harvest_10_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_20_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_30_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_40_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_50_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_55_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_60_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_65_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_70_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_75_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_80_ColdWarm_25percold", overwrite = TRUE)
+run_scenario("Harvest_90_ColdWarm_25percold", overwrite = TRUE)
 
-run_scenario("Harvest_50_ColdOnly_50percold_DISTRIBUTEDTEST", overwrite = TRUE)
 
 # ── Batch run ─────────────────────────────────────────────────────────────────
 # Uncomment to run all scenarios (skips any with existing results):

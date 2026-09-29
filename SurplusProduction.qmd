@@ -26,12 +26,8 @@ Load relevant .rds objects and bind directly into a list. Using a helper functio
 ```{r}
 #| cache: false
 
-# Extract params and habitat_df from a representative 50%-cold scenario
-res            <- readRDS("results/TempOffset_ColdOnly_50percold.rds")
-sim_params     <- res$params
-habitat_df     <- res$habitat_df
-exp_start_date <- sim_params$mindate + years(sim_params$nyears_burnin)
-rm(res)
+# get experiment start date from base parameters
+exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
 
 # Helper: read one scenario, extract ibm_long summaries, and free res before returning.
 # Rather than storing the full ibm_long data frame (very large), we pre-extract the
@@ -71,6 +67,7 @@ load_scen <- function(path, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
 }
 
 ibm_list_mech <- list(
+  # PrCold = 50%
   load_scen("results/TempOffset_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.00,  0.5,  NA_real_),
   load_scen("results/Harvest_10_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.10,  0.5,  NA_real_),
   load_scen("results/Harvest_20_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.20,  0.5,  NA_real_),
@@ -97,7 +94,36 @@ ibm_list_mech <- list(
   load_scen("results/Harvest_70_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.70,  0.5,  0.5),
   load_scen("results/Harvest_75_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.75,  0.5,  0.5),
   load_scen("results/Harvest_80_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.80,  0.5,  0.5),
-  load_scen("results/Harvest_90_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.90,  0.5,  0.5)
+  load_scen("results/Harvest_90_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.90,  0.5,  0.5),
+  
+  # PrCold = 25%
+  load_scen("results/TempOffset_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.00,  0.5,  NA_real_),
+  load_scen("results/Harvest_10_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.10,  0.5,  NA_real_),
+  load_scen("results/Harvest_20_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.20,  0.5,  NA_real_),
+  load_scen("results/Harvest_30_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.30,  0.5,  NA_real_),
+  load_scen("results/Harvest_40_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.40,  0.5,  NA_real_),
+  load_scen("results/Harvest_50_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.50,  0.5,  NA_real_),
+  load_scen("results/Harvest_55_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.55,  0.5,  NA_real_),
+  load_scen("results/Harvest_60_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.60,  0.5,  NA_real_),
+  load_scen("results/Harvest_65_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.65,  0.5,  NA_real_),
+  load_scen("results/Harvest_70_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.70,  0.5,  NA_real_),
+  load_scen("results/Harvest_75_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.75,  0.5,  NA_real_),
+  load_scen("results/Harvest_80_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.80,  0.5,  NA_real_),
+  load_scen("results/Harvest_90_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.90,  0.5,  NA_real_),
+  
+  load_scen("results/TempOffset_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.00,  0.5,  0.5),
+  load_scen("results/Harvest_10_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.10,  0.5,  0.5),
+  load_scen("results/Harvest_20_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.20,  0.5,  0.5),
+  load_scen("results/Harvest_30_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.30,  0.5,  0.5),
+  load_scen("results/Harvest_40_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.40,  0.5,  0.5),
+  load_scen("results/Harvest_50_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.50,  0.5,  0.5),
+  load_scen("results/Harvest_55_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.55,  0.5,  0.5),
+  load_scen("results/Harvest_60_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.60,  0.5,  0.5),
+  load_scen("results/Harvest_65_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.65,  0.5,  0.5),
+  load_scen("results/Harvest_70_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.70,  0.5,  0.5),
+  load_scen("results/Harvest_75_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.75,  0.5,  0.5),
+  load_scen("results/Harvest_80_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.80,  0.5,  0.5),
+  load_scen("results/Harvest_90_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.90,  0.5,  0.5)
 )
 ```
 
@@ -154,19 +180,19 @@ hab_shape <- c("Cold only" = 16,         "Cold + Warm" = 16,          "Cold + Wa
 exp_oct1_hr <- purrr::map_dfr(ibm_list_mech, function(scen) {
   scen$oct1_exp |>
     mutate(hab_type = scen$ht, 
+           prop_cold = scen$pc,
            hr = scen$hr) %>%
-    mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+    mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")),
+           prop_cold = factor(prop_cold, levels = pc_levels))
 }) |>
   mutate(
-    harvest_rate_fact = factor(
-      hr_labels_mech[match(hr, hr_levels_mech)],
-      levels = hr_labels_mech
-    )
+    harvest_rate_fact = factor(hr_labels_mech[match(hr, hr_levels_mech)], levels = hr_labels_mech),
+    prop_cold_fact = factor(pc_labels_mech[match(prop_cold, pc_levels_mech)], levels = pc_labels_mech)
   )
 
 waa_hr <- exp_oct1_hr |>
   filter(yr >= 2060) %>% # filter b/c in some sim. runs it takes a few years for mean weight to stabilize following the start of harvest
-  group_by(hab_type, harvest_rate_fact, hr, age_class) |>
+  group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate_fact, hr, age_class) |>
   summarise(
     mean_wt = mean(weight),
     sd_wt   = sd(weight),
@@ -192,17 +218,17 @@ p1 <- ggplot(waa_hr, aes(x = age_class, y = mean_wt,
   ) +
   theme_bw(base_size = 12) +
   theme(legend.position = "right", panel.grid.minor = element_blank()) +
-  facet_wrap(~hab_type, nrow = 1)
+  facet_grid(prop_cold_fact~hab_type)
 
 
 # Relative difference vs. 0% harvest baseline
 baseline_waa <- waa_hr |>
   filter(hr == 0) |>
-  select(hab_type, age_class, baseline_wt = mean_wt)
+  select(hab_type, prop_cold_fact, age_class, baseline_wt = mean_wt)
 
 waa_hr_rd <- waa_hr |>
   filter(hr > 0) |>
-  left_join(baseline_waa, by = c("hab_type", "age_class")) |>
+  left_join(baseline_waa, by = c("hab_type", "prop_cold_fact", "age_class")) |>
   mutate(rel_diff = (mean_wt - baseline_wt) / baseline_wt)
 
 p2 <- ggplot(waa_hr_rd, aes(x = age_class, y = rel_diff,
@@ -218,8 +244,8 @@ p2 <- ggplot(waa_hr_rd, aes(x = age_class, y = rel_diff,
     title = "Compensatory growth: weight-at-age relative to 0% harvest baseline"
   ) +
   theme_bw(base_size = 12) +
-  theme(legend.position = "none", panel.grid.minor = element_blank()) +
-  facet_wrap(~hab_type, nrow = 1)
+  theme(panel.grid.minor = element_blank()) +
+  facet_grid(prop_cold_fact~hab_type)
 
 
 p3 <- ggplot(waa_hr_rd, aes(x = hr, y = rel_diff, color = harvest_rate_fact, fill = harvest_rate_fact, group = harvest_rate_fact)) +
@@ -235,12 +261,24 @@ p3 <- ggplot(waa_hr_rd, aes(x = hr, y = rel_diff, color = harvest_rate_fact, fil
   ) +
   theme_bw(base_size = 12) +
   theme(legend.position = "none", panel.grid.minor = element_blank()) +
-  facet_wrap(~hab_type, nrow = 1)
+  facet_grid(prop_cold_fact~hab_type)
 
-
-(p1 / (p2 / p3 + plot_layout(axis_titles = "collect"))) + plot_layout(guides = "collect", heights = c(1.5, 2))
+# (p1 / (p2 / p3 + plot_layout(axis_titles = "collect"))) + plot_layout(guides = "collect", heights = c(1.5, 2))
 ```
 
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+
+p1
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 9
+(p2 + p3) + plot_layout(guides = "collect", heights = c(1.5, 2))
+```
 
 
 ## Recruitment
@@ -249,15 +287,13 @@ The number of fry produced is a function of adult size and abundance (fecundity)
 
 ```{r}
 #| cache: false
-#| fig-width: 7
-#| fig-height: 6
 
 # ── Annual age-0 recruitment time series ─────────────────────────────────────
 # Zero-fill missing years so post-crash scenarios contribute zeros for the
 # remainder of the experimental period rather than being silently excluded.
 all_exp_years <- tibble(
   yr = seq(year(exp_start_date),
-           year(exp_start_date) + sim_params$nyears_experiment - 1L)
+           year(exp_start_date) + base_params$nyears_experiment - 1L)
 )
 
 get_annual_age0 <- function(scen) {
@@ -265,11 +301,19 @@ get_annual_age0 <- function(scen) {
     select(yr, n_age0) |>
     right_join(all_exp_years, by = "yr") |>
     replace_na(list(n_age0 = 0L)) |>
-    mutate(hab_type = scen$ht,
-           harvest_rate = scen$hr,
-           harvest_rate_fact = factor(scen$hr,
-                                      levels = hr_levels_mech,
-                                      labels = hr_labels_mech))
+    mutate(
+      hab_type          = scen$ht,
+      prop_cold         = scen$pc,
+      harvest_rate      = scen$hr,
+      harvest_rate_fact = factor(scen$hr,
+                                 levels = hr_levels_mech,
+                                 labels = hr_labels_mech),
+      hab_type          = factor(hab_type, levels = c("Cold only", "Cold + Warm")),
+      prop_cold_fact    = factor(
+        pc_labels_mech[match(scen$pc, pc_levels_mech)],
+        levels = pc_labels_mech
+      )
+    )
 }
 
 age0_ts <- purrr::map_dfr(ibm_list_mech, get_annual_age0)
@@ -290,144 +334,91 @@ ratio_df <- age0_ts |>
     TRUE            ~ NA_character_
   )) |>
   filter(!is.na(period)) |>
-  group_by(hab_type, harvest_rate, harvest_rate_fact, period) |>
+  group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact, period) |>
   summarise(mean_n = mean(n_age0), sd_n = sd(n_age0), .groups = "drop") |>
   pivot_wider(names_from = period, values_from = c(mean_n, sd_n)) |>
   mutate(ratio = mean_n_end / mean_n_start) |>
   left_join(
     age0_ts |>
-      group_by(hab_type, harvest_rate, harvest_rate_fact) |>
+      group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) |>
       summarise(mean_n_all = mean(n_age0), sd_n_all = sd(n_age0), .groups = "drop"),
-    by = c("hab_type", "harvest_rate", "harvest_rate_fact")
+    by = c("hab_type", "prop_cold", "prop_cold_fact", "harvest_rate", "harvest_rate_fact")
   )
-
-
-# Palette keys must match levels(age0_ts$harvest_rate)
-# cols <- hcl.colors(13, "inferno", rev = TRUE)
-# hr_pal <- c("0%"  = "grey70", "10%" = cols[2], "20%" = cols[3], "30%" = cols[4],
-#             "40%" = cols[5], "50%" = cols[6], "55%" = cols[7], "60%" = cols[8],
-#             "65%" = cols[9], "70%" = cols[10], "75%" = cols[11], "80%" = cols[12],
-#             "90%" = cols[13])
-
-
-#### COLD ONLY
-p_ts <- ggplot(age0_ts %>% filter(hab_type == "Cold only"), aes(x = yr, y = n_age0, color = harvest_rate_fact)) +
-  geom_line(alpha = 0.3) +
-  geom_smooth(linewidth = 0.8, se = FALSE) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  scale_x_continuous(name = "Year") +
-  scale_y_continuous(name = "Age-0 abundance (Nov. 1)",
-                     limits = c(0, NA),
-                     labels = scales::label_comma()) +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank())
-
-
-p_all <- ggplot(ratio_df %>% filter(hab_type == "Cold only"), aes(x = harvest_rate, y = mean_n_all, color = harvest_rate_fact)) +
-  geom_errorbar(aes(ymin = mean_n_all - sd_n_all, ymax = mean_n_all + sd_n_all), width = 0.025, linewidth = 0.6) +
-  geom_point(size = 4) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  scale_y_continuous(name = "Mean recruitment (all years)",) +
-  coord_cartesian(ylim = c(0,NA)) +
-  labs(x = "Harvest rate") +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
-
-p_end <- ggplot(ratio_df %>% filter(hab_type == "Cold only"), aes(x = harvest_rate, y = mean_n_end, color = harvest_rate_fact)) +
-  geom_errorbar(aes(ymin = mean_n_end - sd_n_end, ymax = mean_n_end + sd_n_end), width = 0.025, linewidth = 0.6) +
-  geom_point(size = 4) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  scale_y_continuous(name = "Mean recruitment (final 10 years)",
-                     limits = c(0, NA)) +
-  labs(x = "Harvest rate") +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
-
-p_ratio <- ggplot(ratio_df %>% filter(hab_type == "Cold only"), aes(x = harvest_rate, y = ratio, color = harvest_rate_fact)) +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", linewidth = 0.6) +
-  geom_segment(aes(xend = harvest_rate, yend = 1), linewidth = 0.8) +
-  geom_point(size = 4) +
-  scale_color_manual(values = hr_pal, name = "Harvest rate") +
-  scale_y_continuous(name = "End / start recruitment ratio",
-                     limits = c(0, NA)) +
-  labs(x = "Harvest rate") +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
-
-(p_ts / (p_all + p_end + p_ratio)) + plot_layout(guides = "collect") +
-  plot_annotation(title = "Cold only -- November recruitment over variable harvest rates")
-
-
-
-#### COLD + WARM
-p_ts <- ggplot(age0_ts %>% filter(hab_type == "Cold + Warm"), aes(x = yr, y = n_age0, color = harvest_rate_fact)) +
-  geom_line(alpha = 0.3) +
-  geom_smooth(linewidth = 0.8, se = FALSE) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  scale_x_continuous(name = "Year") +
-  scale_y_continuous(name = "Age-0 abundance (Nov. 1)",
-                     limits = c(0, NA),
-                     labels = scales::label_comma()) +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank())
-
-
-p_all <- ggplot(ratio_df %>% filter(hab_type == "Cold + Warm"), aes(x = harvest_rate, y = mean_n_all, color = harvest_rate_fact)) +
-  geom_errorbar(aes(ymin = mean_n_all - sd_n_all, ymax = mean_n_all + sd_n_all), width = 0.025, linewidth = 0.6) +
-  geom_point(size = 4) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  scale_y_continuous(name = "Mean recruitment (all years)",) +
-  coord_cartesian(ylim = c(0,NA)) +
-  labs(x = "Harvest rate") +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
-
-p_end <- ggplot(ratio_df %>% filter(hab_type == "Cold + Warm"), aes(x = harvest_rate, y = mean_n_end, color = harvest_rate_fact)) +
-  geom_errorbar(aes(ymin = mean_n_end - sd_n_end, ymax = mean_n_end + sd_n_end), width = 0.025, linewidth = 0.6) +
-  geom_point(size = 4) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  scale_y_continuous(name = "Mean recruitment (final 10 years)",
-                     limits = c(0, NA)) +
-  labs(x = "Harvest rate") +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
-
-p_ratio <- ggplot(ratio_df %>% filter(hab_type == "Cold + Warm"), aes(x = harvest_rate, y = ratio, color = harvest_rate_fact)) +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", linewidth = 0.6) +
-  geom_segment(aes(xend = harvest_rate, yend = 1), linewidth = 0.8) +
-  geom_point(size = 4) +
-  scale_color_manual(values = hr_pal, name = "Harvest rate") +
-  scale_y_continuous(name = "End / start recruitment ratio",
-                     limits = c(0, NA)) +
-  labs(x = "Harvest rate") +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
-
-(p_ts / (p_all + p_end + p_ratio)) + plot_layout(guides = "collect") +
-  plot_annotation(title = "Cold + Warm -- November recruitment over variable harvest rates")
-
 ```
 
-
+Age-0 abundance time series, faceted by habitat type and proportion cold habitat:
 ```{r}
+#| fig-width: 9
+#| fig-height: 6
 
-ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_all, color = hab_type, group = hab_type)) +
-  geom_errorbar(aes(ymin = mean_n_all - sd_n_all, ymax = mean_n_all + sd_n_all), width = 0.025, linewidth = 0.6, 
-                position = position_dodge(width = 0.03)) +
-  geom_point(size = 3, position = position_dodge(width = 0.03)) +
-  scale_color_manual(values = hab_cols) +
-  scale_y_continuous(name = "Mean recruitment (all years)",) +
-  # coord_cartesian(ylim = c(0,NA)) +
+ggplot(age0_ts, aes(x = yr, y = n_age0, color = harvest_rate_fact)) +
+  geom_line(alpha = 0.3) +
+  geom_smooth(linewidth = 0.8, se = FALSE) +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  scale_x_continuous(name = "Year") +
+  scale_y_continuous(name = "Age-0 abundance (Nov. 1)",
+                     limits = c(0, NA),
+                     labels = scales::label_comma()) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()) +
+  facet_grid(prop_cold_fact ~ hab_type)
+```
+
+Mean recruitment (all years), faceted by habitat type and proportion cold:
+```{r}
+#| fig-width: 7
+#| fig-height: 5
+
+ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_all, color = harvest_rate_fact)) +
+  geom_errorbar(aes(ymin = pmax(0, mean_n_all - sd_n_all), ymax = mean_n_all + sd_n_all),
+                width = 0.025, linewidth = 0.6) +
+  geom_point(size = 3) +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  scale_y_continuous(name = "Mean recruitment, all years") +
+  coord_cartesian(ylim = c(0, NA)) +
   labs(x = "Harvest rate") +
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(prop_cold_fact ~ hab_type)
+```
+
+Mean recruitment over final 10 years, faceted by habitat type and proportion cold:
+```{r}
+#| fig-width: 7
+#| fig-height: 5
+
+ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_end, color = harvest_rate_fact)) +
+  geom_errorbar(aes(ymin = pmax(0, mean_n_end - sd_n_end), ymax = mean_n_end + sd_n_end),
+                width = 0.025, linewidth = 0.6) +
+  geom_point(size = 3) +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  scale_y_continuous(name = "Mean recruitment, final 10 years",
+                     limits = c(0, NA)) +
+  labs(x = "Harvest rate") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(prop_cold_fact ~ hab_type)
+```
+
+End/start recruitment ratio, faceted by habitat type and proportion cold:
+```{r}
+#| fig-width: 7
+#| fig-height: 5
+
+ggplot(ratio_df, aes(x = harvest_rate, y = ratio, color = harvest_rate_fact)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", linewidth = 0.6) +
+  geom_segment(aes(xend = harvest_rate, yend = 1), linewidth = 0.8) +
+  geom_point(size = 3) +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  scale_y_continuous(name = "End / start recruitment ratio",
+                     limits = c(0, NA)) +
+  labs(x = "Harvest rate") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(prop_cold_fact ~ hab_type)
 ```
 
 
@@ -437,7 +428,7 @@ Summarize harvest data
 ```{r}
 all_exp_years <- tibble(
   year = seq(year(exp_start_date),
-           year(exp_start_date) + sim_params$nyears_experiment - 1L)
+           year(exp_start_date) + base_params$nyears_experiment - 1L)
 )
 
 get_annual_harvest <- function(scen) {
@@ -462,6 +453,11 @@ get_annual_harvest <- function(scen) {
                     mean_cond = NA,
                     sd_cond = NA)) %>%
     mutate(hab_type = scen$ht,
+           prop_cold = scen$pc,
+           prop_cold_fact = factor(
+             pc_labels_mech[match(scen$pc, pc_levels_mech)],
+             levels = pc_labels_mech
+           ),
            harvest_rate = scen$hr,
            harvest_rate_fact = factor(scen$hr,
                                       levels = hr_levels_mech,
@@ -479,6 +475,11 @@ get_harvest_traits <- function(scen) {
               sd_cond = sd(condition)) %>%
     ungroup() %>%
     mutate(hab_type = scen$ht,
+           prop_cold = scen$pc,
+           prop_cold_fact = factor(
+             pc_labels_mech[match(scen$pc, pc_levels_mech)],
+             levels = pc_labels_mech
+           ),
            harvest_rate = scen$hr,
            harvest_rate_fact = factor(scen$hr,
                                       levels = hr_levels_mech,
@@ -486,9 +487,9 @@ get_harvest_traits <- function(scen) {
 }
 
 
-harvest_ts <- purrr::map_dfr(ibm_list_mech[c(2:13,15:26)], get_annual_harvest) |>
+harvest_ts <- purrr::map_dfr(ibm_list_mech[c(2:13, 15:26, 28:39, 41:52)], get_annual_harvest) |>
   bind_rows(
-    purrr::map_dfr(ibm_list_mech[c(1,14)], function(scen) {
+    purrr::map_dfr(ibm_list_mech[c(1, 14, 27, 40)], function(scen) {
       tibble(
         year         = sort(unique(age0_ts$yr)),
         n_harvested  = 0L,
@@ -500,6 +501,11 @@ harvest_ts <- purrr::map_dfr(ibm_list_mech[c(2:13,15:26)], get_annual_harvest) |
         mean_cond    = NA_real_,
         sd_cond      = NA_real_,
         hab_type     = scen$ht,
+        prop_cold    = scen$pc,
+        prop_cold_fact = factor(
+          pc_labels_mech[match(scen$pc, pc_levels_mech)],
+          levels = pc_labels_mech
+        ),
         harvest_rate = scen$hr,
         harvest_rate_fact = factor(scen$hr,
                                    levels = hr_levels_mech,
@@ -510,9 +516,9 @@ harvest_ts <- purrr::map_dfr(ibm_list_mech[c(2:13,15:26)], get_annual_harvest) |
   mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm"))) %>%
   filter(year > 2060)
 
-harvest_traits <- purrr::map_dfr(ibm_list_mech[c(2:13,15:26)], get_harvest_traits) |>
+harvest_traits <- purrr::map_dfr(ibm_list_mech[c(2:13, 15:26, 28:39, 41:52)], get_harvest_traits) |>
   bind_rows(
-    purrr::map_dfr(ibm_list_mech[c(1,14)], function(scen) {
+    purrr::map_dfr(ibm_list_mech[c(1, 14, 27, 40)], function(scen) {
       tibble(
         mean_wt      = NA_real_,
         sd_wt        = NA_real_,
@@ -521,6 +527,11 @@ harvest_traits <- purrr::map_dfr(ibm_list_mech[c(2:13,15:26)], get_harvest_trait
         mean_cond    = NA_real_,
         sd_cond      = NA_real_,
         hab_type     = scen$ht,
+        prop_cold    = scen$pc,
+        prop_cold_fact = factor(
+          pc_labels_mech[match(scen$pc, pc_levels_mech)],
+          levels = pc_labels_mech
+        ),
         harvest_rate = scen$hr,
         harvest_rate_fact = factor(scen$hr,
                                    levels = hr_levels_mech,
@@ -532,13 +543,15 @@ harvest_traits <- purrr::map_dfr(ibm_list_mech[c(2:13,15:26)], get_harvest_trait
 
 
 harvest_summ <- harvest_ts %>% 
-  group_by(hab_type, harvest_rate, harvest_rate_fact) %>%
+  group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) %>%
   summarize(mean_n = mean(n_harvested),
             sd_n = sd(n_harvested),
             mean_bm = mean(bm_harvested), 
             sd_bm = sd(bm_harvested)) %>%
   ungroup() %>%
-  left_join(harvest_traits)
+  left_join(harvest_traits,
+            by = c("hab_type", "prop_cold", "prop_cold_fact",
+                   "harvest_rate", "harvest_rate_fact"))
 ```
 
 Show time series of harvested abundance, by habitat configuration and harvest rate
@@ -551,21 +564,21 @@ p1 <- ggplot(harvest_ts, aes(x = year, y = n_harvested, color = harvest_rate_fac
   geom_line(alpha = 0.3) +
   geom_smooth(linewidth = 0.8, se = FALSE) +
   scale_color_manual(values = hr_pal) +
-  coord_cartesian(ylim = c(0, 90)) +
+  # coord_cartesian(ylim = c(0, 90)) +
   labs(x = "Year", y = "Harvested abundance (N)") +
   theme_bw() +
   theme(panel.grid.minor = element_blank()) +
-  facet_wrap(~hab_type, ncol = 2)
+  facet_grid(prop_cold_fact ~ hab_type)
 
 p2 <- ggplot(harvest_ts, aes(x = year, y = bm_harvested, color = harvest_rate_fact)) +
   geom_line(alpha = 0.3) +
   geom_smooth(linewidth = 0.8, se = FALSE) +
   scale_color_manual(values = hr_pal) +
-  coord_cartesian(ylim = c(0, 50)) +
+  # coord_cartesian(ylim = c(0, 50)) +
   labs(x = "Year", y = "Harvested biomass (kg)") +
   theme_bw() +
   theme(panel.grid.minor = element_blank()) +
-  facet_wrap(~hab_type, ncol = 2)
+  facet_grid(prop_cold_fact ~ hab_type)
 
 (p1 / p2) + plot_layout(guides = "collect")
 ```
@@ -581,10 +594,10 @@ Time series of individual-level traits
 #| fig-width: 8
 #| fig-height: 8
 
-ggplot(harvest_ts, aes(x = year, y = mean_wt, color = harvest_rate_fact, shape = hab_type)) +
+ggplot(harvest_ts, aes(x = year, y = mean_wt, color = harvest_rate_fact)) +
   geom_errorbar(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt), width = 0.025, linewidth = 0.6) +
   geom_point(size = 2) +
-  facet_grid(harvest_rate_fact ~ hab_type) +
+  facet_grid(harvest_rate_fact ~ prop_cold_fact + hab_type) +
   scale_color_manual(values = hr_pal, guide = "none") +
   labs(x = "Year", y = "Mean individual weight of harvested fish") +
   theme_bw() +
@@ -602,7 +615,7 @@ ggplot(harvest_ts, aes(x = year, y = mean_wt, color = harvest_rate_fact, shape =
 ggplot(harvest_ts, aes(x = year, y = mean_age, color = harvest_rate_fact)) +
   geom_errorbar(aes(ymin = mean_age - sd_age, ymax = mean_age + sd_age), width = 0.025, linewidth = 0.6) +
   geom_point(size = 2) +
-  facet_grid(harvest_rate_fact ~ hab_type) +
+  facet_grid(harvest_rate_fact ~ prop_cold_fact + hab_type) +
   scale_color_manual(values = hr_pal, guide = "none") +
   labs(x = "Year", y = "Mean individual age of harvested fish") +
   theme_bw() +
@@ -620,7 +633,7 @@ ggplot(harvest_ts, aes(x = year, y = mean_age, color = harvest_rate_fact)) +
 ggplot(harvest_ts, aes(x = year, y = mean_cond, color = harvest_rate_fact)) +
   geom_errorbar(aes(ymin = mean_cond - sd_cond, ymax = mean_cond + sd_cond), width = 0.025, linewidth = 0.6) +
   geom_point(size = 2) +
-  facet_grid(harvest_rate_fact ~ hab_type) +
+  facet_grid(harvest_rate_fact ~ prop_cold_fact + hab_type) +
   scale_color_manual(values = hr_pal, guide = "none") +
   labs(x = "Year", y = "Mean individual condition of harvested fish") +
   theme_bw() +
@@ -633,34 +646,36 @@ ggplot(harvest_ts, aes(x = year, y = mean_cond, color = harvest_rate_fact)) +
 
 ```{r}
 #| cache: false
-#| fig-width: 8
-#| fig-height: 7
+#| fig-width: 10
+#| fig-height: 6
 
 # mean harvested abundance
 p_abun <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_n, color = hab_type, group = hab_type)) +
   geom_errorbar(aes(ymin = mean_n - sd_n, ymax = mean_n + sd_n), width = 0.025, linewidth = 0.6, position = position_dodge(width = 0.03)) +
   geom_point(size = 3, position = position_dodge(width = 0.03)) +
   scale_color_manual(values = hab_cols) +
-  scale_y_continuous(name = "Mean annnual harvested abundance") +
+  scale_y_continuous(name = "Mean annual harvested abundance") +
   coord_cartesian(xlim = c(0,1), ylim = c(0,NA)) +
   labs(x = "Harvest rate") +
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         axis.text.x      = element_text(angle = 45, hjust = 1),
-        axis.title.x = element_blank())
+        axis.title.x = element_blank()) +
+  facet_wrap(~prop_cold_fact)
 
 # mean harvested biomass
 p_biom <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_bm, color = hab_type, group = hab_type)) +
   geom_errorbar(aes(ymin = mean_bm - sd_bm, ymax = mean_bm + sd_bm), width = 0.025, linewidth = 0.6, position = position_dodge(width = 0.03)) +
   geom_point(size = 3, position = position_dodge(width = 0.03)) +
   scale_color_manual(values = hab_cols) +
-  scale_y_continuous(name = "Mean annnual harvested biomass (kg)") +
+  scale_y_continuous(name = "Mean annual harvested biomass (kg)") +
   coord_cartesian(xlim = c(0,1), ylim = c(0,NA)) +
   labs(x = "Harvest rate") +
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         axis.text.x      = element_text(angle = 45, hjust = 1),
-        axis.title.x = element_blank())
+        axis.title.x = element_blank()) +
+  facet_wrap(~prop_cold_fact)
 
 # mean individual weight
 p_wt <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_wt, color = hab_type, group = hab_type)) +
@@ -672,7 +687,8 @@ p_wt <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_wt, color = hab_type
   labs(x = "Harvest rate") +
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
+        axis.text.x      = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~prop_cold_fact)
 
 # mean individual age
 p_age <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_age, color = hab_type, group = hab_type)) +
@@ -684,7 +700,8 @@ p_age <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_age, color = hab_ty
   labs(x = "Harvest rate") +
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
-        axis.text.x      = element_text(angle = 45, hjust = 1))
+        axis.text.x      = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~prop_cold_fact)
 
 
 (p_abun + p_biom) / (p_wt + p_age) + plot_layout(guides = "collect")
@@ -698,20 +715,20 @@ Two measures of spawner biomass are compared: (1) the exact biomass recorded in 
 
 ```{r}
 #| cache: false
-#| fig-width: 7
-#| fig-height: 12
+#| fig-width: 10
+#| fig-height: 9.5
 
 # Local year grid (avoids depending on the column name of the global all_exp_years,
 # which is redefined with a different name later in the document).
 sr_exp_years <- tibble(yr = seq(year(exp_start_date),
-                                year(exp_start_date) + sim_params$nyears_experiment - 1L))
+                                year(exp_start_date) + base_params$nyears_experiment - 1L))
 
 # ── Annual spawner biomass from spawn_log ─────────────────────────────────────
 # Each parent may appear more than once per year (multiple spawning attempts);
 # average their weight within year before summing to avoid double-counting mass.
 get_annual_spawner_log <- function(scen) {
   scen$spawn_log |>
-    mutate(date = sim_params$mindate + (dayofsim - 1L),
+    mutate(date = base_params$mindate + (dayofsim - 1L),
            yr   = year(date)) |>
     filter(date >= exp_start_date) |>
     group_by(yr, parent_pid) |>
@@ -723,6 +740,11 @@ get_annual_spawner_log <- function(scen) {
     right_join(sr_exp_years, by = "yr") |>
     replace_na(list(spawn_biom_log = 0, n_spawners = 0L)) |>
     mutate(hab_type          = scen$ht,
+           prop_cold         = scen$pc,
+           prop_cold_fact    = factor(
+             pc_labels_mech[match(scen$pc, pc_levels_mech)],
+             levels = pc_labels_mech
+           ),
            harvest_rate      = scen$hr,
            harvest_rate_fact = factor(scen$hr,
                                       levels = hr_levels_mech,
@@ -739,6 +761,11 @@ get_annual_recruit <- function(scen) {
     right_join(sr_exp_years, by = "yr") |>
     replace_na(list(n_age0 = 0L, biom_age0 = 0)) |>
     mutate(hab_type          = scen$ht,
+           prop_cold         = scen$pc,
+           prop_cold_fact    = factor(
+             pc_labels_mech[match(scen$pc, pc_levels_mech)],
+             levels = pc_labels_mech
+           ),
            harvest_rate      = scen$hr,
            harvest_rate_fact = factor(scen$hr,
                                       levels = hr_levels_mech,
@@ -750,8 +777,11 @@ recruit_ts <- purrr::map_dfr(ibm_list_mech, get_annual_recruit)
 
 # ── Join into one SR data frame ───────────────────────────────────────────────
 sr_ts <- recruit_ts |>
-  left_join(spawner_log_ts |> select(hab_type, yr, harvest_rate, spawn_biom_log, n_spawners),
-            by = c("hab_type", "yr", "harvest_rate")) |>
+  left_join(
+    spawner_log_ts |>
+      select(hab_type, prop_cold, yr, harvest_rate, spawn_biom_log, n_spawners),
+    by = c("hab_type", "prop_cold", "yr", "harvest_rate")
+  ) |>
   # left_join(spawner_apr_ts |> select(yr, harvest_rate, spawn_biom_apr, n_spawn_elig),
   #           by = c("yr", "harvest_rate")) %>% 
   mutate(prod_nb = log(n_age0 / spawn_biom_log))
@@ -759,7 +789,7 @@ sr_ts <- recruit_ts |>
 # Per-scenario means and SDs (collapsed across years)
 sr_summ <- sr_ts |>
   filter(!is.na(prod_nb)) %>%
-  group_by(hab_type, harvest_rate, harvest_rate_fact) |>
+  group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) |>
   summarise(
     across(c(n_age0, biom_age0, spawn_biom_log, n_spawners, prod_nb),
            list(mean = mean, sd = sd)),
@@ -806,7 +836,7 @@ sr_panel <- function(x_raw, y_raw, x_summ, y_summ,
     labs(x = x_lab, y = y_lab, title = title) +
     theme_bw(base_size = 11) +
     theme(panel.grid.minor = element_blank(), legend.position = "none") +
-    facet_wrap(~hab_type, nrow = 1, scales = "free_x")
+    facet_grid(prop_cold_fact ~ hab_type, scales = "free_x")
 }
 
 p_sr_1 <- sr_panel(
@@ -845,7 +875,7 @@ p_sr_4 <- sr_panel(
   x_kg = FALSE, y_kg = TRUE
 )
 
-(p_sr_1 / p_sr_2 / p_sr_3 / p_sr_4) +
+(p_sr_1 + p_sr_3) / (p_sr_2 + p_sr_4) +
   plot_layout(guides = "collect") &
   theme(legend.position = "right")
 ```
@@ -853,8 +883,8 @@ p_sr_4 <- sr_panel(
 Inspect relationships between productivity (logged recruits per spawner) and harvest rate and spawning stock biomass.
 ```{r}
 #| cache: false
-#| fig-width: 7
-#| fig-height: 6
+#| fig-width: 9
+#| fig-height: 5
 
 
 p1 <- sr_ts %>%
@@ -871,7 +901,7 @@ p1 <- sr_ts %>%
   labs(x = "Harvest rate", y = "Productivity, ln(R/S)", title = "Productivity = ln(age-0 abundance / spawner biomass)") +
   theme_bw(base_size = 11) +
   theme(panel.grid.minor = element_blank(), legend.position = "none") +
-  facet_wrap(~ hab_type, nrow = 2)
+  facet_grid(prop_cold_fact ~ hab_type)
 
 
 p2 <- sr_ts %>%
@@ -892,7 +922,7 @@ p2 <- sr_ts %>%
   labs(x = "Spawning stock biomass (kg)", y = "Productivity, ln(R/S)") +
   theme_bw(base_size = 11) +
   theme(panel.grid.minor = element_blank(), legend.position = "none", axis.text.y = element_blank(), axis.title.y = element_blank()) +
-  facet_wrap(~ hab_type, nrow = 2)
+  facet_grid(prop_cold_fact ~ hab_type)
 
 (p1 + p2) +
   # plot_layout(guides = "collect") &
@@ -900,80 +930,36 @@ p2 <- sr_ts %>%
 ```
 
 
-```{r}
-
-# ── Fit Beverton-Holt and Ricker SR curves (log-based spawner biomass) ────────
-# Pool all scenarios
-sr_fit <- sr_ts |>
-  # filter(spawn_biom_log > 0) |>
-  mutate(S = spawn_biom_log / 1000,         # kg
-         B = biom_age0     / 1000)           # kg
-
-fit_bh_n <- nls(n_age0 ~ a * S / (1 + b * S), data = sr_fit,
-                start = list(a = 30, b = 0.4))
-# fit_rk_n <- nls(n_age0 ~ a * S * exp(-b * S), data = sr_fit,
-#                 start = list(a = 40, b = 0.25))
-
-# Ricker for biomass (BH doesn't converge: biomass has a genuine dome shape,
-# peaking at intermediate spawner biomass, so BH is misspecified there).
-fit_rk_b <- nls(B ~ a * S * exp(-b * S), data = sr_fit,
-                start = list(a = 2, b = 0.05))
-
-cat("--- Abundance (BH only) ---\n")
-cat(sprintf("BH     AIC: %.1f\n", AIC(fit_bh_n)))
-# cat(sprintf("Ricker AIC: %.1f\n\n", AIC(fit_rk_n)))
-cat("--- Biomass (Ricker only) ---\n")
-broom::tidy(fit_rk_b)
-
-# Prediction curves
-S_seq <- seq(0, max(sr_fit$S) * 1.05, length.out = 300)
-
-pred_n <- tibble(S = S_seq, y = predict(fit_bh_n, list(S = S_seq)), model = "Beverton-Holt")
-pred_b <- tibble(S = S_seq, y = predict(fit_rk_b, list(S = S_seq)), model = "Ricker")
-
-sr_lty <- c("Beverton-Holt" = "solid", "Ricker" = "dashed")
-
-# Abundance panel: overlay both BH (solid) and Ricker (dashed)
-p_sr_1_fit <- p_sr_1 +
-  geom_line(data = pred_n, inherit.aes = FALSE,
-            aes(x = S, y = y),
-            linewidth = 1, color = "black") + 
-  labs(title = "Beverton-Holt SR Curve")
-
-# Biomass panel: Ricker only
-p_sr_2_fit <- p_sr_2 +
-  geom_line(data = pred_b, inherit.aes = FALSE,
-            aes(x = S, y = y),
-            linewidth = 1, color = "black") +
-  labs(title = "Ricker SR Curve")
-
-(p_sr_1_fit) + (p_sr_2_fit) +
-  plot_layout(guides = "collect") &
-  theme(legend.position = "right")
-```
-
-
-
-
-
 ## Adult-to-adult stock-recruitment
 
 Recruitment is expressed as the number of adults that survived to spawning size in year Y, defined as spawners(Y) + fish harvested in summer Y−1 (those that would have spawned but were removed). This is paired with the parent spawning stock 3 years earlier (minimum age at maturity), and compared to the 1:1 replacement line to identify surplus production.
 
+
+### Derive stock-recruitment curves
+
+Derive adult-to-adult stock-recruitment curves over 4 different lag periods (2-5 years), for abundance and biomass separately.
 ```{r}
 #| fig-width: 14
-#| fig-height: 14
+#| fig-height: 18
 
 # ── Annual harvest abundance and biomass per scenario ─────────────────────────
 get_annual_harvest_nb <- function(scen) {
+  base_cols <- list(
+    hab_type       = scen$ht,
+    prop_cold      = scen$pc,
+    prop_cold_fact = factor(
+      pc_labels_mech[match(scen$pc, pc_levels_mech)],
+      levels = pc_labels_mech
+    ),
+    harvest_rate      = scen$hr,
+    harvest_rate_fact = factor(scen$hr,
+                               levels = hr_levels_mech,
+                               labels = hr_labels_mech)
+  )
   if (is.null(scen$harvest)) {
     sr_exp_years |>
-      mutate(n_harvested   = 0L,
-             biom_harvested  = 0,
-             harvest_rate      = scen$hr,
-             harvest_rate_fact = factor(scen$hr,
-                                        levels = hr_levels_mech,
-                                        labels = hr_labels_mech))
+      mutate(n_harvested = 0L, biom_harvested = 0,
+             !!!base_cols)
   } else {
     scen$harvest |>
       group_by(yr = year) |>
@@ -982,11 +968,7 @@ get_annual_harvest_nb <- function(scen) {
                 .groups = "drop") |>
       right_join(sr_exp_years, by = "yr") |>
       replace_na(list(n_harvested = 0L, biom_harvested = 0)) |>
-      mutate(hab_type          = scen$ht,
-             harvest_rate      = scen$hr,
-             harvest_rate_fact = factor(scen$hr,
-                                        levels = hr_levels_mech,
-                                        labels = hr_labels_mech)) %>%
+      mutate(!!!base_cols) |>
       mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
   }
 }
@@ -995,14 +977,14 @@ harvest_n_ts <- purrr::map_dfr(ibm_list_mech, get_annual_harvest_nb)
 
 # ── Recruited adults in year Y = spawners(Y) + harvest(summer Y−1) ────────────
 recruits_adult <- spawner_log_ts |>
-  select(hab_type, yr, harvest_rate, harvest_rate_fact, n_spawners,
-         biom_spawners = spawn_biom_log) |>
+  select(hab_type, prop_cold, prop_cold_fact, yr, harvest_rate, harvest_rate_fact,
+         n_spawners, biom_spawners = spawn_biom_log) |>
   mutate(biom_spawners = biom_spawners / 1000) |>
   left_join(
     harvest_n_ts |>
       mutate(yr = yr + 1L) |>
-      select(hab_type, yr, harvest_rate, n_harvested, biom_harvested),
-    by = c("hab_type", "yr", "harvest_rate")
+      select(hab_type, prop_cold, yr, harvest_rate, n_harvested, biom_harvested),
+    by = c("hab_type", "prop_cold", "yr", "harvest_rate")
   ) |>
   replace_na(list(n_harvested = 0L, biom_harvested = 0)) |>
   mutate(n_recruited    = n_spawners    + n_harvested,
@@ -1014,25 +996,27 @@ build_adult_sr <- function(lag) {
     mutate(yr_parent = yr - lag) |>
     left_join(
       spawner_log_ts |>
-        transmute(hab_type, yr, harvest_rate,
+        transmute(hab_type, prop_cold, yr, harvest_rate,
                   n_spawners_parent    = n_spawners,
                   biom_spawners_parent = spawn_biom_log / 1000),
-      by = c("hab_type", "yr_parent" = "yr", "harvest_rate")
+      by = c("hab_type", "prop_cold", "yr_parent" = "yr", "harvest_rate")
     ) |>
     filter(!is.na(n_spawners_parent), n_spawners_parent > 0, n_recruited > 0) %>%
     mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
 
   summ <- ts |>
-    group_by(hab_type, harvest_rate, harvest_rate_fact) |>
+    group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) |>
     summarise(
       across(c(n_recruited, n_spawners_parent, biom_recruited, biom_spawners_parent),
              list(mean = mean, sd = sd)),
       .groups = "drop"
-    )  %>%
+    ) %>%
     mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
 
-  # Fit Ricker separately per habitat type
-  hab_fits <- split(ts, ts$hab_type) |>
+  # Fit Ricker separately per hab_type × prop_cold group
+  hab_fits <- ts |>
+    group_by(hab_type, prop_cold, prop_cold_fact) |>
+    group_split() |>
     purrr::map(\(d) {
       fit_n <- nls(n_recruited ~ a * n_spawners_parent * exp(-b * n_spawners_parent),
                    data = d, start = list(a = 5, b = 0.05))
@@ -1041,21 +1025,26 @@ build_adult_sr <- function(lag) {
       N_seq <- seq(0, max(d$n_spawners_parent)    , length.out = 300)
       B_seq <- seq(0, max(d$biom_spawners_parent) , length.out = 300)
       list(
+        hab_type       = as.character(d$hab_type[1]),
+        prop_cold_fact = as.character(d$prop_cold_fact[1]),
         alpha_n = log(coef(fit_n)["a"]), alpha_b = log(coef(fit_b)["a"]),
-        beta_n = coef(fit_n)["b"], beta_b = coef(fit_b)["b"],
+        beta_n  = coef(fit_n)["b"],      beta_b  = coef(fit_b)["b"],
         s_star_n = log(coef(fit_n)["a"]) / coef(fit_n)["b"],
         s_star_b = log(coef(fit_b)["a"]) / coef(fit_b)["b"],
-        pred_n   = tibble(x = N_seq, y = predict(fit_n, list(n_spawners_parent    = N_seq))),
-        pred_b   = tibble(x = B_seq, y = predict(fit_b, list(biom_spawners_parent = B_seq)))
+        pred_n   = tibble(x = N_seq,
+                          y = predict(fit_n, list(n_spawners_parent    = N_seq)),
+                          hab_type = d$hab_type[1], prop_cold_fact = d$prop_cold_fact[1]),
+        pred_b   = tibble(x = B_seq,
+                          y = predict(fit_b, list(biom_spawners_parent = B_seq)),
+                          hab_type = d$hab_type[1], prop_cold_fact = d$prop_cold_fact[1])
       )
     })
 
-  # Combine predictions into data frames with hab_type as an ordered factor
-  ht_levels <- levels(ts$hab_type)
-  pred_n <- purrr::imap_dfr(hab_fits, \(hf, ht) mutate(hf$pred_n, hab_type = ht)) |>
-    mutate(hab_type = factor(hab_type, levels = ht_levels))
-  pred_b <- purrr::imap_dfr(hab_fits, \(hf, ht) mutate(hf$pred_b, hab_type = ht)) |>
-    mutate(hab_type = factor(hab_type, levels = ht_levels))
+  # Combine predictions, preserving hab_type and prop_cold_fact for faceting
+  pred_n <- purrr::map_dfr(hab_fits, \(hf) hf$pred_n) |>
+    mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+  pred_b <- purrr::map_dfr(hab_fits, \(hf) hf$pred_b) |>
+    mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
 
   list(
     lag      = lag,
@@ -1069,11 +1058,11 @@ build_adult_sr <- function(lag) {
 
 sr_by_lag <- purrr::map(2:5, build_adult_sr)
 
-# Print equilibrium S* for each lag × habitat type
+# Print equilibrium S* for each lag × hab_type × prop_cold
 purrr::walk(sr_by_lag, \(x)
-  purrr::iwalk(x$hab_fits, \(hf, ht)
-    cat(sprintf("Lag %d yr [%s] — S* abundance: %.1f spawners | S* biomass: %.2f kg\n",
-                x$lag, ht, hf$s_star_n, hf$s_star_b))
+  purrr::walk(x$hab_fits, \(hf)
+    cat(sprintf("Lag %d yr [%s, %s] — S* abundance: %.1f spawners | S* biomass: %.2f kg\n",
+                x$lag, hf$hab_type, hf$prop_cold_fact, hf$s_star_n, hf$s_star_b))
   )
 )
 
@@ -1108,7 +1097,7 @@ adult_sr_panel <- function(dat, summ, x_raw, y_raw, x_summ, y_summ, x_sd, y_sd,
     scale_x_continuous(labels = scales::label_comma()) +
     scale_y_continuous(labels = scales::label_comma()) +
     expand_limits(x = 0, y = 0) +
-    facet_wrap(~hab_type, scales = "free") +
+    facet_wrap(~ prop_cold_fact + hab_type, nrow = 2, scales = "free") +
     labs(x = x_lab, y = y_lab, title = title) +
     theme_bw(base_size = 11) +
     theme(panel.grid.minor = element_blank(), legend.position = "none")
@@ -1149,39 +1138,118 @@ panels <- purrr::map(sr_by_lag, \(x) {
 ```
 
 
+### Compare representative SR relationships
+
 ```{r}
-#| fig-width: 7
-#| fig-height: 6
-#| 
+#| fig-width: 6
+#| fig-height: 5
+
 lag2curves <- bind_rows(
   sr_by_lag[[1]]$pred_b %>% mutate(measure = "biomass"),
   sr_by_lag[[1]]$pred_n %>% mutate(measure = "abundance"),
 ) %>%
   mutate(surplus = y - x) %>% filter(surplus > 0)
 
-p1 <- lag2curves %>%
-  ggplot(aes(x = x, y = y, color = hab_type)) +
-  geom_line(linewidth = 1) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey40") +
-  scale_color_manual(values = hab_cols, name = "Habitat type") +
-  facet_wrap(~measure, scales = "free") +
-  labs(x = "Spawners", y = "Recruits") +
-  theme_bw(base_size = 11) +
-  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank())
+make_sr_plot <- function(m) {
+  lag2curves %>% filter(measure == m) %>%
+    ggplot(aes(x = x, y = y, color = hab_type)) +
+    geom_line(linewidth = 1) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey40") +
+    scale_color_manual(values = hab_cols, name = "Habitat type") +
+    facet_wrap(~prop_cold_fact, nrow = 1) +
+    labs(x = NULL, y = "Recruits") +
+    theme_bw(base_size = 11) +
+    theme(panel.grid.minor = element_blank())
+}
 
- p2 <- lag2curves %>%
-  ggplot(aes(x = x, y = surplus, color = hab_type)) +
-  geom_line(linewidth = 1) +
-  geom_abline(intercept = 0, slope = 0, linetype = "dashed", color = "grey40") +
+make_sp_plot <- function(m) {
+  lag2curves %>% filter(measure == m) %>%
+    ggplot(aes(x = x, y = surplus, color = hab_type)) +
+    geom_line(linewidth = 1) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    scale_color_manual(values = hab_cols, name = "Habitat type") +
+    facet_wrap(~prop_cold_fact, nrow = 1) +
+    labs(x = "Spawners", y = "Surplus production") +
+    theme_bw(base_size = 11) +
+    theme(panel.grid.minor = element_blank())
+}
+
+(make_sr_plot("abundance") / make_sp_plot("abundance")) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Abundance — 2-year lag SR and surplus production")
+
+(make_sr_plot("biomass") / make_sp_plot("biomass")) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Biomass — 2-year lag SR and surplus production")
+```
+
+
+
+
+Ricker parameters (alpha, beta) and maximum surplus production from the 2-year lag fits, as a function of proportion cold habitat:
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+
+# Extract Ricker parameters and max surplus from the 2-year lag hab_fits
+ricker_params <- purrr::map_dfr(sr_by_lag[[1]]$hab_fits, \(hf) {
+  tibble(
+    hab_type       = hf$hab_type,
+    prop_cold_fact = hf$prop_cold_fact,
+    prop_cold      = as.numeric(sub("% cold", "", hf$prop_cold_fact)) / 100,
+    alpha_n        = hf$alpha_n,
+    beta_n         = hf$beta_n,
+    max_surplus_n  = max(hf$pred_n$y - hf$pred_n$x),
+    alpha_b        = hf$alpha_b,
+    beta_b         = hf$beta_b,
+    max_surplus_b  = max(hf$pred_b$y - hf$pred_b$x)
+  )
+}) |>
+  mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+
+pc_x <- scale_x_reverse(name = "Proportion cold habitat",
+                        breaks = c(0.25, 0.50),
+                        labels = scales::label_percent())
+
+p_alpha <- ggplot(ricker_params, aes(x = prop_cold, color = hab_type, group = hab_type)) +
+  geom_line(aes(y = alpha_n), linewidth = 0.8, linetype = "solid") +
+  geom_point(aes(y = alpha_n, shape = "Abundance"), size = 3) +
+  geom_line(aes(y = alpha_b), linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = alpha_b, shape = "Biomass"), size = 3) +
   scale_color_manual(values = hab_cols, name = "Habitat type") +
-  facet_wrap(~measure, scales = "free") +
-  labs(x = "Spawners", y = "Surplus production") +
+  scale_shape_manual(values = c("Abundance" = 16, "Biomass" = 17), name = "Measure") +
+  pc_x +
+  labs(y = "\u03b1 (ln scale)") +
   theme_bw(base_size = 11) +
   theme(panel.grid.minor = element_blank())
- 
-(p1 / p2) +
-   plot_annotation(title = "2-year lag stock-recruitment and surplus production curves") +
-   plot_layout(guides = "collect")
+
+p_beta <- ggplot(ricker_params, aes(x = prop_cold, color = hab_type, group = hab_type)) +
+  geom_line(aes(y = beta_n), linewidth = 0.8, linetype = "solid") +
+  geom_point(aes(y = beta_n, shape = "Abundance"), size = 3) +
+  geom_line(aes(y = beta_b), linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = beta_b, shape = "Biomass"), size = 3) +
+  scale_color_manual(values = hab_cols, name = "Habitat type") +
+  scale_shape_manual(values = c("Abundance" = 16, "Biomass" = 17), name = "Measure") +
+  pc_x +
+  labs(y = "\u03b2") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank())
+
+p_maxsurp <- ggplot(ricker_params, aes(x = prop_cold, color = hab_type, group = hab_type)) +
+  geom_line(aes(y = max_surplus_n), linewidth = 0.8, linetype = "solid") +
+  geom_point(aes(y = max_surplus_n, shape = "Abundance"), size = 3) +
+  geom_line(aes(y = max_surplus_b), linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = max_surplus_b, shape = "Biomass"), size = 3) +
+  scale_color_manual(values = hab_cols, name = "Habitat type") +
+  scale_shape_manual(values = c("Abundance" = 16, "Biomass" = 17), name = "Measure") +
+  pc_x +
+  labs(y = "Max surplus") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank())
+
+(p_alpha + p_beta + p_maxsurp) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
 ```
 
 
@@ -1191,7 +1259,7 @@ Surplus production per year is the signed distance above the 1:1 line: recruited
 
 ```{r}
 #| fig-width: 12
-#| fig-height: 4
+#| fig-height: 5
 
 # Annual SP = recruited adults(Y) minus parent spawners(Y - lag)
 sp_ts <- purrr::map_dfr(sr_by_lag, \(x) {
@@ -1203,7 +1271,7 @@ sp_ts <- purrr::map_dfr(sr_by_lag, \(x) {
 })
 
 sp_summ <- sp_ts |>
-  group_by(lag, hab_type, harvest_rate, harvest_rate_fact) |>
+  group_by(lag, hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) |>
   summarise(
     n_spawn_mean = mean(n_spawners), n_spawn_sd = sd(n_spawners),
     b_spawn_mean = mean(biom_spawners), b_spawn_sd = sd(biom_spawners),
@@ -1223,7 +1291,7 @@ sp_base <- ggplot(sp_summ, aes(x = harvest_rate, color = lag, fill = lag)) +
                      labels = hr_labels_mech,
                      name   = "Harvest rate") +
   theme_bw(base_size = 11) +
-  facet_wrap(~hab_type) +
+  facet_grid(prop_cold_fact ~ hab_type) +
   theme(panel.grid.minor = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "none")
@@ -1256,7 +1324,7 @@ p_sp_n + p_sp_b +
 
 Inspect relationships between productivity (logged recruits per spawner) and harvest rate and spawning stock biomass.
 ```{r}
-#| fig-width: 8
+#| fig-width: 7
 #| fig-height: 8
 p1 <- sp_ts %>% filter(lag == "2-yr lag") %>%
   ggplot(aes(x = jitter(harvest_rate), y = prod, color = harvest_rate_fact)) +
@@ -1270,7 +1338,7 @@ p1 <- sp_ts %>% filter(lag == "2-yr lag") %>%
                 aes(x = harvest_rate, ymin = prod_mean - prod_sd, ymax = prod_mean + prod_sd, color = harvest_rate_fact),
                 width = 0, linewidth = 0.5) +
   scale_color_manual(values = hr_pal, name = "Harvest rate") +
-  facet_wrap(~hab_type) +
+  facet_grid(prop_cold_fact ~ hab_type) +
   labs(x = "Harvest rate", y = "Productivity, ln(R/S)") +
   theme_bw(base_size = 11) +
   theme(panel.grid.minor = element_blank(), legend.position = "none")
@@ -1294,7 +1362,7 @@ p2 <- ggplot() +
                    y = prod_mean, yend = prod_mean,
                    color = harvest_rate_fact)) +
   scale_color_manual(values = hr_pal, name = "Harvest rate") +
-  facet_wrap(~hab_type) +
+  facet_grid(prop_cold_fact ~ hab_type) +
   labs(x = "Spawning stock biomass (kg)", y = "Productivity, ln(R/S)") +
   theme_bw(base_size = 11) +
   theme(panel.grid.minor = element_blank(), legend.position = "none")
@@ -1353,4 +1421,5 @@ p_rec <- ggplot(age0_cold, aes(x = yr, y = n_age0, color = harvest_rate)) +
 
 p_fry / p_rec + plot_layout(guides = "collect") & theme(legend.position = "right")
 ```
+
 

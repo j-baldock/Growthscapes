@@ -7,6 +7,7 @@ title: "Compare Population Outcomes"
 library(tidyverse)
 library(lubridate)
 library(ggpubr)
+library(ggtext)
 library(egg)
 library(RColorBrewer)
 library(ggridges)
@@ -40,10 +41,11 @@ sim_params     <- res$params
 exp_start_date <- sim_params$mindate + years(sim_params$nyears_burnin)
 rm(res)
 
-# Helper: read one scenario, extract ibm_long, and free res before returning
+# Helper: read one scenario, extract ibm_long and spawn_log, and free res before returning
 load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
   res <- readRDS(path)
-  list(df = res$ibm_long, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+  list(df = res$ibm_long, spawn_log = res$spawn_log,
+       pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
 }
 
 ibm_list_mech <- list(
@@ -144,6 +146,28 @@ patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
 exp_pop_yr <- exp_oct1 |>
   group_by(hab_type, label, prop_cold, year) |>
   summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
+
+# ── Annual spawner totals per scenario × hab_type × year ─────────────────────
+# Each parent may appear multiple times per year (repeat spawning attempts);
+# average weight within (year, parent) before summing to avoid double-counting mass.
+exp_spawn_yr <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  scen$spawn_log |>
+    mutate(date = sim_params$mindate + (dayofsim - 1L),
+           yr   = year(date)) |>
+    filter(date >= exp_start_date) |>
+    group_by(yr, parent_pid) |>
+    summarise(parent_wt = mean(weight), .groups = "drop") |>
+    group_by(yr) |>
+    summarise(n_spawners    = n_distinct(parent_pid),
+              biom_spawn_kg = sum(parent_wt) / 1000,
+              .groups = "drop") |>
+    mutate(hab_type = scen$ht, prop_cold = scen$pc)
+}) |>
+  left_join(scen_meta, by = "prop_cold") |>
+  mutate(
+    label    = factor(label,    levels = scen_meta$label),
+    hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))
+  )
 ```
 
 
@@ -222,24 +246,41 @@ ggplot(spawn_date_df, aes(x = doy, y = density, color = hab_type,
 
 ### Abundance and biomass
 
-Mean and coefficient of variation (CV) of Oct 1 abundance and biomass during the experimental period, as a function of the proportion of cold habitat.
+Mean Oct 1 (census) and annual spawning abundance and biomass during the experimental period, as a function of the proportion of cold habitat and habitat scenario. Spawner counts and biomass are derived from the spawn_log (i.e., we know exactly who spawns). 
 
 ```{r}
-#| fig-width: 10
-#| fig-height: 9
+#| fig-width: 9
+#| fig-height: 7
 
+# summarize total population
 pop_sum <- exp_pop_yr |>
   group_by(hab_type, label, prop_cold) |>
   summarise(
     mean_n  = mean(n),
+    sd_n    = sd(n),
     cv_n    = sd(n) / mean(n),
     mean_b  = mean(biomass_kg),
+    sd_b    = sd(biomass_kg),
     cv_b    = sd(biomass_kg) / mean(biomass_kg),
     .groups = "drop"
   )
 
 write_csv(pop_sum, "pop_sum.csv")
 
+# summarize spawning population
+spawn_sum <- exp_spawn_yr |>
+  group_by(hab_type, label, prop_cold) |>
+  summarise(
+    mean_n  = mean(n_spawners),
+    sd_n    = sd(n_spawners),
+    cv_n    = sd(n_spawners)    / mean(n_spawners),
+    mean_b  = mean(biom_spawn_kg),
+    sd_b    = sd(biom_spawn_kg),
+    cv_b    = sd(biom_spawn_kg) / mean(biom_spawn_kg),
+    .groups = "drop"
+  )
+
+# function to create x-axis
 cold_x <- function(xlab = NULL) {
   list(
     scale_x_continuous(
@@ -258,115 +299,399 @@ hab_scales <- list(
   scale_shape_manual(  values = hab_shape,  name = "Habitat")
 )
 
-ab_plot <- function(data, y_var, y_lab, title_str, pct_y = FALSE) {
+# plotting function
+ab_plot <- function(data, y_var, y_err, y_lab, title_str, pct_y = FALSE) {
   p <- ggplot(data, aes(x = prop_cold, y = .data[[y_var]], color = hab_type)) +
-    geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
-    geom_point(aes(shape = hab_type), size = 3, shape = 16) +
+    geom_errorbar(aes(ymin = pmax(0, .data[[y_var]] - .data[[y_err]]), ymax = .data[[y_var]] + .data[[y_err]]), width = 0.05, linewidth = 0.6, position = position_dodge(width = 0.03)) +
+    geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8, position = position_dodge(width = 0.03)) +
+    geom_point(aes(shape = hab_type, fill = hab_type), size = 3, shape = 21, color = "black", position = position_dodge(width = 0.03)) +
     scale_color_manual(values = hab_cols, name = "Scenario") +
+    scale_fill_manual(values = hab_cols, name = "Scenario") +
     # hab_scales +
     labs(y = y_lab, title = title_str) +
     theme_bw(base_size = 12) +
-    theme(panel.grid.minor = element_blank())
+    theme(panel.grid = element_blank(), axis.text = element_text(color = "black"))
   if (pct_y) p <- p + scale_y_continuous(labels = scales::label_percent(accuracy = 1))
   p
 }
 
-p_mean_n <- ab_plot(pop_sum, "mean_n", "Mean abundance (N)",  "(A) Mean abundance")       + cold_x()
-p_cv_n   <- ab_plot(pop_sum, "cv_n",   "CV of abundance",     "(B) CV of abundance", TRUE) + cold_x()
-p_mean_b <- ab_plot(pop_sum, "mean_b", "Mean biomass (kg)",   "(C) Mean biomass")          + cold_x("Proportion cold habitat")
-p_cv_b   <- ab_plot(pop_sum, "cv_b",   "CV of biomass",       "(D) CV of biomass",   TRUE) + cold_x("Proportion cold habitat")
+p_mean_n <- ab_plot(pop_sum, "mean_n", "sd_n", "Mean total abundance (N, Oct. 1)",  "(a)")       + cold_x()
+# p_cv_n   <- ab_plot(pop_sum, "cv_n",   "CV of abundance",     "(B) CV of abundance", TRUE) + cold_x()
+p_mean_b <- ab_plot(pop_sum, "mean_b", "sd_b", "Mean total biomass (kg, Oct. 1)",   "(b)")          + cold_x()
+# p_cv_b   <- ab_plot(pop_sum, "cv_b",   "CV of biomass",       "(D) CV of biomass",   TRUE) + cold_x("Proportion cold habitat")
 
-(p_mean_n + p_cv_n) / (p_mean_b + p_cv_b) +
+p_mean_sp_n <- ab_plot(spawn_sum, "mean_n", "sd_n", "Mean spawner abundance (N)", "(c)")        + cold_x("Proportion cold habitat")
+# p_cv_sp_n   <- ab_plot(spawn_sum, "cv_n",   "CV of spawner abundance",    "(B) CV of spawner abundance", TRUE) + cold_x()
+p_mean_sp_b <- ab_plot(spawn_sum, "mean_b", "sd_b", "Mean spawner biomass (kg)",  "(d)")          + cold_x("Proportion cold habitat")
+# p_cv_sp_b   <- ab_plot(spawn_sum, "cv_b",   "CV of spawner biomass",      "(D) CV of spawner biomass",   TRUE) + cold_x("Proportion cold habitat")
+
+
+(p_mean_n + p_mean_b) / (p_mean_sp_n + p_mean_sp_b) +
   plot_layout(guides = "collect") &
   theme(legend.position = "right")
 ```
 
+::: {.callout-note}
+#### Why Cold + Warm scenarios can show *lower* spawner abundance and biomass than Cold Only at high proportions of cold habitat (95% cold)
+
+The spawner plots above reveal a counterintuitive result: at 95% cold, Cold + Warm scenarios support roughly **half** the spawner abundance and biomass of the Cold Only scenario. This runs against the expectation that adding even a small amount of warm habitat — with its higher temperatures and additional area — should increase growth and reproductive output. The mechanism behind this result is a density-mediated thinning paradox driven by the interaction between winter survival and summer density dependence.
+
+**Step 1 — Warm habitat acts as a winter thermal refuge, increasing first-winter survival.** In late winter and early spring, the cold habitat patch drops to its temperature floor (~0.3°C), producing near-zero or negative bioenergetic growth regardless of food availability. The warm patch, even at only ~5–6°C in January, provides genuinely better thermal conditions, and fish aggregate there. Despite the extreme density this creates in the small warm patch (A~warm~ = 0.1), survival is substantially higher: ~88% of age-0 fish survive from November to April in Cold + Warm scenarios, compared to ~62% in Cold Only. Both scenarios enter winter with approximately the same number of age-0 fish (~110), so the warm habitat is not increasing fry production — it is reducing winter mortality.
+
+**Step 2 — Extra winter survivors crowd the cold habitat during the following summer, where all fish must compete.** The warm habitat is too hot for fish during peak summer (temperatures approach or exceed thermal stress thresholds), so virtually all fish — regardless of scenario — occupy cold habitat from July through September. In Cold Only, winter mortality "thins" the cohort before summer, so cold-habitat density remains moderate. In Cold + Warm, the larger surviving cohort is forced into the same cold habitat, increasing age-1 fish-days by ~40% and raising cold-habitat density among age-1 fish proportionally.
+
+**Step 3 — Higher summer cold-habitat density suppresses individual growth through density-dependent ration reduction.** Age-1 fish in Cold + Warm grow approximately 20% slower during summer (0.0073 vs. 0.0091 g/g/day) due to scramble competition for limited food in the cold patch. This growth suppression compounds across years: fish in the Cold + Warm scenario are 15–25% smaller at every age from age-2 onward (see Weight-at-age section below). The warm habitat, though providing a survival benefit in winter, is too small to offer compensatory growth benefits at any other time of year.
+
+**Step 4 — Stunted body size dramatically reduces spawning participation.** Since spawning probability is a logistic function of body size, the smaller fish in Cold + Warm scenarios cross the size threshold at a much lower rate: only ~6% of the Oct 1 population spawns in Cold + Warm, compared to ~16% in Cold Only. Per-spawner fecundity is nearly identical across scenarios (~283–291 fry/spawner), so the deficit in total fry production (see Reproduction section below) is almost entirely attributable to fewer spawners rather than lower individual output.
+
+In short, at 95% cold the warm habitat succeeds at what it does — buffering fish against winter mortality — but the 5% warm area is too small to relieve the density-dependent growth suppression it causes by preventing that thinning. The benefit of warm habitat only reverses sign (i.e., becomes a net positive for spawner abundance and biomass) at lower proportions of cold habitat, where the warm patch is large enough to support genuine growth benefits during the growing season.
+:::
+
+
+#### Marginal benefits
+
+View the absolute and relative differences in total and spawning population abundance and biomass between cold+warm/high P and cold-only scenarios.
 ```{r}
-#| fig-width: 9.5
-#| fig-height: 8
+#| fig-width: 9
+#| fig-height: 7
 #| 
-p_ad_n <- pop_sum %>% 
-  select(hab_type, label, prop_cold, mean_n) %>%
-  pivot_wider(names_from = hab_type, values_from = mean_n) %>%
-  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
-  mutate(ad_coldwarm = cold_warm - cold_only,
-         ad_highp = high_P - cold_only) %>%
-  pivot_longer(ad_coldwarm:ad_highp, names_to = "hab_type", values_to = "absdiff") %>%
-  mutate(hab_type = recode(hab_type, "ad_coldwarm" = "Cold + Warm", "ad_highp" = "Cold + Warm (high P)")) %>%
-  ggplot(aes(x = prop_cold, y = absdiff, color = hab_type)) +
-  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
-  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
-  scale_color_manual(values = hab_cols, name = "Scenario") +
-  labs(y = "Absolute difference in abundance (N)") +
-  theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank()) +
-  cold_x()
+plot_scenario_diff <- function(data, metric, type = c("absolute", "relative"), y_limits = NULL) {
+  type <- match.arg(type)
 
-p_ad_b <- pop_sum %>% 
-  select(hab_type, label, prop_cold, mean_b) %>%
-  pivot_wider(names_from = hab_type, values_from = mean_b) %>%
-  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
-  mutate(ad_coldwarm = cold_warm - cold_only,
-         ad_highp = high_P - cold_only) %>%
-  pivot_longer(ad_coldwarm:ad_highp, names_to = "hab_type", values_to = "absdiff") %>%
-  mutate(hab_type = recode(hab_type, "ad_coldwarm" = "Cold + Warm", "ad_highp" = "Cold + Warm (high P)")) %>%
-  ggplot(aes(x = prop_cold, y = absdiff, color = hab_type)) +
-  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
-  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
-  scale_color_manual(values = hab_cols, name = "Scenario") +
-  labs(y = "Absolute difference in biomass (kg)") +
-  theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank()) +
-  cold_x()
+  metric_label <- switch(metric, mean_n = "abundance (N)", mean_b = "biomass (kg)")
+  y_label <- if (type == "absolute") {
+    paste("Absolute diff. in", metric_label)
+  } else {
+    paste("Relative diff. in", metric_label)
+  }
 
+  df <- data |>
+    select(hab_type, label, prop_cold, all_of(metric)) |>
+    pivot_wider(names_from = hab_type, values_from = all_of(metric)) |>
+    rename(cold_only = "Cold only", cold_warm = "Cold + Warm", high_P = "Cold + Warm (high P)")
 
-p_rd_n <- pop_sum %>% 
-  select(hab_type, label, prop_cold, mean_n) %>%
-  pivot_wider(names_from = hab_type, values_from = mean_n) %>%
-  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
-  mutate(rd_coldwarm = (cold_warm - cold_only)/cold_only,
-         rd_highp = (high_P - cold_only)/cold_only) %>%
-  pivot_longer(rd_coldwarm:rd_highp, names_to = "hab_type", values_to = "reldiff") %>%
-  mutate(hab_type = recode(hab_type, "rd_coldwarm" = "Cold + Warm", "rd_highp" = "Cold + Warm (high P)")) %>%
-  ggplot(aes(x = prop_cold, y = reldiff, color = hab_type)) +
-  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
-  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
-  scale_color_manual(values = hab_cols, name = "Scenario") +
-  labs(y = "Relative difference in abundance (%)") +
-  theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank()) +
-  cold_x("Proportion cold habitat") +
-  scale_y_continuous(labels = scales::label_percent(accuracy = 1), limits = c(0,5))
+  if (type == "absolute") {
+    df <- df |>
+      mutate(ad_coldwarm = cold_warm - cold_only,
+             ad_highp    = high_P   - cold_only) |>
+      pivot_longer(ad_coldwarm:ad_highp, names_to = "hab_type", values_to = "diff") |>
+      mutate(hab_type = recode(hab_type,
+               "ad_coldwarm" = "Cold + Warm", "ad_highp" = "Cold + Warm (high P)"))
+  } else {
+    df <- df |>
+      mutate(rd_coldwarm = (cold_warm - cold_only) / cold_only,
+             rd_highp    = (high_P   - cold_only) / cold_only) |>
+      pivot_longer(rd_coldwarm:rd_highp, names_to = "hab_type", values_to = "diff") |>
+      mutate(hab_type = recode(hab_type,
+               "rd_coldwarm" = "Cold + Warm", "rd_highp" = "Cold + Warm (high P)"))
+  }
 
-p_rd_b <- pop_sum %>% 
-  select(hab_type, label, prop_cold, mean_b) %>%
-  pivot_wider(names_from = hab_type, values_from = mean_b) %>%
-  rename("cold_only" = "Cold only", "cold_warm" = "Cold + Warm",  "high_P" = "Cold + Warm (high P)") %>%
-  mutate(rd_coldwarm = (cold_warm - cold_only)/cold_only,
-         rd_highp = (high_P - cold_only)/cold_only) %>%
-  pivot_longer(rd_coldwarm:rd_highp, names_to = "hab_type", values_to = "reldiff") %>%
-  mutate(hab_type = recode(hab_type, "rd_coldwarm" = "Cold + Warm", "rd_highp" = "Cold + Warm (high P)")) %>%
-  ggplot(aes(x = prop_cold, y = reldiff, color = hab_type)) +
-  geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8) +
-  geom_point(aes(shape = hab_type), size = 3, shape = 16) +
-  scale_color_manual(values = hab_cols, name = "Scenario") +
-  labs(y = "Relative difference in biomass (%)") +
-  theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank()) +
-  cold_x("Proportion cold habitat") +
-  scale_y_continuous(labels = scales::label_percent(accuracy = 1), limits = c(0,5))
+  p <- ggplot(df, aes(x = prop_cold, y = diff, color = hab_type)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+    geom_line(aes(group = hab_type), linetype = "solid", linewidth = 0.8, position = position_dodge(width = 0.03)) +
+    # geom_point(size = 3, shape = 16, position = position_dodge(width = 0.03)) +
+    geom_point(aes(shape = hab_type, fill = hab_type), size = 3, shape = 21, color = "black", position = position_dodge(width = 0.03)) +
+    scale_color_manual(values = hab_cols, name = "Scenario") +
+    scale_fill_manual(values = hab_cols, name = "Scenario") +
+    labs(y = y_label) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid = element_blank(), axis.text = element_text(color = "black")) +
+    cold_x(if (type == "relative") "Proportion cold habitat" else NULL)
+
+  if (type == "relative") {
+    p <- p + scale_y_continuous(
+      labels = scales::label_percent(accuracy = 1),
+      limits = y_limits
+    )
+  }
+
+  p
+}
+
+## Total population
+p_ad_n    <- plot_scenario_diff(pop_sum,   "mean_n", "absolute")
+p_ad_b    <- plot_scenario_diff(pop_sum,   "mean_b", "absolute")
+p_rd_n    <- plot_scenario_diff(pop_sum,   "mean_n", "relative", y_limits = c(0, 5))
+p_rd_b    <- plot_scenario_diff(pop_sum,   "mean_b", "relative", y_limits = c(0, 5))
+
+## Spawning population
+p_ad_n_sp <- plot_scenario_diff(spawn_sum, "mean_n", "absolute")
+p_ad_b_sp <- plot_scenario_diff(spawn_sum, "mean_b", "absolute")
+p_rd_n_sp <- plot_scenario_diff(spawn_sum, "mean_n", "relative", y_limits = c(-1, 25))
+p_rd_b_sp <- plot_scenario_diff(spawn_sum, "mean_b", "relative", y_limits = c(-1, 25))
+
 
 (p_ad_n + p_ad_b) / (p_rd_n + p_rd_b) +
   plot_layout(guides = "collect") &
   theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
-  plot_annotation(title = "Marginal benefit of seasonally warm habitat to population outcomes",
-                  subtitle = "Absolute and relative difference between cold+warm and cold-only") 
+  plot_annotation(title = "Total population: marginal benefit of seasonally warm habitat to population outcomes",
+                  subtitle = "Absolute and relative difference compared to cold-only") 
+
+
+(p_ad_n_sp + p_ad_b_sp) / (p_rd_n_sp + p_rd_b_sp) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
+  plot_annotation(title = "Spawning population: marginal benefit of seasonally warm habitat to population outcomes",
+                  subtitle = "Absolute and relative difference compared to cold-only") 
 ```
 
 
-### Weight-at-age
+### Size structure
 
-Mean weight at each integer age class, pooled across all Oct 1 experimental-period censuses, compared across scenarios. Lines colored from blue (cold-dominant) to red/orange (warm-dominant).
+#### Variation in weight
+
+Coarse descriptors of the variation or diversity in body sizes among habitat scenarios and cold habitat proportions. The Gini coefficient describes the inequality in a distribution, where 0 means that all fish same size, where 1 indicates maximum inequality (this metric is not sensitive to the mean). 
+
+```{r}
+#| fig-width: 9
+#| fig-height: 7
+
+# year specific summaries
+varwt_yr <- exp_oct1 %>% 
+  group_by(hab_type, label, prop_cold, year) %>%
+  summarise(mean_weight = mean(weight),
+            sd_weight = sd(log(weight)), 
+            range_weight = range(weight)[2] - range(weight)[1],
+            cv_weight = sd(weight) / mean(weight)) %>%
+  ungroup()
+
+# varwt_summ <- exp_oct1 %>% 
+#   group_by(hab_type, label, prop_cold) %>%
+#   summarise(mean_weight = mean(weight),
+#             sd_weight = sd(weight), 
+#             range_weight = range(weight)[2] - range(weight)[1],
+#             cv_weight = sd(weight) / mean(weight)) %>%
+#   ungroup()
+
+# summarize over years: means of year-specific summary stats. If we just calculate as year-agnostic, the ranges get messup up
+varwt_summ <- varwt_yr %>% 
+  group_by(hab_type, label, prop_cold) %>%
+  summarise(mean_weight = mean(mean_weight),
+            sd_weight = mean(sd_weight), 
+            range_weight = mean(range_weight),
+            cv_weight = mean(cv_weight)) %>%
+  ungroup()
+
+
+#### Gini coefficient describes the inequality in a distribtion: 0 = all fish same size, 1 = maximum inequality (not sensitive to mean) 
+
+gini <- function(x) {
+  x <- sort(x[!is.na(x)])
+  n <- length(x)
+  (2 * sum(seq_len(n) * x) / (n * sum(x))) - (n + 1) / n
+}
+
+gini_yr <- exp_oct1 |>
+  group_by(hab_type, label, prop_cold, year) |>
+  summarise(gini = gini(weight), .groups = "drop")
+
+gini_summ <- gini_yr |>
+  group_by(hab_type, label, prop_cold) |>
+  summarise(gini = mean(gini), .groups = "drop")
+
+p_gini <- ggplot() +
+  geom_point(data = gini_yr,
+             aes(x = prop_cold, y = gini, color = hab_type),
+             shape = 16, alpha = 0.5,
+             position = position_jitterdodge(jitter.width = 0.05, dodge.width = 0.07)) +
+  geom_line(data = gini_summ,
+            aes(x = prop_cold, y = gini, color = hab_type, group = hab_type),
+            linewidth = 0.85, position = position_dodge(width = 0.07)) +
+  geom_point(data = gini_summ,
+             aes(x = prop_cold, y = gini, fill = hab_type),
+             shape = 21, size = 3, color = "black",
+             position = position_dodge(width = 0.07)) +
+  scale_color_manual(values = hab_cols, name = "Scenario") +
+  scale_fill_manual( values = hab_cols, name = "Scenario") +
+  cold_x("Proportion cold habitat") +
+  labs(y = "Gini coefficient",
+       title = "(d)") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank(), axis.text = element_text(color = "black"),
+        legend.position = "right")
+
+
+#### Plotting 
+
+# function to create x-axis
+cold_x <- function(xlab = NULL) {
+  list(
+    scale_x_continuous(
+      breaks = scen_meta$prop_cold,
+      labels = scales::label_percent(accuracy = 1),
+      limits = c(0, 1),
+      transform = "reverse"
+    ),
+    labs(x = xlab)
+  )
+}
+
+# Shared scale additions for hab_type encoding (linetype + shape merged legend)
+hab_scales <- list(
+  scale_linetype_manual(values = hab_lty,   name = "Habitat"),
+  scale_shape_manual(  values = hab_shape,  name = "Habitat")
+)
+
+# plotting function
+sizevar_plot <- function(y_var, y_lab, title_str) {
+  p <- ggplot() + 
+  geom_point(data = varwt_yr, aes(x = prop_cold, y = .data[[y_var]], color = hab_type),
+             shape = 16, alpha = 0.5, position = position_jitterdodge(jitter.width = 0.05, dodge.width = 0.07)) + 
+  geom_line(data = varwt_summ, aes(x = prop_cold, y = .data[[y_var]], color = hab_type, group = hab_type),
+            linewidth = 0.85, position = position_dodge(width = 0.07)) +
+  geom_point(data = varwt_summ, aes(x = prop_cold, y = .data[[y_var]], fill = hab_type),
+             shape = 21, size = 3, color = "black", position = position_dodge(width = 0.07)) +
+  scale_color_manual(values  = hab_cols, name = "Scenario") +
+  scale_fill_manual(values  = hab_cols, name = "Scenario") +
+  labs(y = y_lab, title = title_str) +
+  theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank(), axis.text = element_text(color = "black"))
+  p
+}
+
+# generate plots
+p1 <- sizevar_plot(y_var = "mean_weight", y_lab = "Mean weight (g)",  title_str = "(a)") + cold_x()
+p2 <- sizevar_plot(y_var = "sd_weight", y_lab = "Standard deviation of log(weights)",  title_str = "(b)") + cold_x()
+p3 <- sizevar_plot(y_var = "range_weight", y_lab = "Range of weights (g)",  title_str = "(c)") + cold_x("Proportion cold habitat")
+p4 <- sizevar_plot(y_var = "cv_weight", y_lab = "CV of weights",  title_str = "(d)") + cold_x("Proportion cold habitat")
+
+# combine plots
+(p1 + p2) / (p3 + p_gini) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+```
+
+Together, these panels show that warm habitat availability increases both mean body size and the diversity of body sizes (panels a–c), but simultaneously *reduces* body-size inequality (panel d). Cold-only populations have the highest Gini coefficients (~0.53), reflecting a strongly unequal distribution dominated by small, young individuals with only occasional large fish. Warm-habitat scenarios shift this pattern: higher survival fills in intermediate age and size classes, producing a more even size distribution with a lower Gini (~0.42–0.49) despite a wider absolute range and higher mean. In other words, warm habitat does not simply add large fish — it broadens the size distribution from the middle outward, making sizes more equitably distributed across the full range. This is clearly observed in the size spectra plots below.
+
+
+
+#### Size spectra
+
+Body-size frequency distributions across habitat scenarios and cold proportions, based on all Oct 1 individual records from the experimental period. Larger fish should be more frequent in cold+warm and high-P scenarios if warm habitat provides a survival benefit that allows individuals to accumulate growth over more years.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 4
+#| label: fig-size-spectra-density
+
+# Kernel density on log10(weight) axis — one curve per hab_type per prop_cold panel
+ggplot(exp_oct1, aes(x = weight, color = hab_type, fill = hab_type)) +
+  geom_density(alpha = 0.18, linewidth = 0.85) +
+  # scale_x_log10(
+  #   breaks = c(10, 50, 200, 500, 1000, 2000),
+  #   labels = scales::label_number()
+  # ) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  scale_fill_manual(values  = hab_cols, name = NULL) +
+  facet_wrap(~label, ncol = 5) +
+  labs(
+    x = "Body weight (g, log<sub>10</sub> scale)",
+    y = "Density",
+    title = "Size spectra: body-weight density by scenario (Oct 1, experimental period)"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom", panel.grid = element_blank(), axis.title.x = element_markdown(), 
+    axis.text.x      = element_text(angle = 45, hjust = 1))
+```
+
+Survival function (complementary CDF): P(weight ≥ x) on log-log axes, summarized across years. Quantiles are computed per year at a fixed exceedance probability grid, then averaged across years; the ribbon spans ±1 SD. If cold+warm or high-P scenarios support more large fish, their lines will lie above cold-only at large x. Note that the 5% cold panel has small per-year sample sizes (10–48 fish/year), so its ribbons are wider.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 4
+#| label: fig-size-spectra-survival
+
+# Fixed exceedance probability grid
+p_grid <- seq(0.001, 0.999, length.out = 200)
+
+# Per-year quantile of weight at each exceedance probability
+surv_yr <- exp_oct1 |>
+  group_by(hab_type, label, year) |>
+  reframe(
+    p_exceed = rev(p_grid),
+    q        = quantile(weight, probs = 1 - rev(p_grid))
+  )
+
+# Mean and SD of quantiles across years at each exceedance probability
+surv_summ <- surv_yr |>
+  group_by(hab_type, label, p_exceed) |>
+  summarise(
+    mean_q = mean(q),
+    sd_q   = sd(q),
+    .groups = "drop"
+  )
+
+# Year-agnostic quantile of weight at each exceedance probability
+surv_all <- exp_oct1 |>
+  group_by(hab_type, label) |>
+  reframe(
+    p_exceed = rev(p_grid),
+    q        = quantile(weight, probs = 1 - rev(p_grid))
+  )
+
+# plot size spectra
+ggplot(surv_summ, aes(x = mean_q, y = p_exceed, color = hab_type, fill = hab_type, group = hab_type)) +
+  geom_line(data = surv_yr, aes(x = q, y = p_exceed, color = hab_type, fill = hab_type, group = interaction(hab_type, year)),
+            linewidth = 0.3, alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(linewidth = 1.2, color = "black") +
+  geom_line(linewidth = 0.85) +
+  # scale_x_log10(breaks = c(10, 100, 500, 1500),
+  #               labels = scales::label_number()) +
+  # scale_y_log10(breaks = c(0.001, 0.01, 0.1, 1),
+  #               labels = scales::label_percent(accuracy = 0.1)) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  scale_fill_manual(values  = hab_cols, name = NULL) +
+  facet_wrap(~label, ncol = 5) +
+  labs(
+    x = "Body weight (g)",
+    y = "P(weight \u2265 x)",
+    title = "Size spectra: empirical complementary CDF by scenario (Oct 1 census)",
+    subtitle = "Bold line = mean across years; thin lines = year-specific ECDFs"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position  = "bottom",
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.text.x      = element_text(angle = 45, hjust = 1)
+  )
+# 
+# ggplot(surv_all, aes(x = q, y = p_exceed, color = hab_type, fill = hab_type, group = hab_type)) +
+#   geom_line(data = surv_yr, aes(x = q, y = p_exceed, color = hab_type, fill = hab_type, group = interaction(hab_type, year)),
+#             linewidth = 0.3, alpha = 0.3, inherit.aes = FALSE) +
+#   geom_line(linewidth = 1.2, color = "black") +
+#   geom_line(linewidth = 0.85) +
+#   # scale_x_log10(breaks = c(10, 100, 500, 1500),
+#   #               labels = scales::label_number()) +
+#   # scale_y_log10(breaks = c(0.001, 0.01, 0.1, 1),
+#   #               labels = scales::label_percent(accuracy = 0.1)) +
+#   scale_color_manual(values = hab_cols, name = NULL) +
+#   scale_fill_manual(values  = hab_cols, name = NULL) +
+#   facet_wrap(~label, ncol = 5) +
+#   labs(
+#     x = "Body weight (g)",
+#     y = "P(weight \u2265 x)",
+#     title = "Size spectra: empirical complementary CDF by scenario (Oct 1 census)",
+#     subtitle = "Bold line = all years combined; thin lines = year-specific ECDFs"
+#   ) +
+#   theme_bw(base_size = 12) +
+#   theme(
+#     legend.position  = "bottom",
+#     panel.grid = element_blank(),
+#     axis.text = element_text(color = "black"),
+#     axis.text.x      = element_text(angle = 45, hjust = 1)
+#   )
+
+```
+
+
+#### Growth: weight-at-age
+
+Shifts in size spectra could driven by changes in growth regimes: mean weight-at-age.
+
+Mean weight at each integer age class, pooled across all Oct 1 experimental-period censuses, compared across scenarios. Lines colored from blue (cold-dominant) to red/orange (warm-dominant). Means are only calculated for age classes with 10 or more individuals.
+
+*Note the depressed mean weight-at-age (cold+warm relative to cold-only) in the 95% and 75% cold habitat scenarios, which is likely driven by the fact that warm habitat confers a survival benefit, but is too small (density dependence too strong) to meaningfully benefit individual growth.*
 
 ```{r}
 #| fig-width: 9
@@ -380,7 +705,7 @@ waa_scen <- exp_oct1 |>
     n       = n(),
     .groups = "drop"
   ) |>
-  filter(n >= 5)
+  filter(n >= 10)
 
 age_breaks_scen <- sort(unique(waa_scen$age_class))
 
@@ -432,14 +757,15 @@ ggplot(waa_scen, aes(x = age_class, y = mean_wt,
 ```
 
 
+#### Age structure
 
-### Age structure
+Shifts in size spectra could also be driving by shifting age structure. 
 
-Mean proportion of total abundance and biomass at each age class during the experimental period, compared across scenarios.
+(Top) Mean proportion of total abundance at each age class during the experimental period, compared across scenarios.(Bottom) Difference in proportional abundance at each age class relative to cold-only, averaged across years. Negative values indicate age classes that are proportionally less abundant in warm-habitat scenarios; positive values indicate age classes that are proportionally more abundant. 
 
 ```{r}
-#| fig-width: 10
-#| fig-height: 8
+#| fig-width: 9
+#| fig-height: 6
 
 # Per-year counts and biomass by age class (fill zeros for absent classes)
 age_yr_scen <- exp_oct1 |>
@@ -448,13 +774,21 @@ age_yr_scen <- exp_oct1 |>
   complete(nesting(hab_type, label, prop_cold), year, age_class,
            fill = list(n = 0, biomass_kg = 0))
 
-# Proportional abundance by age class
-prop_n_scen <- age_yr_scen |>
+# Per-year proportional abundance — shared by absolute and difference plots
+prop_n_yr <- age_yr_scen |>
   group_by(hab_type, label, prop_cold, year) |>
-  mutate(prop = n / sum(n)) |>
-  ungroup() |>
+  mutate(prop_n = n / sum(n)) |>
+  ungroup()
+
+# Cold-only reference proportions for difference plot
+cold_ref <- prop_n_yr |>
+  filter(hab_type == "Cold only") |>
+  select(label, year, age_class, prop_ref = prop_n)
+
+# Proportional abundance summarised across years
+prop_n_scen <- prop_n_yr |>
   group_by(hab_type, label, prop_cold, age_class) |>
-  summarise(mean_prop = mean(prop), sd_prop = sd(prop), .groups = "drop") |>
+  summarise(mean_prop = mean(prop_n), sd_prop = sd(prop_n), .groups = "drop") |>
   filter(mean_prop > 0)
 
 # Proportional biomass by age class
@@ -466,38 +800,338 @@ prop_b_scen <- age_yr_scen |>
   summarise(mean_prop = mean(prop), sd_prop = sd(prop), .groups = "drop") |>
   filter(mean_prop > 0)
 
-age_breaks_struct <- sort(unique(c(prop_n_scen$age_class, prop_b_scen$age_class)))
+# Difference from cold-only, summarised across years
+# (prop_n_yr and cold_ref computed in the chunk above)
+diff_n_scen <- prop_n_yr |>
+  filter(hab_type != "Cold only") |>
+  left_join(cold_ref, by = c("label", "year", "age_class")) |>
+  mutate(diff = prop_n - prop_ref) |>
+  group_by(hab_type, label, prop_cold, age_class) |>
+  summarise(
+    mean_diff = mean(diff, na.rm = TRUE),
+    sd_diff   = sd(diff,   na.rm = TRUE),
+    .groups   = "drop"
+  )
 
-age_struct_plot <- function(data, title_str) {
-  ggplot(data, aes(x = age_class, y = mean_prop,
-                   color = hab_type, fill = hab_type,
-                   # linetype = hab_type,
-                   group = interaction(label, hab_type))) +
-    geom_ribbon(
-      aes(ymin = pmax(0, mean_prop - sd_prop), ymax = mean_prop + sd_prop),
-      alpha = 0.10, color = NA
-    ) +
+
+#### PLOTTING
+
+# age_struct_plot <- function(data, title_str) {
+#   ggplot(data, aes(x = age_class, y = mean_prop,
+#                    color = hab_type, fill = hab_type,
+#                    # linetype = hab_type,
+#                    group = interaction(label, hab_type))) +
+#     geom_ribbon(
+#       aes(ymin = pmax(0, mean_prop - sd_prop), ymax = mean_prop + sd_prop),
+#       alpha = 0.10, color = NA
+#     ) +
+#     geom_line(linewidth = 0.9) +
+#     geom_point(size = 2, shape = 16) +
+#     scale_color_manual(values = hab_cols, name = "Habitat") +
+#     scale_fill_manual(values  = hab_cols, name = "Habitat") +
+#     # scale_linetype_manual(values = hab_lty,   name = "Habitat") +
+#     # scale_shape_manual(  values = hab_shape,  name = "Habitat") +
+#     scale_x_continuous(breaks = age_breaks_struct) +
+#     scale_y_continuous(labels = scales::label_percent(accuracy = 1)) +
+#     labs(x = "Age class (years)", y = "Mean proportion", title = title_str) +
+#     theme_bw(base_size = 12) +
+#     theme(panel.grid.minor = element_blank(), legend.position = "bottom") +
+#     facet_wrap(~label, nrow = 1)
+# }
+# proportional biomass
+# p_prop_b <- age_struct_plot(prop_b_scen, "(B) Proportion of total biomass by age class") + coord_cartesian(ylim = c(0,0.2))
+
+
+# proportional abundance
+# p_prop_n <- age_struct_plot(prop_n_scen, "(A) Proportion of total abundance by age class") + coord_cartesian(ylim = c(0,0.35))
+age_breaks_struct <- sort(unique(c(prop_n_scen$age_class, prop_b_scen$age_class)))
+p_prop_n <- ggplot(prop_n_scen, aes(x = age_class, y = mean_prop, color = hab_type, fill = hab_type, group = interaction(label, hab_type))) +
+    geom_ribbon(aes(ymin = pmax(0, mean_prop - sd_prop), ymax = mean_prop + sd_prop), alpha = 0.10, color = NA) +
     geom_line(linewidth = 0.9) +
     geom_point(size = 2, shape = 16) +
     scale_color_manual(values = hab_cols, name = "Habitat") +
     scale_fill_manual(values  = hab_cols, name = "Habitat") +
     # scale_linetype_manual(values = hab_lty,   name = "Habitat") +
     # scale_shape_manual(  values = hab_shape,  name = "Habitat") +
-    scale_x_continuous(breaks = age_breaks_struct) +
+    scale_x_continuous(breaks = sort(unique(diff_n_scen$age_class)),
+                     guide  = guide_axis(check.overlap = TRUE)) +
     scale_y_continuous(labels = scales::label_percent(accuracy = 1)) +
-    labs(x = "Age class (years)", y = "Mean proportion", title = title_str) +
+    labs(x = NULL, y = "Mean proportional abundance") +
     theme_bw(base_size = 12) +
-    theme(panel.grid.minor = element_blank(), legend.position = "bottom") +
-    facet_wrap(~label, nrow = 1)
+    theme(panel.grid = element_blank(), legend.position = "top") +
+    facet_wrap(~label, nrow = 1) +
+    coord_cartesian(ylim = c(0,0.35))
+
+# proportional difference
+p_diff_n <- ggplot(diff_n_scen,
+       aes(x = age_class, y = mean_diff,
+           color = hab_type, fill = hab_type, group = hab_type)) +
+  geom_hline(yintercept = 0, linewidth = 0.4, linetype = "dashed") +
+  geom_ribbon(aes(ymin = mean_diff - sd_diff, ymax = mean_diff + sd_diff),
+              alpha = 0.15, color = NA) +
+  geom_line(linewidth = 0.85) +
+  geom_point(size = 2, shape = 16) +
+  scale_color_manual(values = hab_cols[c("Cold + Warm", "Cold + Warm (high P)")],
+                     name = NULL) +
+  scale_fill_manual( values = hab_cols[c("Cold + Warm", "Cold + Warm (high P)")],
+                     name = NULL) +
+  scale_x_continuous(breaks = sort(unique(diff_n_scen$age_class)),
+                     guide  = guide_axis(check.overlap = TRUE)) +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 0.1)) +
+  facet_wrap(~label, nrow = 1) +
+  labs(x = "Age class (years)", y = "Difference in proportion\n(warm scenario \u2212 cold only)"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank(), legend.position = "none", strip.text = element_blank(), strip.background = element_blank()) +
+  coord_cartesian(ylim = c(-0.15,0.05))
+
+# combine plots
+p_prop_n / p_diff_n 
+```
+
+The dominant pattern — a deficit of young fish and a surplus of old fish in the cold+warm and high P scenarios — is consistent across cold proportions. This reflects the survival benefit of warm habitat: more individuals persist into older age classes, which reduces the relative representation of age-0 fish even when absolute recruitment is unchanged. This also shows why size structure is more unequal in cold-only scenarios (high Gini coefficient): because proportionally more fish are surviving to older ages and thus larger body sizes. 
+
+
+#### Counterfactual decomposition of size spectra
+
+To attribute the shift in P(size) across habitat types to its two components — age structure and growth — four synthetic populations are constructed for each scenario via resampling:
+
+| Synthetic population | Age structure from | Growth (P(size\|age)) from | Interpretation |
+|---|---|---|---|
+| Observed cold | Cold only | Cold only | Reference |
+| CF: growth effect | Cold only | Alt | What if growth shifted but age structure didn't? |
+| CF: age structure effect | Alt | Cold only | What if age structure shifted but growth didn't? |
+| Observed alt | Alt | Alt | Full warm-habitat effect |
+
+Age structure determines line color (blue = cold-only ages, orange/red = warm-habitat ages); solid = observed, dashed = counterfactual. If the dashed line of a given color lies close to the solid line of the *other* color, that component alone explains most of the shift.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 4
+#| label: fig-cfact-cw
+
+set.seed(3847)
+n_draws <- 20000
+
+# Empirical age-class probabilities per hab_type × label
+age_probs_cf <- exp_oct1 |>
+  count(hab_type, label, age_class) |>
+  group_by(hab_type, label) |>
+  mutate(p_age = n / sum(n)) |>
+  ungroup()
+
+# Weight pools as nested lists for fast sampling
+weight_pools_cf <- exp_oct1 |>
+  select(hab_type, label, age_class, weight) |>
+  group_by(hab_type, label, age_class) |>
+  summarise(weights = list(weight), .groups = "drop")
+
+# Sample ages from age_hab; sample weights from wt_hab's empirical P(size | age)
+draw_cf <- function(age_hab, wt_hab, focal_label, n = n_draws) {
+  ap   <- age_probs_cf  |> filter(hab_type == age_hab, label == focal_label)
+  wp   <- weight_pools_cf |> filter(hab_type == wt_hab,  label == focal_label)
+  ages <- sample(ap$age_class, size = n, replace = TRUE, prob = ap$p_age)
+  wts  <- numeric(n)
+  for (a in unique(ages)) {
+    idx      <- which(ages == a)
+    pool_row <- which(wp$age_class == a)
+    if (length(pool_row) == 0) { wts[idx] <- NA_real_; next }
+    wts[idx] <- sample(wp$weights[[pool_row]], length(idx), replace = TRUE)
+  }
+  wts
 }
 
-p_prop_n <- age_struct_plot(prop_n_scen,
-                             "(A) Proportion of total abundance by age class") + coord_cartesian(ylim = c(0,0.35))
-p_prop_b <- age_struct_plot(prop_b_scen,
-                             "(B) Proportion of total biomass by age class") + coord_cartesian(ylim = c(0,0.2))
+compute_ccdf_vec <- function(w, n_grid = 300) {
+  p_cum <- seq(0.001, 0.999, length.out = n_grid)
+  tibble(q = quantile(w, probs = p_cum, na.rm = TRUE), p_exceed = 1 - p_cum)
+}
 
-p_prop_n / p_prop_b + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+# Build all counterfactual CCDFs: 5 labels × 2 alt habs × 4 scenarios
+ref_hab  <- "Cold only"
+alt_habs <- c("Cold + Warm", "Cold + Warm (high P)")
+labs_vec <- levels(exp_oct1$label)
+
+cf_rows <- list()
+for (lab in labs_vec) {
+  for (alt in alt_habs) {
+    scens <- list(
+      list(age_h = ref_hab, wt_h = ref_hab, obs = TRUE),
+      list(age_h = ref_hab, wt_h = alt,     obs = FALSE),
+      list(age_h = alt,     wt_h = ref_hab, obs = FALSE),
+      list(age_h = alt,     wt_h = alt,     obs = TRUE)
+    )
+    for (sc in scens) {
+      w <- draw_cf(sc$age_h, sc$wt_h, lab)
+      cf_rows[[length(cf_rows) + 1]] <- compute_ccdf_vec(w) |>
+        mutate(label = lab, alt_hab = alt,
+               age_hab = sc$age_h, wt_hab = sc$wt_h, observed = sc$obs)
+    }
+  }
+}
+
+cf_df <- bind_rows(cf_rows) |>
+  mutate(label   = factor(label,   levels = levels(exp_oct1$label)),
+         alt_hab = factor(alt_hab, levels = c("Cold + Warm", "Cold + Warm (high P)")))
+
+# Plot function for one comparison pair
+make_cf_plot <- function(alt, title_suffix) {
+  cf_df |>
+    filter(alt_hab == alt) |>
+    mutate(linetype = if_else(observed, "Observed", "Counterfactual"),
+           grp = interaction(age_hab, wt_hab)) |>
+    ggplot(aes(x = q, y = p_exceed,
+               color = age_hab, linetype = linetype, group = grp)) +
+    geom_line(linewidth = 0.8) +
+    # scale_x_log10(breaks = c(10, 100, 500, 1500),
+    #               labels = scales::label_number()) +
+    # scale_y_log10(breaks = c(0.001, 0.01, 0.1, 1),
+    #               labels = scales::label_percent(accuracy = 0.1)) +
+    scale_color_manual(values = hab_cols[c("Cold only", alt)],
+                       name = "Age structure from") +
+    scale_linetype_manual(values = c("Observed" = "solid", "Counterfactual" = "dashed"),
+                          name = NULL) +
+    facet_wrap(~label, ncol = 5) +
+    labs(x = "Body weight (g, log scale)", y = "P(weight \u2265 x)",
+         title = paste("Counterfactual decomposition: Cold only vs.", title_suffix),
+         subtitle = paste0(
+           "Solid = observed  |  Dashed = counterfactual\n",
+           "Blue dashed: Cold Only age structure + ", title_suffix, " growth  \u2192  growth effect alone\n",
+           "Orange/red dashed: ", title_suffix,
+           " age structure + Cold Only growth  \u2192  age structure effect alone"
+         )) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "bottom", panel.grid = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.subtitle = element_text(size = 8.5))
+}
+
+make_cf_plot("Cold + Warm", "Cold + Warm")
 ```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 4
+#| label: fig-cfact-highp
+
+make_cf_plot("Cold + Warm (high P)", "Cold + Warm (high P)")
+```
+
+Both mechanisms contribute, but their relative importance and even their signs vary with cold-habitat proportion. Growth (mean size-at-age) is the larger driver when warm habitat is abundant; age structure contributes positively across all scenarios but is the secondary mechanism once density-dependent growth suppression relaxes. At 95% cold — and to a lesser extent 75% cold — warm habitat actually suppresses mean weight-at-age via density dependence, so growth has a **negative** effect on the size spectrum while age structure provides a modest positive offset. The area-based decomposition below quantifies these contributions explicitly.
+
+
+The area between two survival functions (integrated over exceedance probability) equals the difference in mean body weight — providing a scalar measure of each mechanism's contribution. Four areas are computed relative to the cold-only reference: total observed shift, growth effect (cold age structure + warm P(size|age)), age structure effect (warm age structure + cold P(size|age)), and an interaction term (residual after subtracting growth and age structure contributions). Note that at 95% cold the net shift is **negative** (warm habitat reduces mean weight via density-dependent growth suppression). Fractional contributions are normalized by the sum of absolute component values so they always sum to 100% and are comparable across scenarios regardless of whether mechanisms act in opposing directions.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+#| label: fig-cfact-area
+
+
+# Trapezoidal integration of area between scenario CCDF and cold-only reference
+trapz_area <- function(x, y) {
+  ord <- order(x); x <- x[ord]; y <- y[ord]
+  sum(diff(x) * (y[-length(y)] + y[-1]) / 2)
+}
+
+q_ref <- cf_df |>
+  filter(age_hab == "Cold only", wt_hab == "Cold only") |>
+  select(label, alt_hab, p_exceed, q_ref = q)
+
+area_df <- cf_df |>
+  filter(!(age_hab == "Cold only" & wt_hab == "Cold only")) |>
+  left_join(q_ref, by = c("label", "alt_hab", "p_exceed")) |>
+  group_by(label, alt_hab, age_hab, wt_hab, observed) |>
+  summarise(area = trapz_area(p_exceed, q - q_ref), .groups = "drop")
+
+frac_df <- area_df |>
+  mutate(component = case_when(
+    observed == TRUE  & age_hab != "Cold only" ~ "Total",
+    observed == FALSE & age_hab != "Cold only" ~ "Age structure",
+    observed == FALSE & age_hab == "Cold only" ~ "Growth"
+  )) |>
+  select(label, alt_hab, component, area) |>
+  pivot_wider(names_from = component, values_from = area) |>
+  mutate(`Interaction (residual)` = Total - `Age structure` - Growth) |>
+  pivot_longer(c(Growth, `Age structure`, `Interaction (residual)`),
+               names_to = "component", values_to = "area") |>
+  mutate(
+    component = factor(component, levels = c("Growth", "Age structure", "Interaction (residual)")),
+    label     = factor(label, levels = levels(exp_oct1$label))
+  )
+
+ggplot(frac_df, aes(x = label, y = area, fill = component)) +
+  geom_col(position = "stack") +
+  geom_hline(yintercept = 0, linewidth = 0.4) +
+  geom_point(
+    data = area_df |>
+      filter(observed == TRUE, age_hab != "Cold only") |>
+      mutate(label = factor(label, levels = levels(exp_oct1$label))),
+    aes(x = label, y = area),
+    inherit.aes = FALSE, shape = 18, size = 3
+  ) +
+  scale_fill_manual(
+    values = c("Growth" = "#FC8D59", "Age structure" = "#6BAED6",
+               "Interaction (residual)" = "#B2DF8A"),
+    name = "Mechanism"
+  ) +
+  facet_wrap(~alt_hab, ncol = 1) +
+  labs(
+    x = "Cold-habitat proportion",
+    y = "Contribution to mean weight shift (g)",
+    title = "Decomposition of size spectrum shift (area between CCDFs)",
+    subtitle = "Diamond = observed total shift  |  Bars = additive decomposition\nNegative bars = mechanism suppresses mean weight"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "right", panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+The fractional contributions are:
+
+```{r}
+#| label: tbl-cfact-fractions
+
+area_df |>
+  mutate(component = case_when(
+    observed == TRUE  & age_hab != "Cold only" ~ "Total",
+    observed == FALSE & age_hab != "Cold only" ~ "Age structure",
+    observed == FALSE & age_hab == "Cold only" ~ "Growth"
+  )) |>
+  select(label, alt_hab, component, area) |>
+  pivot_wider(names_from = component, values_from = area) |>
+  mutate(
+    Interaction       = Total - `Age structure` - Growth,
+    `Total shift (g)` = round(Total, 1),
+    # Denominator = sum of absolute component values so fractions always sum to 100%
+    abs_total         = abs(Growth) + abs(`Age structure`) + abs(Interaction),
+    `Growth (%)`        = paste0(round(abs(Growth)          / abs_total * 100, 1), "%"),
+    `Age structure (%)` = paste0(round(abs(`Age structure`)  / abs_total * 100, 1), "%"),
+    `Interaction (%)`   = paste0(round(abs(Interaction)      / abs_total * 100, 1), "%")
+  ) |>
+  select(
+    `Cold proportion` = label,
+    Comparison        = alt_hab,
+    `Total shift (g)`,
+    `Growth (%)`,
+    `Age structure (%)`,
+    `Interaction (%)`
+  ) |>
+  arrange(Comparison, `Cold proportion`) |>
+  knitr::kable(
+    align   = c("l", "l", "r", "r", "r", "r"),
+    caption = paste(
+      "Fractional contribution of each mechanism to the size spectrum shift,",
+      "measured as the area between counterfactual and reference CCDFs (equivalent",
+      "to the difference in mean body weight, g). Fractions are the absolute",
+      "contribution of each component divided by the sum of all absolute",
+      "contributions, so they always sum to 100% and reflect true relative",
+      "magnitudes regardless of whether mechanisms act in opposing directions.",
+      "The sign of the total shift (g) indicates the direction of the net change."
+    )
+  )
+```
+
+The interaction term (residual after subtracting growth and age structure contributions) is not merely noise — it carries a consistent biological signal. At 95–75% cold, where growth and age structure act in opposing directions, the interaction is small and slightly negative (sub-additive: the combined effect is marginally less than the sum of the two competing forces). At ≤50% cold, where both mechanisms are positive, the interaction flips to positive and grows with warm-habitat availability, reaching 22% of the total effect at 5% cold. This super-additivity is consistent with a multiplicative coupling between the two mechanisms: warm habitat simultaneously produces more fish at older ages *and* makes those older fish heavier, so the joint push into the large-body-size tail of the distribution exceeds what either mechanism would produce alone.
 
 
 ## Mechanistic drivers
@@ -2469,4 +3103,212 @@ wt_ggd_df |>
 ```
 
 
+### Density-mediated thinning paradox
+
+At 95% cold habitat, Cold + Warm scenarios produce roughly half the spawner abundance and biomass of Cold Only — a counterintuitive result given that warm habitat should, in principle, increase growth and reproductive output. The four panels below trace the causal mechanism step by step. Warm habitat reliably increases first-winter survival (A), but the extra survivors crowd cold habitat during summer (B). At high cold proportions, this density cost outweighs the limited growth benefit from a tiny warm patch, leaving Cold + Warm fish *smaller* than Cold Only fish at Oct 1 (C). As the warm patch grows larger (lower cold proportions), it provides enough spring and summer growth to more than offset the crowding cost — Cold + Warm fish become progressively *larger* than Cold Only fish (C) — and spawning participation follows suit (D). The tipping point falls between 95% and 75% cold, i.e., when warm habitat constitutes at least ~20–25% of total area.
+
+```{r}
+#| fig-width: 7
+#| fig-height: 11
+#| fig-cap: "Causal chain underlying the density-mediated thinning paradox. Ribbons show ±1 SD across experimental years. Survival SD estimated via the delta method from annual mean counts; spawning participation SD computed from annual spawner counts divided by the mean April 15 adult count."
+
+# ── Per-scenario summaries ────────────────────────────────────────────────────
+
+# (A) First-winter survival: delta-method SD from full_df
+surv_summ <- full_df |>
+  mutate(
+    hab_type  = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")),
+    mean_surv = mean_n_apr1 / mean_n_age0,
+    sd_surv   = mean_surv * sqrt((sd_n_apr1 / mean_n_apr1)^2 +
+                                   (sd_n_age0 / mean_n_age0)^2)
+  ) |>
+  select(hab_type, prop_cold, mean_surv, sd_surv)
+
+# (B) Age-1+ summer cold-habitat fish-days with per-year SD
+age1_summ <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  scen$df |>
+    filter(date >= exp_start_date,
+           month(date) %in% 7:9, patch == "cold",
+           age >= 1, survived == 1) |>
+    group_by(yr = year(date)) |>
+    summarise(fish_days = n(), .groups = "drop") |>
+    summarise(mean_fd = mean(fish_days), sd_fd = sd(fish_days)) |>
+    mutate(hab_type = scen$ht, prop_cold = scen$pc)
+}) |>
+  mutate(hab_type = factor(hab_type,
+                           levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")))
+
+# (C) Mean individual weight of age-1+ fish at Oct 1 — net outcome of crowding vs warm growth
+wt_summ <- exp_oct1 |>
+  filter(age_class >= 1) |>
+  group_by(hab_type, prop_cold, year) |>
+  summarise(mean_wt = mean(weight), .groups = "drop") |>
+  group_by(hab_type, prop_cold) |>
+  summarise(mean_wt_g = mean(mean_wt), sd_wt_g = sd(mean_wt), .groups = "drop") |>
+  mutate(hab_type = factor(hab_type,
+                           levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")))
+
+# (D) Spawning participation: per-year spawners from spawn log / mean Apr 15 count
+apr15_n <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  scen$df |>
+    filter(date >= exp_start_date,
+           month(date) == 4, day(date) == 15, survived == 1) |>
+    count(yr = year(date), name = "n_apr15") |>
+    summarise(mean_n_apr15 = mean(n_apr15)) |>
+    mutate(hab_type = scen$ht, prop_cold = scen$pc)
+}) |>
+  mutate(hab_type = factor(hab_type,
+                           levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")))
+
+spawn_part_summ <- exp_spawn_yr |>
+  left_join(apr15_n |> select(hab_type, prop_cold, mean_n_apr15),
+            by = c("hab_type", "prop_cold")) |>
+  mutate(prop_spawn = n_spawners / mean_n_apr15) |>
+  group_by(hab_type, prop_cold) |>
+  summarise(mean_prop = mean(prop_spawn), sd_prop = sd(prop_spawn), .groups = "drop") |>
+  mutate(hab_type = factor(hab_type,
+                           levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")))
+
+# ── Shared helpers ────────────────────────────────────────────────────────────
+cold_x_tp <- function(xlab = NULL) {
+  list(
+    scale_x_continuous(breaks = scen_meta$prop_cold,
+                       labels = scales::label_percent(accuracy = 1),
+                       limits = c(0, 1), transform = "reverse"),
+    labs(x = xlab)
+  )
+}
+
+rl <- function(data, x, y, lo, hi) {
+  list(
+    geom_ribbon(data = data,
+                aes(x = {{ x }}, ymin = {{ lo }}, ymax = {{ hi }},
+                    fill = hab_type, group = hab_type),
+                alpha = 0.18, color = NA),
+    geom_line(data  = data,
+              aes(x = {{ x }}, y = {{ y }},
+                  color = hab_type, group = hab_type),
+              linewidth = 0.9),
+    geom_point(data = data,
+               aes(x = {{ x }}, y = {{ y }}, color = hab_type),
+               size = 2.8, shape = 16)
+  )
+}
+
+hab_sc <- list(
+  scale_color_manual(values = hab_cols, name = NULL),
+  scale_fill_manual( values = hab_cols, name = NULL)
+)
+
+base_theme <- list(theme_bw(base_size = 11),
+                   theme(panel.grid.minor = element_blank()))
+
+# ── Panels ───────────────────────────────────────────────────────────────────
+
+pA <- ggplot(surv_summ,     aes(color = hab_type, fill = hab_type, group = hab_type)) +
+  rl(surv_summ, prop_cold, mean_surv,
+     pmax(0, mean_surv - sd_surv), pmin(1, mean_surv + sd_surv)) +
+  hab_sc + base_theme +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1), limits = c(0, 1)) +
+  cold_x_tp() +
+  labs(y = "First-winter survival",
+       title = "(A) First-winter cohort survival (Nov 1 \u2192 May 1)")
+
+pB <- ggplot(age1_summ, aes(color = hab_type, fill = hab_type, group = hab_type)) +
+  rl(age1_summ, prop_cold, mean_fd,
+     pmax(0, mean_fd - sd_fd), mean_fd + sd_fd) +
+  hab_sc + base_theme +
+  scale_y_continuous(labels = scales::label_comma()) +
+  cold_x_tp() +
+  labs(y = "Age-1+ fish-days in cold (summer)",
+       title = "(B) Age-1+ summer cold-habitat crowding")
+
+pC <- ggplot(wt_summ, aes(color = hab_type, fill = hab_type, group = hab_type)) +
+  rl(wt_summ, prop_cold, mean_wt_g,
+     pmax(0, mean_wt_g - sd_wt_g), mean_wt_g + sd_wt_g) +
+  hab_sc + base_theme +
+  cold_x_tp() +
+  labs(y = "Mean age-1+ weight at Oct 1 (g)",
+       title = "(C) Mean individual body size (Oct 1)")
+
+pD <- ggplot(spawn_part_summ, aes(color = hab_type, fill = hab_type, group = hab_type)) +
+  rl(spawn_part_summ, prop_cold, mean_prop,
+     pmax(0, mean_prop - sd_prop), mean_prop + sd_prop) +
+  hab_sc + base_theme +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1)) +
+  cold_x_tp("Proportion cold habitat") +
+  labs(y = "Proportion spawning",
+       title = "(D) Spawning participation (spawners \u00f7 Apr 15 adults)")
+
+(pA / pB / pC / pD) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+```
+
+*This figure needs refinement: they show the cost of extra survivors (more crowding, lower cold-habitat growth) without showing how that cost is distributed between cold and warm habitats. As cold proportion falls, more warm habitat is available and fish that use it grow faster.*
+
+
+
+
+
+
+## OLD
+
+#### Conditional size distributions P(size | age)
+
+Ridge plots of body-weight distributions within each age class, faceted by habitat type. Ridge width captures within-age variance; ridge position captures mean growth. Age classes with fewer than 30 individuals pooled across scenarios are excluded.
+
+The pooled view (all cold-proportion scenarios combined) reveals apparent multimodality at older ages in the cold+warm panels, but this is a pooling artifact — each cold-proportion scenario contributes a slightly different growth mode. The single-scenario view (50% cold) confirms that within any given scenario, all three habitat types produce clean, unimodal within-age distributions. The dominant difference across habitat types is in the position of the ridges (mean weight at age), not their width (within-age variance).
+
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+#| label: fig-psize-age-pooled
+
+# Ridge plots of P(size | age) pooled across all cold-proportion scenarios
+library(ggridges)
+
+exp_oct1 |>
+  filter(age_class >= 1, age_class <= 12) |>
+  ggplot(aes(x = weight, y = factor(age_class), fill = hab_type, color = hab_type)) +
+  geom_density_ridges(alpha = 0.45, linewidth = 0.5, scale = 0.9,
+                      rel_min_height = 0.01) +
+  scale_x_log10(breaks = c(10, 50, 200, 500, 1000, 1500),
+                labels = scales::label_number()) +
+  scale_fill_manual(values  = hab_cols, name = NULL) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  facet_wrap(~hab_type, ncol = 3) +
+  labs(
+    x = "Body weight (g, log scale)", y = "Age class",
+    title = "P(size | age) by habitat type — all scenarios pooled",
+    subtitle = "Apparent multimodality at older ages is a pooling artifact (see single-scenario plot below)"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none", panel.grid.minor = element_blank())
+```
+
+```{r eval=FALSE}
+#| fig-width: 7
+#| fig-height: 5
+#| label: fig-psize-age-50cold
+
+# Same plot restricted to the 50% cold scenario to isolate within-scenario variance
+exp_oct1 |>
+  filter(age_class >= 1, age_class <= 12, label == "50% cold") |>
+  ggplot(aes(x = weight, y = factor(age_class), fill = hab_type, color = hab_type)) +
+  geom_density_ridges(alpha = 0.45, linewidth = 0.5, scale = 0.9,
+                      rel_min_height = 0.01) +
+  # scale_x_log10(breaks = c(10, 50, 200, 500, 1000, 1500),
+  #               labels = scales::label_number()) +
+  scale_fill_manual(values  = hab_cols, name = NULL) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  # facet_wrap(~hab_type, ncol = 3) +
+  labs(
+    x = "Body weight (g)", y = "Age class",
+    title = "P(size | age) by habitat type — 50% cold scenario only",
+    subtitle = "Within-scenario distributions are (mostly) unimodal; main difference is mean weight-at-age, not variance"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none", panel.grid.minor = element_blank())
+```
 

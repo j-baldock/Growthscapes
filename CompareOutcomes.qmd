@@ -106,7 +106,8 @@ extract_oct1_exp <- function(ibm_long, scen_key) {
            survived == 1) |>
     mutate(scen_key  = scen_key,
            year      = year(date),
-           age_class = floor(age))
+           age_class = floor(age),
+           peak_weight = weight / condition)
 }
 
 # Helper: compute per-year biomass accrual by patch (experimental period only).
@@ -144,6 +145,12 @@ patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
 
 # ── Annual population totals per scenario × hab_type × year ──────────────────
 exp_pop_yr <- exp_oct1 |>
+  group_by(hab_type, label, prop_cold, year) |>
+  summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
+
+# ── Annual adult (peak weight > 200g) totals per scenario × hab_type × year ──
+exp_adult_yr <- exp_oct1 |>
+  filter(peak_weight >= 200) |>
   group_by(hab_type, label, prop_cold, year) |>
   summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
 
@@ -249,7 +256,7 @@ ggplot(spawn_date_df, aes(x = doy, y = density, color = hab_type,
 Mean Oct 1 (census) and annual spawning abundance and biomass during the experimental period, as a function of the proportion of cold habitat and habitat scenario. Spawner counts and biomass are derived from the spawn_log (i.e., we know exactly who spawns). 
 
 ```{r}
-#| fig-width: 9
+#| fig-width: 10
 #| fig-height: 7
 
 # summarize total population
@@ -266,6 +273,19 @@ pop_sum <- exp_pop_yr |>
   )
 
 write_csv(pop_sum, "pop_sum.csv")
+
+# summarize adult population
+adult_sum <- exp_adult_yr |>
+  group_by(hab_type, label, prop_cold) |>
+  summarise(
+    mean_n  = mean(n),
+    sd_n    = sd(n),
+    cv_n    = sd(n) / mean(n),
+    mean_b  = mean(biomass_kg),
+    sd_b    = sd(biomass_kg),
+    cv_b    = sd(biomass_kg) / mean(biomass_kg),
+    .groups = "drop"
+  )
 
 # summarize spawning population
 spawn_sum <- exp_spawn_yr |>
@@ -300,7 +320,7 @@ hab_scales <- list(
 )
 
 # plotting function
-ab_plot <- function(data, y_var, y_err, y_lab, title_str, pct_y = FALSE) {
+ab_plot <- function(data, y_var, y_err, y_lab, title_str, y_limits) {
   p <- ggplot(data, aes(x = prop_cold, y = .data[[y_var]], color = hab_type)) +
     geom_errorbar(aes(ymin = pmax(0, .data[[y_var]] - .data[[y_err]]), ymax = .data[[y_var]] + .data[[y_err]]), width = 0.05, linewidth = 0.6, position = position_dodge(width = 0.03)) +
     geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8, position = position_dodge(width = 0.03)) +
@@ -310,25 +330,37 @@ ab_plot <- function(data, y_var, y_err, y_lab, title_str, pct_y = FALSE) {
     # hab_scales +
     labs(y = y_lab, title = title_str) +
     theme_bw(base_size = 12) +
-    theme(panel.grid = element_blank(), axis.text = element_text(color = "black"))
-  if (pct_y) p <- p + scale_y_continuous(labels = scales::label_percent(accuracy = 1))
+    theme(panel.grid = element_blank(), axis.text = element_text(color = "black")) + 
+    scale_y_continuous(limits = y_limits)
   p
 }
 
-p_mean_n <- ab_plot(pop_sum, "mean_n", "sd_n", "Mean total abundance (N, Oct. 1)",  "(a)")       + cold_x()
-# p_cv_n   <- ab_plot(pop_sum, "cv_n",   "CV of abundance",     "(B) CV of abundance", TRUE) + cold_x()
-p_mean_b <- ab_plot(pop_sum, "mean_b", "sd_b", "Mean total biomass (kg, Oct. 1)",   "(b)")          + cold_x()
-# p_cv_b   <- ab_plot(pop_sum, "cv_b",   "CV of biomass",       "(D) CV of biomass",   TRUE) + cold_x("Proportion cold habitat")
-
-p_mean_sp_n <- ab_plot(spawn_sum, "mean_n", "sd_n", "Mean spawner abundance (N)", "(c)")        + cold_x("Proportion cold habitat")
-# p_cv_sp_n   <- ab_plot(spawn_sum, "cv_n",   "CV of spawner abundance",    "(B) CV of spawner abundance", TRUE) + cold_x()
-p_mean_sp_b <- ab_plot(spawn_sum, "mean_b", "sd_b", "Mean spawner biomass (kg)",  "(d)")          + cold_x("Proportion cold habitat")
-# p_cv_sp_b   <- ab_plot(spawn_sum, "cv_b",   "CV of spawner biomass",      "(D) CV of spawner biomass",   TRUE) + cold_x("Proportion cold habitat")
+p_mean_n    <- ab_plot(pop_sum,   "mean_n", "sd_n", y_lab = "Mean abundance (N)", title_str = "Total",          y_limits = c(0,450)) + cold_x()
+p_mean_ad_n <- ab_plot(adult_sum, "mean_n", "sd_n", y_lab = NULL,                 title_str = "Adults (>200g)", y_limits = c(0,450)) + cold_x()
+p_mean_sp_n <- ab_plot(spawn_sum, "mean_n", "sd_n", y_lab = NULL,                 title_str = "Spawners",       y_limits = c(0,450)) + cold_x()
 
 
-(p_mean_n + p_mean_b) / (p_mean_sp_n + p_mean_sp_b) +
+p_mean_b    <- ab_plot(pop_sum,   "mean_b", "sd_b", y_lab = "Mean biomass (kg)",  title_str = NULL, y_limits = c(0,155)) + cold_x()
+p_mean_ad_b <- ab_plot(adult_sum, "mean_b", "sd_b", y_lab = NULL,                 title_str = NULL, y_limits = c(0,155)) + cold_x("Proportion cold habitat")
+p_mean_sp_b <- ab_plot(spawn_sum, "mean_b", "sd_b", y_lab = NULL,                 title_str = NULL, y_limits = c(0,155)) + cold_x()
+
+
+
+((p_mean_n + theme(axis.text.x = element_blank())) + 
+    (p_mean_ad_n + theme(axis.text = element_blank())) + 
+    (p_mean_sp_n + theme(axis.text = element_blank()))) / 
+  ((p_mean_b) + 
+     (p_mean_ad_b + theme(axis.text.y = element_blank())) + 
+     (p_mean_sp_b + theme(axis.text.y = element_blank()))) +
   plot_layout(guides = "collect") &
-  theme(legend.position = "right")
+  theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
+  plot_annotation(title = "Mean annual population size under alternative habitat scenarios and cold habitat proportions",
+                  subtitle = "Total and adult populations derived from Oct. 1 census; spawners represent the individuals actually spawning in spring") 
+
+# 
+# (p_mean_n + p_mean_b) / (p_mean_ad_n + p_mean_ad_b) / (p_mean_sp_n + p_mean_sp_b) +
+#   plot_layout(guides = "collect") &
+#   theme(legend.position = "right")
 ```
 
 ::: {.callout-note}
@@ -352,10 +384,10 @@ In short, at 95% cold the warm habitat succeeds at what it does — buffering fi
 
 View the absolute and relative differences in total and spawning population abundance and biomass between cold+warm/high P and cold-only scenarios.
 ```{r}
-#| fig-width: 9
+#| fig-width: 10
 #| fig-height: 7
 #| 
-plot_scenario_diff <- function(data, metric, type = c("absolute", "relative"), y_limits = NULL) {
+plot_scenario_diff <- function(data, metric, type = c("absolute", "relative"), y_limits = NULL, title_str = NULL) {
   type <- match.arg(type)
 
   metric_label <- switch(metric, mean_n = "abundance (N)", mean_b = "biomass (kg)")
@@ -393,11 +425,17 @@ plot_scenario_diff <- function(data, metric, type = c("absolute", "relative"), y
     geom_point(aes(shape = hab_type, fill = hab_type), size = 3, shape = 21, color = "black", position = position_dodge(width = 0.03)) +
     scale_color_manual(values = hab_cols, name = "Scenario") +
     scale_fill_manual(values = hab_cols, name = "Scenario") +
-    labs(y = y_label) +
+    labs(y = y_label, title = title_str) +
     theme_bw(base_size = 12) +
     theme(panel.grid = element_blank(), axis.text = element_text(color = "black")) +
-    cold_x(if (type == "relative") "Proportion cold habitat" else NULL)
+    cold_x("Proportion cold habitat")
 
+  if (type == "absolute") {
+    p <- p + scale_y_continuous(
+      limits = y_limits
+    )
+  }
+  
   if (type == "relative") {
     p <- p + scale_y_continuous(
       labels = scales::label_percent(accuracy = 1),
@@ -408,31 +446,49 @@ plot_scenario_diff <- function(data, metric, type = c("absolute", "relative"), y
   p
 }
 
-## Total population
-p_ad_n    <- plot_scenario_diff(pop_sum,   "mean_n", "absolute")
-p_ad_b    <- plot_scenario_diff(pop_sum,   "mean_b", "absolute")
-p_rd_n    <- plot_scenario_diff(pop_sum,   "mean_n", "relative", y_limits = c(0, 5))
-p_rd_b    <- plot_scenario_diff(pop_sum,   "mean_b", "relative", y_limits = c(0, 5))
+# Absolute difference: Abundance
+p_ab_n       <- plot_scenario_diff(pop_sum,   "mean_n", type = "absolute", y_limits = c(-30,150), title_str = "Total")
+p_ab_n_ad    <- plot_scenario_diff(adult_sum, "mean_n", type = "absolute", y_limits = c(-30,150), title_str = "Adults (>200g)")
+p_ab_n_sp    <- plot_scenario_diff(spawn_sum, "mean_n", type = "absolute", y_limits = c(-30,150), title_str = "Spawners")
 
-## Spawning population
-p_ad_n_sp <- plot_scenario_diff(spawn_sum, "mean_n", "absolute")
-p_ad_b_sp <- plot_scenario_diff(spawn_sum, "mean_b", "absolute")
-p_rd_n_sp <- plot_scenario_diff(spawn_sum, "mean_n", "relative", y_limits = c(-1, 25))
-p_rd_b_sp <- plot_scenario_diff(spawn_sum, "mean_b", "relative", y_limits = c(-1, 25))
+# Absolute difference: Biomass
+p_ab_b       <- plot_scenario_diff(pop_sum,   "mean_b", type = "absolute", y_limits = c(-15,125))
+p_ab_b_ad    <- plot_scenario_diff(adult_sum, "mean_b", type = "absolute", y_limits = c(-15,125))
+p_ab_b_sp    <- plot_scenario_diff(spawn_sum, "mean_b", type = "absolute", y_limits = c(-15,125))
+
+# Relative difference: Abundance
+p_re_n       <- plot_scenario_diff(pop_sum,   "mean_n", "relative", y_limits = c(-1,25), title_str = "Total")
+p_re_n_ad    <- plot_scenario_diff(adult_sum, "mean_n", "relative", y_limits = c(-1,25), title_str = "Adults (>200g)")
+p_re_n_sp    <- plot_scenario_diff(spawn_sum, "mean_n", "relative", y_limits = c(-1,25), title_str = "Spawners")
+
+# Relative difference: Biomass
+p_re_b       <- plot_scenario_diff(pop_sum,   "mean_b", "relative", y_limits = c(-1,25))
+p_re_b_ad    <- plot_scenario_diff(adult_sum, "mean_b", "relative", y_limits = c(-1,25))
+p_re_b_sp    <- plot_scenario_diff(spawn_sum, "mean_b", "relative", y_limits = c(-1,25))
 
 
-(p_ad_n + p_ad_b) / (p_rd_n + p_rd_b) +
+((p_ab_n + theme(axis.title.x = element_blank(), axis.text.x = element_blank())) + 
+    (p_ab_n_ad + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text = element_blank())) + 
+    (p_ab_n_sp + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text = element_blank()))) / 
+  (p_ab_b + 
+     (p_ab_b_ad + theme(axis.title.y = element_blank(), axis.text.y = element_blank())) + 
+     (p_ab_b_sp + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))) +
   plot_layout(guides = "collect") &
   theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
-  plot_annotation(title = "Total population: marginal benefit of seasonally warm habitat to population outcomes",
-                  subtitle = "Absolute and relative difference compared to cold-only") 
+  plot_annotation(title = "Marginal benefit of seasonally warm habitat to population outcomes",
+                  subtitle = "Absolute difference compared to cold-only") 
 
 
-(p_ad_n_sp + p_ad_b_sp) / (p_rd_n_sp + p_rd_b_sp) +
+((p_re_n + theme(axis.title.x = element_blank(), axis.text.x = element_blank())) + 
+    (p_re_n_ad + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text = element_blank())) + 
+    (p_re_n_sp + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text = element_blank()))) / 
+  (p_re_b + 
+     (p_re_b_ad + theme(axis.title.y = element_blank(), axis.text.y = element_blank())) + 
+     (p_re_b_sp + theme(axis.title.y = element_blank(), axis.text.y = element_blank()))) +
   plot_layout(guides = "collect") &
   theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
-  plot_annotation(title = "Spawning population: marginal benefit of seasonally warm habitat to population outcomes",
-                  subtitle = "Absolute and relative difference compared to cold-only") 
+  plot_annotation(title = "Marginal benefit of seasonally warm habitat to population outcomes",
+                  subtitle = "Relative difference compared to cold-only") 
 ```
 
 

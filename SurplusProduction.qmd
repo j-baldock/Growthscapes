@@ -45,7 +45,8 @@ load_scen <- function(path, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
            month(date) == 10, day(date) == 1,
            survived == 1) |>
     mutate(yr = year(date), age_class = floor(age)) |>
-    select(yr, age_class, weight)
+    select(yr, age_class, weight, condition) %>%
+    mutate(peak_weight = weight / condition)
 
   age0_nov1 <- ibm |>
     filter(date >= exp_start_date,
@@ -934,8 +935,9 @@ p2 <- sr_ts %>%
 
 Recruitment is expressed as the number of adults that survived to spawning size in year Y, defined as spawners(Y) + fish harvested in summer Y−1 (those that would have spawned but were removed). This is paired with the parent spawning stock 3 years earlier (minimum age at maturity), and compared to the 1:1 replacement line to identify surplus production.
 
+### Spawner based
 
-### Derive stock-recruitment curves
+#### Derive stock-recruitment curves
 
 Derive adult-to-adult stock-recruitment curves over 4 different lag periods (2-5 years), for abundance and biomass separately.
 ```{r}
@@ -1138,7 +1140,7 @@ panels <- purrr::map(sr_by_lag, \(x) {
 ```
 
 
-### Compare representative SR relationships
+#### Compare representative SR relationships
 
 ```{r}
 #| fig-width: 6
@@ -1253,7 +1255,7 @@ p_maxsurp <- ggplot(ricker_params, aes(x = prop_cold, color = hab_type, group = 
 ```
 
 
-### Surplus production vs. harvest rate
+#### Surplus production vs. harvest rate
 
 Surplus production per year is the signed distance above the 1:1 line: recruited adults minus the parent spawning stock. Positive = net gain; zero = replacement; negative = decline.
 
@@ -1369,6 +1371,455 @@ p2 <- ggplot() +
 
 (p1 / p2) +
   # plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+```
+
+
+### Total-adult based
+
+Stock is defined as all adults (>200 g) present at the October 1 census in year Y−lag, with no harvest correction. Recruits are the total adults in the October 1 census of year Y plus fish harvested in summer of year Y (those removed before the census who would otherwise have been counted). Unlike the spawner-based approach, this definition includes adults that did not spawn due to poor condition, capturing condition-driven variation in spawning propensity across habitat scenarios and cold proportions.
+
+#### Derive stock-recruitment curves
+
+Derive adult-to-adult stock-recruitment curves over 4 different lag periods (2–5 years), for abundance and biomass separately.
+```{r}
+#| fig-width: 14
+#| fig-height: 18
+
+# ── Total adult abundance and biomass per scenario per year ───────────────────
+# Stock  (X): Oct 1 census adults > 200 g only — no harvest correction
+# Recruits (Y): Oct 1 census adults + same-year harvest (removed before census)
+get_total_adults <- function(scen) {
+  base_cols <- list(
+    hab_type          = scen$ht,
+    prop_cold         = scen$pc,
+    prop_cold_fact    = factor(
+      pc_labels_mech[match(scen$pc, pc_levels_mech)],
+      levels = pc_labels_mech
+    ),
+    harvest_rate      = scen$hr,
+    harvest_rate_fact = factor(scen$hr,
+                               levels = hr_levels_mech,
+                               labels = hr_labels_mech)
+  )
+  oct_adults <- scen$oct1_exp |>
+    filter(peak_weight > 200) |>
+    group_by(yr) |>
+    summarise(n_oct1    = n(),
+              biom_oct1 = sum(weight) / 1000,   # g -> kg
+              .groups   = "drop")
+
+  if (is.null(scen$harvest)) {
+    oct_adults |>
+      right_join(sr_exp_years, by = "yr") |>
+      replace_na(list(n_oct1 = 0L, biom_oct1 = 0)) |>
+      mutate(n_harv = 0L, biom_harv = 0,
+             n_total_adults    = n_oct1,
+             biom_total_adults = biom_oct1,
+             !!!base_cols,
+             hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+  } else {
+    harv_yr <- scen$harvest |>
+      group_by(yr = year) |>
+      summarise(n_harv    = n(),
+                biom_harv = sum(weight) / 1000,
+                .groups   = "drop")
+    oct_adults |>
+      right_join(sr_exp_years, by = "yr") |>
+      left_join(harv_yr, by = "yr") |>
+      replace_na(list(n_oct1 = 0L, biom_oct1 = 0, n_harv = 0L, biom_harv = 0)) |>
+      mutate(n_total_adults    = n_oct1    + n_harv,
+             biom_total_adults = biom_oct1 + biom_harv,
+             !!!base_cols) |>
+      mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+  }
+}
+
+total_adults_ts <- purrr::map_dfr(ibm_list_mech, get_total_adults)
+
+# ── Build lagged SR dataset + Ricker fits ────────────────────────────────────
+build_adult_sr_v2 <- function(lag) {
+  ts <- total_adults_ts |>
+    select(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact,
+           yr, n_recruited = n_total_adults, biom_recruited = biom_total_adults) |>
+    mutate(yr_parent = yr - lag) |>
+    left_join(
+      total_adults_ts |>
+        transmute(hab_type, prop_cold, yr, harvest_rate,
+                  n_stock    = n_oct1,
+                  biom_stock = biom_oct1),
+      by = c("hab_type", "prop_cold", "yr_parent" = "yr", "harvest_rate")
+    ) |>
+    filter(!is.na(n_stock), n_stock > 0, n_recruited > 0) |>
+    mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+
+  summ <- ts |>
+    group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) |>
+    summarise(
+      across(c(n_recruited, n_stock, biom_recruited, biom_stock),
+             list(mean = mean, sd = sd)),
+      .groups = "drop"
+    )
+
+  # Fit Ricker separately per hab_type × prop_cold group
+  hab_fits <- ts |>
+    group_by(hab_type, prop_cold, prop_cold_fact) |>
+    group_split() |>
+    purrr::map(\(d) {
+      fit_n <- tryCatch(
+        nls(n_recruited ~ a * n_stock * exp(-b * n_stock),
+            data = d, start = list(a = 5, b = 0.05)),
+        error = \(e) NULL)
+      fit_b <- tryCatch(
+        nls(biom_recruited ~ a * biom_stock * exp(-b * biom_stock),
+            data = d, start = list(a = 5, b = 0.05)),
+        error = \(e) NULL)
+      N_seq <- seq(0, max(d$n_stock),    length.out = 300)
+      B_seq <- seq(0, max(d$biom_stock), length.out = 300)
+      mk_pred <- function(fit, xvar, seq_) {
+        if (is.null(fit)) return(
+          tibble(x = numeric(), y = numeric(),
+                 hab_type = character(), prop_cold_fact = character()))
+        tibble(x = seq_,
+               y = predict(fit, setNames(list(seq_), xvar)),
+               hab_type       = d$hab_type[1],
+               prop_cold_fact = d$prop_cold_fact[1])
+      }
+      list(
+        hab_type       = as.character(d$hab_type[1]),
+        prop_cold_fact = as.character(d$prop_cold_fact[1]),
+        alpha_n  = if (!is.null(fit_n)) log(coef(fit_n)["a"]) else NA,
+        alpha_b  = if (!is.null(fit_b)) log(coef(fit_b)["a"]) else NA,
+        beta_n   = if (!is.null(fit_n)) coef(fit_n)["b"]      else NA,
+        beta_b   = if (!is.null(fit_b)) coef(fit_b)["b"]      else NA,
+        s_star_n = if (!is.null(fit_n)) log(coef(fit_n)["a"]) / coef(fit_n)["b"] else NA,
+        s_star_b = if (!is.null(fit_b)) log(coef(fit_b)["a"]) / coef(fit_b)["b"] else NA,
+        pred_n   = mk_pred(fit_n, "n_stock",    N_seq),
+        pred_b   = mk_pred(fit_b, "biom_stock", B_seq)
+      )
+    })
+
+  # Combine predictions, preserving hab_type and prop_cold_fact for faceting
+  pred_n <- purrr::map_dfr(hab_fits, "pred_n") |>
+    mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+  pred_b <- purrr::map_dfr(hab_fits, "pred_b") |>
+    mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+
+  list(lag = lag, ts = ts, summ = summ, hab_fits = hab_fits,
+       pred_n = pred_n, pred_b = pred_b)
+}
+
+sr_v2 <- purrr::map(2:5, build_adult_sr_v2)
+
+# Print equilibrium S* for each lag × hab_type × prop_cold
+purrr::walk(sr_v2, \(x)
+  purrr::walk(x$hab_fits, \(hf)
+    cat(sprintf("Lag %d yr [%s, %s] — S* abundance: %.1f | S* biomass: %.2f kg\n",
+                x$lag, hf$hab_type, hf$prop_cold_fact,
+                hf$s_star_n %||% NA, hf$s_star_b %||% NA))
+  )
+)
+
+# ── Helper: one adult SR panel ────────────────────────────────────────────────
+adult_sr_panel_v2 <- function(dat, summ, x_raw, y_raw, x_summ, y_summ,
+                               x_sd, y_sd, pred_df, x_lab, y_lab, title) {
+  ggplot(dat, aes(x = {{ x_raw }}, y = {{ y_raw }}, color = harvest_rate_fact)) +
+    geom_abline(slope = 1, intercept = 0,
+                color = "grey50", linewidth = 0.5, linetype = "dashed") +
+    geom_point(alpha = 0.2, size = 1.5, shape = 16) +
+    geom_point(data = summ, inherit.aes = FALSE,
+               aes(x = {{ x_summ }}, y = {{ y_summ }},
+                   color = harvest_rate_fact),
+               size = 3.5, shape = 16) +
+    geom_errorbar(data = summ, inherit.aes = FALSE,
+                  aes(x    = {{ x_summ }},
+                      ymin = pmax(0, {{ y_summ }} - {{ y_sd }}),
+                      ymax = {{ y_summ }} + {{ y_sd }},
+                      color = harvest_rate_fact),
+                  width = 0, linewidth = 0.5) +
+    geom_segment(data = summ, inherit.aes = FALSE,
+                 aes(x    = pmax(0, {{ x_summ }} - {{ x_sd }}),
+                     xend = {{ x_summ }} + {{ x_sd }},
+                     y    = {{ y_summ }}, yend = {{ y_summ }},
+                     color = harvest_rate_fact),
+                 linewidth = 0.5) +
+    geom_line(data = pred_df, inherit.aes = FALSE,
+              aes(x = x, y = y),
+              linewidth = 0.5, color = "black") +
+    scale_color_manual(values = hr_pal, name = "Harvest rate") +
+    scale_x_continuous(labels = scales::label_comma()) +
+    scale_y_continuous(labels = scales::label_comma()) +
+    expand_limits(x = 0, y = 0) +
+    facet_wrap(~ prop_cold_fact + hab_type, nrow = 2, scales = "free") +
+    labs(x = x_lab, y = y_lab, title = title) +
+    theme_bw(base_size = 11) +
+    theme(panel.grid.minor = element_blank(), legend.position = "none")
+}
+
+# ── Build all panels (4 lags × 2 metrics) and assemble ───────────────────────
+panels_v2 <- purrr::map(sr_v2, \(x) {
+  list(
+    n = adult_sr_panel_v2(
+      dat = x$ts, summ = x$summ,
+      x_raw  = n_stock,      y_raw  = n_recruited,
+      x_summ = n_stock_mean, y_summ = n_recruited_mean,
+      x_sd   = n_stock_sd,   y_sd   = n_recruited_sd,
+      pred_df = x$pred_n,
+      x_lab = glue::glue("Total adults (N), Oct 1 year Y\u2212{x$lag}"),
+      y_lab = "Total adults (N), Oct 1(Y) + harvest(Y)",
+      title = glue::glue("{x$lag}-yr lag (abundance)")
+    ),
+    b = adult_sr_panel_v2(
+      dat = x$ts, summ = x$summ,
+      x_raw  = biom_stock,      y_raw  = biom_recruited,
+      x_summ = biom_stock_mean, y_summ = biom_recruited_mean,
+      x_sd   = biom_stock_sd,   y_sd   = biom_recruited_sd,
+      pred_df = x$pred_b,
+      x_lab = glue::glue("Total adults (kg), Oct 1 year Y\u2212{x$lag}"),
+      y_lab = "Total adults (kg), Oct 1(Y) + harvest(Y)",
+      title = glue::glue("{x$lag}-yr lag (biomass)")
+    )
+  )
+})
+
+(panels_v2[[1]]$n + panels_v2[[1]]$b) /
+(panels_v2[[2]]$n + panels_v2[[2]]$b) /
+(panels_v2[[3]]$n + panels_v2[[3]]$b) /
+(panels_v2[[4]]$n + panels_v2[[4]]$b) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+```
+
+
+#### Compare representative SR relationships
+
+```{r}
+#| fig-width: 6
+#| fig-height: 5
+
+lag2curves_v2 <- bind_rows(
+  sr_v2[[3]]$pred_b |> mutate(measure = "biomass"),
+  sr_v2[[3]]$pred_n |> mutate(measure = "abundance")
+) |>
+  mutate(surplus = y - x) |>
+  filter(surplus > 0)
+
+make_sr_plot_v2 <- function(m) {
+  lag2curves_v2 |> filter(measure == m) |>
+    ggplot(aes(x = x, y = y, color = hab_type)) +
+    geom_line(linewidth = 1) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey40") +
+    scale_color_manual(values = hab_cols, name = "Habitat type") +
+    facet_wrap(~prop_cold_fact, nrow = 1) +
+    labs(x = NULL, y = "Recruits") +
+    theme_bw(base_size = 11) +
+    theme(panel.grid = element_blank())
+}
+
+make_sp_plot_v2 <- function(m) {
+  lag2curves_v2 |> filter(measure == m) |>
+    ggplot(aes(x = x, y = surplus, color = hab_type)) +
+    geom_line(linewidth = 1) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    scale_color_manual(values = hab_cols, name = "Habitat type") +
+    facet_wrap(~prop_cold_fact, nrow = 1) +
+    labs(x = "Total adults (Oct 1 census)", y = "Surplus production") +
+    theme_bw(base_size = 11) +
+    theme(panel.grid = element_blank())
+}
+
+(make_sr_plot_v2("abundance") / make_sp_plot_v2("abundance")) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Abundance \u2014 4-year lag SR and surplus production")
+
+(make_sr_plot_v2("biomass") / make_sp_plot_v2("biomass")) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Biomass \u2014 4-year lag SR and surplus production")
+```
+
+
+Ricker parameters (alpha, beta) and maximum surplus production from the 4-year lag fits, as a function of proportion cold habitat:
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+
+ricker_params_ta <- purrr::map_dfr(sr_v2[[3]]$hab_fits, \(hf) {
+  tibble(
+    hab_type       = hf$hab_type,
+    prop_cold_fact = hf$prop_cold_fact,
+    prop_cold      = as.numeric(sub("% cold", "", hf$prop_cold_fact)) / 100,
+    alpha_n        = hf$alpha_n,
+    beta_n         = hf$beta_n,
+    max_surplus_n  = max(hf$pred_n$y - hf$pred_n$x),
+    alpha_b        = hf$alpha_b,
+    beta_b         = hf$beta_b,
+    max_surplus_b  = max(hf$pred_b$y - hf$pred_b$x)
+  )
+}) |>
+  mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm")))
+
+p_alpha_ta <- ggplot(ricker_params_ta,
+                     aes(x = prop_cold, color = hab_type, group = hab_type)) +
+  geom_line(aes(y = alpha_n), linewidth = 0.8, linetype = "solid") +
+  geom_point(aes(y = alpha_n, shape = "Abundance"), size = 3) +
+  geom_line(aes(y = alpha_b), linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = alpha_b, shape = "Biomass"), size = 3) +
+  scale_color_manual(values = hab_cols, name = "Habitat type") +
+  scale_shape_manual(values = c("Abundance" = 16, "Biomass" = 17), name = "Measure") +
+  pc_x +
+  labs(y = "\u03b1 (ln scale)") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank())
+
+p_beta_ta <- ggplot(ricker_params_ta,
+                    aes(x = prop_cold, color = hab_type, group = hab_type)) +
+  geom_line(aes(y = beta_n), linewidth = 0.8, linetype = "solid") +
+  geom_point(aes(y = beta_n, shape = "Abundance"), size = 3) +
+  geom_line(aes(y = beta_b), linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = beta_b, shape = "Biomass"), size = 3) +
+  scale_color_manual(values = hab_cols, name = "Habitat type") +
+  scale_shape_manual(values = c("Abundance" = 16, "Biomass" = 17), name = "Measure") +
+  pc_x +
+  labs(y = "\u03b2") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank())
+
+p_maxsurp_ta <- ggplot(ricker_params_ta,
+                       aes(x = prop_cold, color = hab_type, group = hab_type)) +
+  geom_line(aes(y = max_surplus_n), linewidth = 0.8, linetype = "solid") +
+  geom_point(aes(y = max_surplus_n, shape = "Abundance"), size = 3) +
+  geom_line(aes(y = max_surplus_b), linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = max_surplus_b, shape = "Biomass"), size = 3) +
+  scale_color_manual(values = hab_cols, name = "Habitat type") +
+  scale_shape_manual(values = c("Abundance" = 16, "Biomass" = 17), name = "Measure") +
+  pc_x +
+  labs(y = "Max surplus") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank())
+
+(p_alpha_ta + p_beta_ta + p_maxsurp_ta) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+```
+
+
+#### Surplus production vs. harvest rate
+
+Surplus production per year is the signed distance above the 1:1 line: total recruited adults (Oct 1 census + same-year harvest) minus the total adult stock in year Y−lag. Positive = net gain; zero = replacement; negative = decline.
+
+```{r}
+#| fig-width: 12
+#| fig-height: 5
+
+sp_ts_ta <- purrr::map_dfr(sr_v2, \(x) {
+  x$ts |>
+    mutate(sp_n = n_recruited - n_stock,
+           sp_b = biom_recruited - biom_stock,
+           lag  = factor(x$lag, levels = 2:5,
+                         labels = c("2-yr lag", "3-yr lag", "4-yr lag", "5-yr lag")),
+           prod = log(n_recruited / n_stock))
+})
+
+sp_summ_ta <- sp_ts_ta |>
+  group_by(lag, hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) |>
+  summarise(
+    n_stock_mean    = mean(n_stock),    n_stock_sd    = sd(n_stock),
+    biom_stock_mean = mean(biom_stock), biom_stock_sd = sd(biom_stock),
+    sp_n_mean = mean(sp_n), sp_n_sd = sd(sp_n),
+    sp_b_mean = mean(sp_b), sp_b_sd = sd(sp_b),
+    prod_mean = mean(prod), prod_sd  = sd(prod),
+    .groups = "drop"
+  )
+
+sp_base_ta <- ggplot(sp_summ_ta, aes(x = harvest_rate, color = lag, fill = lag)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_color_manual(values = lag_pal, name = "Lag") +
+  scale_fill_manual( values = lag_pal, name = "Lag") +
+  scale_x_continuous(breaks = hr_levels_mech,
+                     labels = hr_labels_mech,
+                     name   = "Harvest rate") +
+  theme_bw(base_size = 11) +
+  facet_grid(prop_cold_fact ~ hab_type) +
+  theme(panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+p_sp_n_ta <- sp_base_ta +
+  geom_ribbon(aes(ymin = sp_n_mean - sp_n_sd,
+                  ymax = sp_n_mean + sp_n_sd),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(y  = sp_n_mean), linewidth = 0.8) +
+  geom_point(aes(y = sp_n_mean), size = 2, shape = 16) +
+  labs(y = "Surplus production (N adults)",
+       title = "Abundance surplus production")
+
+p_sp_b_ta <- sp_base_ta +
+  geom_ribbon(aes(ymin = sp_b_mean - sp_b_sd,
+                  ymax = sp_b_mean + sp_b_sd),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(y  = sp_b_mean), linewidth = 0.8) +
+  geom_point(aes(y = sp_b_mean), size = 2, shape = 16) +
+  labs(y = "Surplus production (kg)",
+       title = "Biomass surplus production")
+
+p_sp_n_ta + p_sp_b_ta +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+```
+
+Inspect relationships between productivity (logged recruits per total adult stock) and harvest rate and stock biomass.
+```{r}
+#| fig-width: 7
+#| fig-height: 8
+
+p1_ta <- sp_ts_ta |> filter(lag == "4-yr lag") |>
+  ggplot(aes(x = jitter(harvest_rate), y = prod, color = harvest_rate_fact)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_point(alpha = 0.25, size = 1.5, shape = 16) +
+  geom_point(data = sp_summ_ta |> filter(lag == "2-yr lag"),
+             inherit.aes = FALSE, size = 3,
+             aes(x = harvest_rate, y = prod_mean, color = harvest_rate_fact)) +
+  geom_errorbar(data = sp_summ_ta |> filter(lag == "2-yr lag"),
+                inherit.aes = FALSE,
+                aes(x = harvest_rate,
+                    ymin = prod_mean - prod_sd,
+                    ymax = prod_mean + prod_sd,
+                    color = harvest_rate_fact),
+                width = 0, linewidth = 0.5) +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  facet_grid(prop_cold_fact ~ hab_type) +
+  labs(x = "Harvest rate", y = "Productivity, ln(R/S)") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "none")
+
+p2_ta <- ggplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_point(data = sp_ts_ta |> filter(lag == "2-yr lag"),
+             aes(x = biom_stock, y = prod, color = harvest_rate_fact),
+             alpha = 0.25, size = 1.5, shape = 16) +
+  geom_point(data = sp_summ_ta |> filter(lag == "2-yr lag"),
+             inherit.aes = FALSE, size = 3,
+             aes(x = biom_stock_mean, y = prod_mean, color = harvest_rate_fact)) +
+  geom_errorbar(data = sp_summ_ta |> filter(lag == "2-yr lag"),
+                inherit.aes = FALSE,
+                aes(x    = biom_stock_mean,
+                    ymin  = prod_mean - prod_sd,
+                    ymax  = prod_mean + prod_sd,
+                    color = harvest_rate_fact),
+                width = 0, linewidth = 0.5) +
+  geom_segment(data = sp_summ_ta |> filter(lag == "2-yr lag"),
+               inherit.aes = FALSE,
+               aes(x    = biom_stock_mean - biom_stock_sd,
+                   xend = biom_stock_mean + biom_stock_sd,
+                   y    = prod_mean, yend = prod_mean,
+                   color = harvest_rate_fact)) +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  facet_grid(prop_cold_fact ~ hab_type) +
+  labs(x = "Total adult stock biomass (kg)", y = "Productivity, ln(R/S)") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "none")
+
+(p1_ta / p2_ta) +
   theme(legend.position = "right")
 ```
 

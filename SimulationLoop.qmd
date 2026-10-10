@@ -118,7 +118,6 @@ Run the IBM simulation loop over the full `habitat_df` time series. Returns a na
 
 | Element | Description |
 |---|---|
-| `ibm_records` | List of per-day data frames (raw loop output) |
 | `ibm_long` | Long-format tibble (one row per fish × day) |
 | `ibm_summary` | Daily summary statistics by strategy |
 | `fish_registry` | One row per fish (founders + all offspring) |
@@ -993,7 +992,6 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   ibm_summary <- bind_rows(ibm_summary_list)
 
   list(
-    ibm_records      = ibm_records,
     ibm_long         = ibm_long,
     ibm_summary      = ibm_summary,
     fish_registry    = fish_registry,

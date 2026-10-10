@@ -871,7 +871,6 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   ibm_summary <- bind_rows(ibm_summary_list)
 
   list(
-    ibm_records      = ibm_records,
     ibm_long         = ibm_long,
     ibm_summary      = ibm_summary,
     fish_registry    = fish_registry,

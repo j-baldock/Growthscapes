@@ -23,7 +23,7 @@ fncRescale <- function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = T
 
 
 fncGetBioEParms <- function(spp, pred.en.dens, prey.en.dens, oxy, pff, wt.nearest, 
-  startweights = rep(initial.mass, numFish), pvals = rep(0.5, numFish), ration = rep(0.1, numFish)){
+  startweights = rep(1, nrow(wt.nearest)), pvals = rep(0.5, nrow(wt.nearest)), ration = rep(0.1, nrow(wt.nearest))){
   
 	N.sites <- nrow(wt.nearest) #here, sites are fish in each reach
   N.steps <- 1 #one time step
@@ -69,44 +69,8 @@ fncGetBioEParms <- function(spp, pred.en.dens, prey.en.dens, oxy, pff, wt.neares
 fncReadConstants <- function() {
   
   # Get consumption constants
-  # Cons <- data.frame(
-  #   ConsEQ = 3,
-  #   CA = 0.1317,
-  #   CB = -0.1396,
-  #   CQ = 3.0,
-  #   CTO = 15.8,
-  #   CTM = 17.5,
-  #   CTL = 21.0,
-  #   CK1 = 0.06,
-  #   CK4 = 0.38)
-  # 
-  # # Get respiration constants
-  # Resp <- data.frame(
-  #   RespEQ = 1, 
-  #   RA = 0.0009,
-  #   RB = -0.1266,
-  #   RQ = 0.0833,
-  #   RTO = 0,
-  #   RTM = 0,
-  #   RTL = 0,
-  #   RK1 = 1,
-  #   RK4 = 0,
-  #   ACT = 1,
-  #   BACT = 0,
-  #   SDA = 0.172)
-  # 
-  # # Get Excretion / Egestion Constants
-  # Excr <- data.frame(
-  #   ExcrEQ = 2, 
-  #   FA = 0.212,  
-  #   FB = -0.222, 
-  #   FG = 0.631, 
-  #   UA = 0.0314, 
-  #   UB = 0.58, 
-  #   UG = -0.299)
-  
-    Cons <- data.frame(
-    ConsEQ = 4,
+  Cons <- data.frame(
+    ConsEQ = 3,
     CA = 0.628,
     CB = -0.3,
     CQ = 5,
@@ -133,7 +97,7 @@ fncReadConstants <- function() {
   
   # Get Excretion / Egestion Constants
   Excr <- data.frame(
-    ExcrEQ = 4, 
+    ExcrEQ = 3, 
     FA = 0.212,  
     FB = -0.222, 
     FG = 0.631, 
@@ -471,19 +435,18 @@ return(Results)
 
 
 # PIDs: vector of fish IDs, or NA for all fish
-# fish: data frame with columns pid, weight, ration, patch ("warm" or "cold")
-# t: current day of year
+# fish: data frame with columns pid, weight, pcmax_adjusted_dd, patch ("warm" or "cold")
 fncGrowthFish <- function(PIDs = NA, fish, T_warm, T_cold) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
-  ra.seq <- seq(0.001, 0.4, 0.001)  # ration (400 values)
-  ma.seq <- seq(0.25, 1500, 0.25)         # fish mass (6000 values)
+  pv.seq <- seq(0.01, 1.0, 0.01)    # p-value (100 values)
+  ma.seq <- seq(0.25, 6000, 0.25)   # fish mass (12,000 values)
   
   if (any(is.na(PIDs))) {
-    td <- fish[, c("pid", "weight", "ration", "patch")]  # all fish
+    td <- fish[, c("pid", "weight", "pcmax_adjusted_dd", "patch")]  # all fish
   } else {
-    td <- fish[fish$pid %in% PIDs, c("pid", "weight", "ration", "patch")]  # specific fish
+    td <- fish[fish$pid %in% PIDs, c("pid", "weight", "pcmax_adjusted_dd", "patch")]  # specific fish
   }
   td[, "weight"][td[, "weight"] < 1] <- 1  # minimum lookup weight is 1 g
 
@@ -493,21 +456,21 @@ fncGrowthFish <- function(PIDs = NA, fish, T_warm, T_cold) {
     
     for (x in 1:n) {
       temp     <- if (td[x, "patch"] == "warm") T_warm else T_cold  # temperature at fish's current patch
-      wt.idx   <- which.min(abs(wt.seq - temp))              # nearest water temperature index
-      ra.idx   <- which.min(abs(ra.seq - td[x, "ration"]))   # nearest ration index
-      ma.idx   <- which.min(abs(ma.seq - td[x, "weight"]))   # nearest mass index
-      growth[x] <- wt.growth[wt.idx, ra.idx, ma.idx]         # growth rate in g/g/d
+      wt.idx   <- which.min(abs(wt.seq - temp))                           # nearest water temperature index
+      pv.idx   <- which.min(abs(pv.seq - td[x, "pcmax_adjusted_dd"]))    # nearest p-value index
+      ma.idx   <- which.min(abs(ma.seq - td[x, "weight"]))               # nearest mass index
+      growth[x] <- wt.growth[wt.idx, pv.idx, ma.idx]                     # growth rate in g/g/d
       watemp[x] <- wt.seq[wt.idx]
     }
     
     lookup <- data.frame(
-      pid      = td[, "pid"],
-      weight   = td[, "weight"],
-      ration   = td[, "ration"],
-      patch    = td[, "patch"],
-      WT.actual = ifelse(td[, "patch"] == "warm", T_warm, T_cold),
-      WT       = watemp,
-      growth   = growth
+      pid           = td[, "pid"],
+      weight        = td[, "weight"],
+      pcmax_adj_dd  = td[, "pcmax_adjusted_dd"],
+      patch         = td[, "patch"],
+      WT.actual     = ifelse(td[, "patch"] == "warm", T_warm, T_cold),
+      WT            = watemp,
+      growth        = growth
     )
     return(lookup)
   } else {
@@ -520,36 +483,36 @@ fncGrowthFish <- function(PIDs = NA, fish, T_warm, T_cold) {
 
 # fweight: fish mass in grams
 # T_warm, T_cold: current water temperatures (°C) in each patch
-# ration_warm, ration_cold: ration sizes available in each patch
-fncGrowthPossible <- function(fweight, T_warm, T_cold, ration_warm, ration_cold) {
+# pval_warm, pval_cold: density-adjusted p-values in each patch
+fncGrowthPossible <- function(fweight, T_warm, T_cold, pval_warm, pval_cold) {
   
   # sequences must match the dimensions of the pre-calculated wt.growth array
   wt.seq <- seq(0.1, 25, 0.1)       # water temperature (250 values)
-  ra.seq <- seq(0.001, 0.4, 0.001)  # ration (400 values)
-  ma.seq <- seq(0.25, 1500, 0.25)         # fish mass (6000 values)
+  pv.seq <- seq(0.01, 1.0, 0.01)    # p-value (100 values)
+  ma.seq <- seq(0.25, 6000, 0.25)   # fish mass (12,000 values)
   
-  fw     <- max(1, min(4500, round(fweight)))  # clamp weight to lookup range
+  fw     <- max(1, min(6000, fweight))  # clamp weight to lookup range
   ma.idx <- which.min(abs(ma.seq - fw))
 
   patches <- c("warm", "cold")
   temps   <- c(T_warm, T_cold)
-  rations <- c(ration_warm, ration_cold)
+  pvals   <- c(pval_warm, pval_cold)
   growth  <- watemp <- vector(length = 2)
   
   for (x in 1:2) {
     wt.idx    <- which.min(abs(wt.seq - temps[x]))
-    ra.idx    <- which.min(abs(ra.seq - rations[x]))
-    growth[x] <- wt.growth[wt.idx, ra.idx, ma.idx]
+    pv.idx    <- which.min(abs(pv.seq - pvals[x]))
+    growth[x] <- wt.growth[wt.idx, pv.idx, ma.idx]
     watemp[x] <- wt.seq[wt.idx]
   }
   
   lookup <- data.frame(
-    patch     = patches,
-    weight    = rep(fweight, 2),
-    ration    = rations,
-    WT.actual = c(T_warm, T_cold),
-    WT        = watemp,
-    growth    = growth
+    patch         = patches,
+    weight        = rep(fweight, 2),
+    pcmax_adj_dd  = pvals,
+    WT.actual     = c(T_warm, T_cold),
+    WT            = watemp,
+    growth        = growth
   )
   
   best_patch <- patches[which.max(growth)]

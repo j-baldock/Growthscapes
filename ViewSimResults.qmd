@@ -20,113 +20,167 @@ source("PlotResults.R")
 
 ## Setup
 
-Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as `ibm_long` is extracted, avoiding duplicate references that would force R to copy the data frames.
+Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as the objects needed for plotting (`ibm_summary`, `spawn_log`, `fish_registry`, `habitat_df`) are extracted. The large `ibm_long` is deliberately not kept.
 ```{r}
 #| cache: false
 
 # Extract params from one file (small object)
-res            <- readRDS("results/TempOffset_ColdWarm_05percold_highPwarm.rds")
+res            <- readRDS("results/Baseline_ColdOnly_005percold_rep01.rds")
 sim_params     <- res$params
 habitat_df     <- res$habitat_df
 exp_start_date <- sim_params$mindate + years(sim_params$nyears_burnin)
 rm(res)
 
-# Helper: read one scenario, extract ibm_long, and free res before returning
+# Helper: read one scenario, keep only the objects needed by plot_population(),
+# and free res (including the large ibm_long) before returning
 load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
   res <- readRDS(path)
-  list(df = res$ibm_long, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+  list(
+    ibm_summary   = res$ibm_summary,
+    spawn_log     = res$spawn_log,
+    fish_registry = res$fish_registry,
+    habitat_df    = res$habitat_df,
+    pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm
+  )
 }
 
 ibm_list_mech <- list(
-  load_scen("results/TempOffset_ColdOnly_95percold.rds",             0.95, "Cold only",            0.5, NA_real_),
-  load_scen("results/TempOffset_ColdOnly_75percold.rds",             0.75, "Cold only",            0.5, NA_real_),
-  load_scen("results/TempOffset_ColdOnly_50percold.rds",             0.50, "Cold only",            0.5, NA_real_),
-  load_scen("results/TempOffset_ColdOnly_25percold.rds",             0.25, "Cold only",            0.5, NA_real_),
-  load_scen("results/TempOffset_ColdOnly_05percold.rds",             0.05, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_100percold_rep01.rds",        1.00, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",        0.95, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",        0.75, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",        0.50, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds",        0.25, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_010percold_rep01.rds",        0.10, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_005percold_rep01.rds",        0.05, "Cold only",            0.5, NA_real_),
 
-  load_scen("results/TempOffset_ColdWarm_95percold.rds",             0.95, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_75percold.rds",             0.75, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_50percold.rds",             0.50, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_25percold.rds",             0.25, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_05percold.rds",             0.05, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",        0.95, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",        0.75, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",        0.50, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds",        0.25, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_010percold_rep01.rds",        0.10, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_005percold_rep01.rds",        0.05, "Cold + Warm",          0.5, 0.5),
   
-  load_scen("results/TempOffset_ColdWarm_95percold_highPwarm.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdWarm_75percold_highPwarm.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdWarm_50percold_highPwarm.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdWarm_25percold_highPwarm.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdWarm_05percold_highPwarm.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+  load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_010percold_rep01.rds",   0.10, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
 )
 ```
 
 
 ## Null: cold only
 
-### 95% cold
+### 100% cold
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[1]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[1]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[1]]$spawn_log,
+  fish_registry  = ibm_list_mech[[1]]$fish_registry,
+  habitat_df     = ibm_list_mech[[1]]$habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+### 95% cold
+
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_summary    = ibm_list_mech[[2]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[2]]$spawn_log,
+  fish_registry  = ibm_list_mech[[2]]$fish_registry,
+  habitat_df     = ibm_list_mech[[2]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 75% cold
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[2]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[3]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[3]]$spawn_log,
+  fish_registry  = ibm_list_mech[[3]]$fish_registry,
+  habitat_df     = ibm_list_mech[[3]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 50% cold
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[3]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[4]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[4]]$spawn_log,
+  fish_registry  = ibm_list_mech[[4]]$fish_registry,
+  habitat_df     = ibm_list_mech[[4]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 25% cold
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[4]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[5]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[5]]$spawn_log,
+  fish_registry  = ibm_list_mech[[5]]$fish_registry,
+  habitat_df     = ibm_list_mech[[5]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
-### 5% cold
+### 10% cold
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[5]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[6]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[6]]$spawn_log,
+  fish_registry  = ibm_list_mech[[6]]$fish_registry,
+  habitat_df     = ibm_list_mech[[6]]$habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+
+### 5% cold
+
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_summary    = ibm_list_mech[[7]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[7]]$spawn_log,
+  fish_registry  = ibm_list_mech[[7]]$fish_registry,
+  habitat_df     = ibm_list_mech[[7]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -137,70 +191,96 @@ plot_population(
 
 ### 95% cold / 5% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[6]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[8]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[8]]$spawn_log,
+  fish_registry  = ibm_list_mech[[8]]$fish_registry,
+  habitat_df     = ibm_list_mech[[8]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 75% cold / 25% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[7]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[9]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[9]]$spawn_log,
+  fish_registry  = ibm_list_mech[[9]]$fish_registry,
+  habitat_df     = ibm_list_mech[[9]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 50% cold / 50% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[8]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[10]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[10]]$spawn_log,
+  fish_registry  = ibm_list_mech[[10]]$fish_registry,
+  habitat_df     = ibm_list_mech[[10]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 25% cold / 75% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[9]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[11]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[11]]$spawn_log,
+  fish_registry  = ibm_list_mech[[11]]$fish_registry,
+  habitat_df     = ibm_list_mech[[11]]$habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+### 10% cold / 90% warm
+
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_summary    = ibm_list_mech[[12]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[12]]$spawn_log,
+  fish_registry  = ibm_list_mech[[12]]$fish_registry,
+  habitat_df     = ibm_list_mech[[12]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 5% cold / 95% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[10]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[13]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[13]]$spawn_log,
+  fish_registry  = ibm_list_mech[[13]]$fish_registry,
+  habitat_df     = ibm_list_mech[[13]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
@@ -211,75 +291,99 @@ plot_population(
 
 ### 95% cold / 5% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[11]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[14]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[14]]$spawn_log,
+  fish_registry  = ibm_list_mech[[14]]$fish_registry,
+  habitat_df     = ibm_list_mech[[14]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 75% cold / 25% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[12]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[15]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[15]]$spawn_log,
+  fish_registry  = ibm_list_mech[[15]]$fish_registry,
+  habitat_df     = ibm_list_mech[[15]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 50% cold / 50% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[13]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[16]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[16]]$spawn_log,
+  fish_registry  = ibm_list_mech[[16]]$fish_registry,
+  habitat_df     = ibm_list_mech[[16]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 25% cold / 75% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[14]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[17]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[17]]$spawn_log,
+  fish_registry  = ibm_list_mech[[17]]$fish_registry,
+  habitat_df     = ibm_list_mech[[17]]$habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+### 10% cold / 90% warm
+
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_summary    = ibm_list_mech[[18]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[18]]$spawn_log,
+  fish_registry  = ibm_list_mech[[18]]$fish_registry,
+  habitat_df     = ibm_list_mech[[18]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ### 5% cold / 95% warm
 
-Daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[15]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[19]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[19]]$spawn_log,
+  fish_registry  = ibm_list_mech[[19]]$fish_registry,
+  habitat_df     = ibm_list_mech[[19]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 ---
-
-
 

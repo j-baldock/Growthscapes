@@ -32,13 +32,16 @@ source("SimulationLoop.R")
 source("ScenarioDefs.R")
 ```
 
+
+## Set-up
+
 ```{r}
 #| label: base parameters
 #| cache: false
 
 # ── Baseline parameter set ────────────────────────────────────────────────────
 # All sensitivity runs keep every parameter at these values except the focal one.
-baseline <- scenarios[["null_cold"]]
+baseline <- modifyList(base_params, list(A_cold = 1.0, A_warm = 0, pcmax_cold = 0.5, pcmax_warm = 0.5, nyears_burnin = 10, nyears_experiment = 20, save_burnin = TRUE))
 
 exp_start_date <- as.Date(baseline$mindate) + lubridate::years(baseline$nyears_burnin)
 burn_start     <- year(as.Date(baseline$mindate))
@@ -46,18 +49,20 @@ exp_start_yr   <- year(exp_start_date)
 exp_end_yr     <- exp_start_yr + baseline$nyears_experiment
 
 cat("Baseline parameters:\n")
-cat("  K_cold / K_warm           :", baseline$K_cold, "/", baseline$K_warm, "\n")
-cat("  egg_surv                  :", baseline$egg_surv, "\n")
-cat("  dominance_beta            :", baseline$dominance_beta, "\n")
-cat("  pcmax_cold/warm           :", baseline$pcmax_cold, "/", baseline$pcmax_warm, "\n")
-cat("  A_cold/warm               :", baseline$A_cold, "/", baseline$A_warm, "\n")
-cat("  s_min                     :", baseline$s_min, "\n")
-cat("  s_w0                      :", baseline$s_w0, "\n")
-cat("  s_k                       :", baseline$s_k, "\n")
-cat("  age_structured_competition:", baseline$age_structured_competition, "\n")
+# cat("  Sensitivity to growth differences:    tau                      :", baseline$tau, "\n")
+cat("  Strenth of density dependence:        K_cold / K_warm          :", baseline$K_cold, "/", baseline$K_warm, "\n")
+cat("  Egg survival rate:                    egg_surv                 :", baseline$egg_surv, "\n")
+cat("  Size-based dominance:                 dominance_beta           :", baseline$dominance_beta, "\n")
+cat("  Maximum p-value:                      pcmax_cold/ pcmax_warm   :", baseline$pcmax_cold, "/", baseline$pcmax_warm, "\n")
+cat("  Habitat area:                         A_cold / A_warm          :", baseline$A_cold, "/", baseline$A_warm, "\n")
+cat("  Min. size-based daily survival prob:  s_min                    :", baseline$s_min, "\n")
+cat("  Size-based survival inflection point: s_w0                     :", baseline$s_w0, "\n")
+cat("  Condition-based survival inflection:  K1_starv / K9_starv      :", baseline$K1_starv, "/", baseline$K9_starv, "\n")
+cat("  Condition-based survival floor:       s_floor_starv            :", baseline$s_floor_starv, "\n")
+cat("  Max. daily survival prob:             S_max_cold / S_max_warm  :", baseline$S_max_cold, "/", baseline$S_max_warm,"\n")
 
-cat("Burn-in:", burn_start, "–", exp_start_yr - 1,
-    " | Experiment:", exp_start_yr, "–", exp_end_yr, "\n")
+cat("Short model runs for efficiency: Burn-in = ", burn_start, "–", exp_start_yr - 1,
+    ", Experiment = ", exp_start_yr, "–", exp_end_yr, "\n")
 ```
 
 
@@ -83,6 +88,7 @@ oct1_census <- function(sim, label) {
            month(date) == 10, day(date) == 1) |>
     mutate(year  = year(date),
            phase = if_else(year < exp_start_yr, "burn-in", "experiment")) |>
+    # filter(phase = "experiment") |>
     group_by(year, phase) |>
     summarise(N        = n_distinct(pid),
               biomass_kg = sum(weight) / 1000,
@@ -93,7 +99,7 @@ oct1_census <- function(sim, label) {
 # ── Helper: population map (burn-in N[t+1] ~ N[t]) ───────────────────────────
 pop_map <- function(census_df) {
   census_df |>
-    filter(phase == "burn-in") |>
+    # filter(phase == "burn-in") |>
     group_by(label) |>
     arrange(year) |>
     mutate(N_next = lead(N)) |>
@@ -116,15 +122,18 @@ stock_recruit <- function(sim, label) {
     filter(!is.na(parent_pid), !is.na(birth_dayofsim)) |>
     mutate(birth_yr    = year(hdf$date[birth_dayofsim]),
            day_of_life = dayofsim - birth_dayofsim) |>
-    filter(birth_yr < exp_start_yr, day_of_life == 60) |>
+    filter(#birth_yr < exp_start_yr, 
+           day_of_life == 60) |>
     group_by(birth_yr) |>
-    summarise(bio_surv60_kg = sum(weight) / 1000, .groups = "drop")
+    summarise(abun_surv60 = n(),
+              bio_surv60_kg = sum(weight) / 1000, .groups = "drop")
 
   # Spawner biomass: adults (≥ 100 g) present during spawning window (Apr–Jun)
   spawner_bio <- ibm |>
     filter(!is.na(date), survived == 1) |>
     mutate(year = year(date), doy = yday(date)) |>
-    filter(doy >= 90, doy <= 150, weight >= 100, year < exp_start_yr) |>
+    filter(#year < exp_start_yr,
+           doy >= 90, doy <= 150, weight >= 100) |>
     group_by(year) |>
     summarise(spawner_kg = sum(weight) / 1000, .groups = "drop")
 
@@ -140,14 +149,14 @@ thinning_rate <- function(sim, label) {
   born <- ibm |>
     filter(!is.na(parent_pid)) |>
     mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
-    filter(birth_yr < exp_start_yr) |>
+    # filter(birth_yr < exp_start_yr) |>
     distinct(pid, birth_yr) |>
     count(birth_yr, name = "n_born")
 
   surv60 <- ibm |>
     filter(!is.na(parent_pid)) |>
     mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
-    filter(birth_yr < exp_start_yr) |>
+    # filter(birth_yr < exp_start_yr) |>
     group_by(pid, birth_yr) |>
     summarise(days_alive = n(), .groups = "drop") |>
     filter(days_alive >= 60) |>
@@ -159,24 +168,24 @@ thinning_rate <- function(sim, label) {
 }
 
 # ── Helper: biomass by age class (Oct 1, burn-in) ────────────────────────────
-biomass_age <- function(sim, label) {
-  sim$ibm_long |>
-    filter(!is.na(date), survived == 1,
-           month(date) == 10, day(date) == 1) |>
-    mutate(year      = year(date),
-           age_class = if_else(cohort == year, "Age-0 fry", "Age-1+"),
-           phase     = if_else(year < exp_start_yr, "burn-in", "experiment")) |>
-    filter(phase == "burn-in") |>
-    group_by(year, age_class) |>
-    summarise(biomass_kg = sum(weight) / 1000,
-              n_fish     = n_distinct(pid), .groups = "drop") |>
-    group_by(age_class) |>
-    summarise(mean_bio_kg = mean(biomass_kg),
-              mean_n      = mean(n_fish),
-              mean_wt_g   = mean(biomass_kg * 1000 / pmax(n_fish, 1)),
-              .groups = "drop") |>
-    mutate(label = label)
-}
+# biomass_age <- function(sim, label) {
+#   sim$ibm_long |>
+#     filter(!is.na(date), survived == 1,
+#            month(date) == 10, day(date) == 1) |>
+#     mutate(year      = year(date),
+#            age_class = if_else(cohort == year, "Age-0 fry", "Age-1+"),
+#            phase     = if_else(year < exp_start_yr, "burn-in", "experiment")) |>
+#     filter(phase == "burn-in") |>
+#     group_by(year, age_class) |>
+#     summarise(biomass_kg = sum(weight) / 1000,
+#               n_fish     = n_distinct(pid), .groups = "drop") |>
+#     group_by(age_class) |>
+#     summarise(mean_bio_kg = mean(biomass_kg),
+#               mean_n      = mean(n_fish),
+#               mean_wt_g   = mean(biomass_kg * 1000 / pmax(n_fish, 1)),
+#               .groups = "drop") |>
+#     mutate(label = label)
+# }
 
 # ── Helper: density–age-0 growth relationship (Aug 1 weight vs July density) ──
 age0_density_growth <- function(sim, label) {
@@ -184,8 +193,9 @@ age0_density_growth <- function(sim, label) {
 
   # Mean daily July abundance (all fish, all ages) per burn-in year
   july_dens <- ibm |>
-    filter(!is.na(date), survived == 1, month(date) == 7,
-           year(date) < exp_start_yr) |>
+    filter(# year(date) < exp_start_yr,
+           !is.na(date), survived == 1, month(date) == 7
+           ) |>
     group_by(year = year(date), date) |>
     summarise(n = n(), .groups = "drop") |>
     group_by(year) |>
@@ -193,8 +203,9 @@ age0_density_growth <- function(sim, label) {
 
   # Mean age-0 weight at Aug 1 (DOY 213) per burn-in cohort
   aug1_wt <- ibm |>
-    filter(!is.na(date), survived == 1, !is.na(ggd),
-           yday(date) == 213, year(date) < exp_start_yr) |>
+    filter(#year(date) < exp_start_yr,
+           !is.na(date), survived == 1, !is.na(ggd),
+           yday(date) == 213) |>
     mutate(year = year(date)) |>
     filter(cohort == year) |>
     group_by(year) |>
@@ -205,7 +216,7 @@ age0_density_growth <- function(sim, label) {
     mutate(label = label)
 }
 
-# ── Helper: weight-at-age (Oct 1, burn-in mean, ages 0-4) ────────────────────
+# ── Helper: weight-at-age (Oct 1, experiment mean, ages 0-14) ────────────────────
 wt_at_age <- function(sim, label) {
   sim$ibm_long |>
     filter(!is.na(date), survived == 1,
@@ -213,35 +224,49 @@ wt_at_age <- function(sim, label) {
     mutate(year     = year(date),
            age_yrs  = floor(age),
            phase    = if_else(year < exp_start_yr, "burn-in", "experiment")) |>
-    filter(phase == "burn-in", age_yrs <= 4) |>
-    group_by(year, age_yrs) |>
-    summarise(mean_wt = mean(weight), n = n_distinct(pid), .groups = "drop") |>
-    filter(n >= 2) |>
+    filter(phase == "experiment", age_yrs <= 14) |>
     group_by(age_yrs) |>
-    summarise(mean_wt = mean(mean_wt), .groups = "drop") |>
+    summarise(mean_wt = mean(weight), sd_wt = sd(weight), n = n_distinct(pid), .groups = "drop") |>
+    filter(n >= 5) |>
+    # group_by(age_yrs) |>
+    # summarise(mean_wt = mean(mean_wt), .groups = "drop") |>
     mutate(label = label)
 }
 
-# ── Helper: age-0 daily weight (doy mean across burn-in cohorts) ──────────────
+# ── Helper: age-0 daily weight (doy mean across experiment cohorts) ──────────────
 age0_daily_wt <- function(sim, label) {
-  sim$ibm_long |>
-    filter(!is.na(date), survived == 1, !is.na(ggd)) |>
-    mutate(year = year(date),
-           doy  = yday(date)) |>
-    filter(cohort == year, year < exp_start_yr) |>
-    group_by(doy) |>
-    summarise(mean_wt = mean(weight), n = n(), .groups = "drop") |>
+  exp_fish <- sim$ibm_long |>
+    filter(floor(age) == 0, !is.na(date), survived == 1, !is.na(ggd),
+           cohort >= exp_start_yr)
+
+  # Population may collapse before the experimental period (e.g. extreme s_w0)
+  if (nrow(exp_fish) == 0L) {
+    return(tibble(date = as.Date(character()), mean_wt = numeric(),
+                  sd_wt = numeric(), n = integer(), label = character()))
+  }
+
+  exp_fish |>
+    mutate(days_from_may1 = as.integer(date - as.Date(paste0(as.integer(cohort), "-05-01")))) |>
+    filter(days_from_may1 >= 0, days_from_may1 < 365) |>
+    # Anchor all cohorts to a common reference year for plotting
+    mutate(date = as.Date("2000-05-01") + days_from_may1) |>
+    group_by(date) |>
+    summarise(mean_wt = mean(weight),
+              sd_wt   = sd(weight),
+              n       = n(),
+              .groups = "drop") |>
     filter(n >= 5) |>
     mutate(label = label)
 }
 
-# ── Stability summary ──────────────────────────────────────────────────────────
-stability_stats <- function(census_df) {
+# ── Population summary ──────────────────────────────────────────────────────────
+population_stats <- function(census_df) {
   census_df |>
     group_by(label, phase) |>
-    summarise(mean_N     = round(mean(N)),
-              cv         = round(sd(N) / mean(N), 2),
-              mean_bio   = round(mean(biomass_kg), 1),
+    summarise(mean_N     = mean(N),
+              sd_N       = sd(N),
+              mean_bio   = mean(biomass_kg),
+              sd_bio     = sd(biomass_kg),
               sim_yrs    = n(),
               .groups    = "drop")
 }
@@ -255,27 +280,29 @@ total_sim_yrs <- function(census_df) {
     summarise(total_yrs = n_distinct(year), .groups = "drop")
 }
 
-# ── Helper: 4-panel stability bar chart (mean N and CV × phase) ───────────────
-# stable_df: output of stability_stats(); cols: length-3 colour vector.
-# Layout: rows = metric (mean N, CV), columns = phase (burn-in, experiment).
-plot_stability_fig <- function(stable_df, cols) {
-  stable_long <- stable_df |>
-    select(label, phase, mean_N, cv) |>
-    pivot_longer(c(mean_N, cv),
-                 names_to  = "metric",
-                 values_to = "value") |>
+# ── Helper: 2-panel stability figure (mean N and mean biomass, experiment only) ─
+# pop_df: output of population_stats(); cols: length-3 colour vector.
+# Layout: two panels side by side — abundance (left) and biomass (right).
+plot_stability_fig <- function(pop_df, cols) {
+  exp_df <- pop_df |>
+    filter(phase == "experiment") |>
+    pivot_longer(
+      cols      = c(mean_N, mean_bio),
+      names_to  = "metric",
+      values_to = "mean"
+    ) |>
     mutate(
+      sd = if_else(metric == "mean_N", sd_N, sd_bio),
       metric = factor(metric,
-                      levels = c("mean_N", "cv"),
-                      labels = c("Mean N (Oct 1)", "CV (abundance)")),
-      phase  = factor(phase,
-                      levels = c("burn-in", "experiment"),
-                      labels = c("Burn-in", "Experiment"))
+                      levels = c("mean_N", "mean_bio"),
+                      labels = c("Mean abundance (Oct 1)", "Mean biomass (kg)"))
     )
 
-  ggplot(stable_long, aes(x = label, y = value, fill = label)) +
+  ggplot(exp_df, aes(x = label, y = mean, fill = label)) +
     geom_col(width = 0.65, show.legend = FALSE) +
-    facet_grid(metric ~ phase, scales = "free_y") +
+    geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd),
+                  width = 0.25, linewidth = 0.6) +
+    facet_wrap(~ metric, scales = "free_y") +
     scale_fill_manual(values = cols) +
     labs(x = NULL, y = NULL) +
     theme_sens() +
@@ -294,8 +321,8 @@ days_to_threshold <- function(sim, label) {
   w0_val <- sim$params$s_w0
 
   cohort_wt <- ibm |>
-    filter(!is.na(date), survived == 1, !is.na(ggd),
-           year(date) < exp_start_yr) |>
+    filter(#year(date) < exp_start_yr,
+           !is.na(date), survived == 1, !is.na(ggd)) |>
     mutate(doy = yday(date)) |>
     filter(cohort == year(date)) |>
     group_by(cohort, doy) |>
@@ -313,7 +340,8 @@ days_to_threshold <- function(sim, label) {
 
   fry_born <- sim$spawn_log |>
     left_join(hdf |> select(dayofsim, date), by = "dayofsim") |>
-    filter(!is.na(date), year(date) < exp_start_yr) |>
+    filter(#year(date) < exp_start_yr,
+           !is.na(date)) |>
     mutate(cohort = year(date)) |>
     group_by(cohort) |>
     summarise(n_born = sum(n_offspring), .groups = "drop")
@@ -358,6 +386,163 @@ plot_danger_duration <- function(cross_df, cols) {
     theme_sens()
 }
 
+# ── Helper: age at first reproduction ────────────────────────────────────────
+# For each parent, find their first spawn event (min dayofsim), join to ibm_long
+# to get age at that moment, then summarise mean and SD across all spawners
+# in the experimental period.
+spawn_afr <- function(sim, label) {
+  hdf <- sim$habitat_df |> select(dayofsim, date)
+
+  sim$spawn_log |>
+    group_by(parent_pid) |>
+    summarise(first_dayofsim = min(dayofsim), .groups = "drop") |>
+    left_join(hdf, by = c("first_dayofsim" = "dayofsim")) |>
+    filter(year(date) >= exp_start_yr) |>
+    left_join(sim$ibm_long |> select(pid, dayofsim, age),
+              by = c("parent_pid" = "pid", "first_dayofsim" = "dayofsim")) |>
+    summarise(mean_afr = mean(age, na.rm = TRUE),
+              sd_afr   = sd(age,   na.rm = TRUE)) |>
+    mutate(label = label)
+}
+
+# ── Helper: annual spawning participation rate ────────────────────────────────
+# Unique spawners per year (from spawn_log) divided by Oct 1 population size
+# of the preceding year. Summarises mean and SD of participation across years.
+spawn_participation <- function(sim, label) {
+  hdf <- sim$habitat_df |> select(dayofsim, date)
+
+  spawners_yr <- sim$spawn_log |>
+    left_join(hdf, by = "dayofsim") |>
+    filter(year(date) >= exp_start_yr) |>
+    mutate(year = year(date)) |>
+    group_by(year) |>
+    summarise(n_spawners = n_distinct(parent_pid), .groups = "drop")
+
+  # Oct 1 N from prior year provides the denominator
+  oct1_N <- sim$ibm_long |>
+    filter(survived == 1, month(date) == 10, day(date) == 1,
+           year(date) >= exp_start_yr - 1L) |>
+    group_by(year = year(date)) |>
+    summarise(N = n(), .groups = "drop") |>
+    mutate(year = year + 1L)   # shift to match the following spring's spawners
+
+  spawners_yr |>
+    left_join(oct1_N, by = "year") |>
+    mutate(participation = n_spawners / N) |>
+    summarise(mean_part = mean(participation, na.rm = TRUE),
+              sd_part   = sd(participation,   na.rm = TRUE)) |>
+    mutate(label = label)
+}
+
+# ── Helper: repeat spawning prevalence ────────────────────────────────────────
+# For each year in the experimental period, calculates the fraction of that
+# year's spawners who also spawned in at least one prior year. Returns the mean
+# and SD of this annual fraction across experimental years.
+repeat_spawning <- function(sim, label) {
+  hdf <- sim$habitat_df |> select(dayofsim, date)
+
+  spawn_with_date <- sim$spawn_log |>
+    left_join(hdf, by = "dayofsim") |>
+    mutate(year = year(date))
+
+  # all spawn-years per fish (whole simulation, to catch pre-exp-period history)
+  prior_yrs <- spawn_with_date |>
+    group_by(parent_pid) |>
+    summarise(all_years = list(sort(unique(year))), .groups = "drop")
+
+  exp_years <- sort(unique(spawn_with_date$year[spawn_with_date$year >= exp_start_yr]))
+
+  yr_stats <- map_dfr(exp_years, function(yr) {
+    spawners_yr <- spawn_with_date |>
+      filter(year == yr) |>
+      distinct(parent_pid) |>
+      left_join(prior_yrs, by = "parent_pid") |>
+      mutate(is_repeat = map_lgl(all_years, ~ any(.x < yr)))
+    tibble(year = yr, pct_repeat = 100 * mean(spawners_yr$is_repeat))
+  })
+
+  if (nrow(yr_stats) == 0) {
+    return(tibble(mean_pct_repeat = NA_real_, sd_pct_repeat = NA_real_, label = label))
+  }
+
+  yr_stats |>
+    summarise(mean_pct_repeat = mean(pct_repeat),
+              sd_pct_repeat   = sd(pct_repeat)) |>
+    mutate(label = label)
+}
+
+# ── Helper: recruitment indices (age-0 Oct 1 and age-1 Jun 1) ─────────────────
+# Tracks the same cohort: age-0 count at Oct 1 of the hatch year, and
+# age-1 count at Jun 1 of the following year (integer age turns 1 in late Apr).
+recruit_indices <- function(sim, label) {
+  age0_oct1 <- sim$ibm_long |>
+    filter(survived == 1, month(date) == 10, day(date) == 1,
+           year(date) >= exp_start_yr, floor(age) == 0) |>
+    group_by(cohort) |>
+    summarise(n_age0 = n(), .groups = "drop")
+
+  age1_jun1 <- sim$ibm_long |>
+    filter(survived == 1, month(date) == 6, day(date) == 1,
+           year(date) > exp_start_yr, floor(age) == 1) |>
+    group_by(cohort) |>
+    summarise(n_age1 = n(), .groups = "drop")
+
+  age0_oct1 |>
+    left_join(age1_jun1, by = "cohort") |>
+    summarise(mean_age0_oct1 = mean(n_age0, na.rm = TRUE),
+              sd_age0_oct1   = sd(n_age0,   na.rm = TRUE),
+              mean_age1_jun1 = mean(n_age1, na.rm = TRUE),
+              sd_age1_jun1   = sd(n_age1,   na.rm = TRUE)) |>
+    mutate(label = label)
+}
+
+# ── Helper: mean minimum condition by integer age class ───────────────────────
+# For each individual × age class, finds the single lowest condition value
+# recorded during the experimental period, then summarises the mean and SD of
+# those per-individual minima across all fish in that age class.
+min_condition_by_age <- function(sim, label) {
+  sim$ibm_long |>
+    filter(!is.na(date), survived == 1, !is.na(condition),
+           year(date) >= exp_start_yr) |>
+    mutate(age_class = floor(age)) |>
+    group_by(pid, age_class) |>
+    summarise(min_cond = min(condition), .groups = "drop") |>
+    group_by(age_class) |>
+    summarise(mean_min_cond = mean(min_cond),
+              sd_min_cond   = sd(min_cond),
+              n             = n(),
+              .groups       = "drop") |>
+    mutate(label = label)
+}
+
+# ── Helper: mean and maximum age and weight from Oct 1 census snapshot ────────
+# Filters to Oct 1 survivors during the experimental period, then summarises
+# mean and max age and weight across all individuals × years.
+age_growth_stats <- function(sim, label) {
+  sim$ibm_long |>
+    filter(!is.na(date), survived == 1,
+           month(date) == 10, day(date) == 1,
+           year(date) >= exp_start_yr) |>
+    summarise(mean_age = mean(age),
+              q95_age  = quantile(age, probs = 0.95),
+              mean_wt  = mean(weight),
+              q95_wt   = quantile(weight, probs = 0.95)) |>
+    mutate(label = label)
+}
+
+# ── Helper: simple bar chart with error bars ──────────────────────────────────
+# df must have columns: label, mean, sd. cols: named colour vector.
+simple_bar <- function(df, ylab, title, cols) {
+  ggplot(df, aes(x = label, y = mean, fill = label)) +
+    geom_col(width = 0.65, show.legend = FALSE) +
+    geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd),
+                  width = 0.25, linewidth = 0.6) +
+    scale_fill_manual(values = cols) +
+    labs(x = NULL, y = ylab, title = title,
+         subtitle = "Mean \u00b1 SD across years") +
+    theme_sens()
+}
+
 # ── Shared colour palette (Okabe-Ito: blue / teal / vermillion) ──────────────
 # Colorblind-friendly; all three are clearly distinguishable.
 # Mapping: low value = blue, mid/baseline value = teal, high value = vermillion.
@@ -384,22 +569,30 @@ allows the population to grow more before density effects manifest.
 
 ```{r}
 #| label: sim-K
-#| cache: true
+#| cache: false
 
-K_vals   <- c(100, 200, 500)
+K_vals   <- c(300, 400, 500)
 K_labels <- paste0("K = ", K_vals)
 K_cols   <- sens_cols
 
-cat("Running K sensitivity simulations...\n")
-K_sims <- lapply(seq_along(K_vals), function(i) {
-  cat(" K =", K_vals[i], "... ")
-  p   <- modifyList(baseline, list(K_cold = K_vals[i], K_warm = K_vals[i]))
-  hdf <- build_habitat(p)
-  res <- run_simulation(hdf, p, wt_growth = wt.growth)
-  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
-  res
-})
-names(K_sims) <- K_labels
+cache_file <- "cache/K_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading K simulations from cache...\n")
+  K_sims <- readRDS(cache_file)
+} else {
+  cat("Running K sensitivity simulations...\n")
+  K_sims <- lapply(seq_along(K_vals), function(i) {
+    cat(" K =", K_vals[i], "... ")
+    p   <- modifyList(baseline, list(K_cold = K_vals[i], K_warm = K_vals[i]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(K_sims) <- K_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(K_sims, cache_file)
+}
 ```
 
 ```{r}
@@ -413,15 +606,34 @@ K_thin     <- bind_rows(Map(thinning_rate,        K_sims, K_labels)) |>
   mutate(label = factor(label, levels = K_labels))
 K_dg       <- bind_rows(Map(age0_density_growth, K_sims, K_labels)) |>
   mutate(label = factor(label, levels = K_labels))
-
 K_waa      <- bind_rows(Map(wt_at_age,     K_sims, K_labels)) |>
   mutate(label = factor(label, levels = K_labels))
 K_age0_dly <- bind_rows(Map(age0_daily_wt, K_sims, K_labels)) |>
   mutate(label = factor(label, levels = K_labels))
-K_stable   <- stability_stats(K_census)
+K_ag       <- bind_rows(Map(age_growth_stats,      K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_mincond  <- bind_rows(Map(min_condition_by_age,  K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_afr      <- bind_rows(Map(spawn_afr,             K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_part     <- bind_rows(Map(spawn_participation,   K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_rec      <- bind_rows(Map(recruit_indices,        K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_repeat   <- bind_rows(Map(repeat_spawning,        K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+K_stable   <- population_stats(K_census)
 ```
 
 ### Abundance and biomass
+
+```{r}
+#| label: fig-K-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by K value."
+#| fig-height: 5
+
+plot_stability_fig(K_stable, K_cols)
+```
 
 ```{r}
 #| label: fig-K-ts
@@ -445,7 +657,7 @@ p_B <- ggplot(K_census, aes(x = year, y = biomass_kg, color = label)) +
              color = "grey55", linewidth = 0.4) +
   geom_line(linewidth = 0.75) +
   scale_color_manual(values = K_cols) +
-  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  labs(x = NULL, y = "Biomass (kg, Oct 1)", color = NULL, title = "Annual biomass") +
   theme_sens()
 
 p_N | p_B
@@ -503,42 +715,6 @@ p_dg <- ggplot(K_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-K-thin
-#| fig-cap: "Left: mean weight at age (burn-in). Right: Mean age-0 fry weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(K_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = K_cols) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Shows how K affects individual growth trajectories") +
-  theme_sens()
-
-month_doys   <- c(121, 152, 182, 213, 244, 274, 305, 335)
-month_labels <- c("May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
-
-p_aget <- ggplot(K_age0_dly |> filter(doy >= 118),
-       aes(x = doy, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(values = K_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight — burn-in cohort mean",
-       subtitle = "Smaller K = more density suppression = slower early growth") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-
-### Density-dependent duration below s_w0
-
 ```{r}
 #| label: fig-K-danger-duration
 #| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
@@ -550,24 +726,139 @@ K_cross <- bind_rows(Map(days_to_threshold, K_sims, K_labels)) |>
 plot_danger_duration(K_cross, K_cols)
 ```
 
-### Stability summary {.unnumbered}
+
+### Age and growth
 
 ```{r}
-#| label: fig-K-stable
-#| fig-cap: "Mean Oct 1 abundance and CV by K value, split by simulation phase."
+#| label: fig-K-thin
+#| fig-cap: "Left: mean weight at age. Right: Mean age-0 fry weight by day of year, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(K_stable, K_cols)
+p_waa <- ggplot(K_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = K_cols) +
+  scale_fill_manual(values = K_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)",
+       subtitle = "Shows how K affects individual growth trajectories") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(K_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt-sd_wt, ymax = mean_wt+sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = K_cols) +
+  scale_fill_manual(values = K_cols) +
+  scale_x_date(date_labels = "%b %d") +
+  # scale_x_continuous(breaks = month_doys, labels = month_labels) +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals",
+       subtitle = "Smaller K = more density suppression = slower early growth") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
-#| label: tbl-K-stable
-#| tbl-cap: "Burn-in and experiment stability statistics by K value."
+#| label: fig-K-ag
+#| fig-cap: "Mean and maximum age and weight across K scenarios (experimental period)."
+#| fig-height: 5
 
-K_stable |>
-  knitr::kable(col.names = c("K", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+K_ag_long <- K_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)")))
+
+ggplot(K_ag_long, aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = K_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and max across all individuals and years") +
+  theme_sens()
 ```
+
+```{r}
+#| label: fig-K-mincond
+#| fig-cap: "Mean minimum condition by integer age class across K scenarios."
+#| fig-height: 4
+
+ggplot(K_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                      color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = K_cols) +
+  scale_fill_manual(values = K_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean ± SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-K-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across K scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  K_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", K_cols
+)
+
+p_part_bar <- simple_bar(
+  K_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", K_cols
+)
+
+# Combined recruitment panel: Oct 1 (full) and Jun 1 (faded) side by side
+p_rec_bar <- bind_rows(
+  K_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  K_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72), width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = K_cols) +
+  scale_color_manual(values = K_cols) +
+  scale_alpha_manual(name = NULL,
+                     values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide  = guide_legend(
+                       override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) → Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  K_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", K_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+
 
 ---
 
@@ -578,22 +869,30 @@ It represents spawning habitat quality, redd conditions, and egg-incubation succ
 
 ```{r}
 #| label: sim-egg
-#| cache: true
+#| cache: false
 
 egg_vals   <- c(0.01, 0.1, 0.2)
 egg_labels <- paste0("egg_surv = ", egg_vals)
 egg_cols   <- sens_cols
 
-cat("Running egg_surv sensitivity simulations...\n")
-egg_sims <- lapply(seq_along(egg_vals), function(i) {
-  cat(" egg_surv =", egg_vals[i], "... ")
-  p   <- modifyList(baseline, list(egg_surv = egg_vals[i]))
-  hdf <- build_habitat(p)
-  res <- run_simulation(hdf, p, wt_growth = wt.growth)
-  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
-  res
-})
-names(egg_sims) <- egg_labels
+cache_file <- "cache/egg_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading egg_surv simulations from cache...\n")
+  egg_sims <- readRDS(cache_file)
+} else {
+  cat("Running egg_surv sensitivity simulations...\n")
+  egg_sims <- lapply(seq_along(egg_vals), function(i) {
+    cat(" egg_surv =", egg_vals[i], "... ")
+    p   <- modifyList(baseline, list(egg_surv = egg_vals[i]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(egg_sims) <- egg_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(egg_sims, cache_file)
+}
 ```
 
 ```{r}
@@ -612,10 +911,30 @@ egg_waa      <- bind_rows(Map(wt_at_age,     egg_sims, egg_labels)) |>
   mutate(label = factor(label, levels = egg_labels))
 egg_age0_dly <- bind_rows(Map(age0_daily_wt, egg_sims, egg_labels)) |>
   mutate(label = factor(label, levels = egg_labels))
-egg_stable   <- stability_stats(egg_census)
+egg_ag       <- bind_rows(Map(age_growth_stats,    egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_mincond  <- bind_rows(Map(min_condition_by_age, egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_afr      <- bind_rows(Map(spawn_afr,            egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_part     <- bind_rows(Map(spawn_participation,  egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_rec      <- bind_rows(Map(recruit_indices,       egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_repeat   <- bind_rows(Map(repeat_spawning,       egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+egg_stable   <- population_stats(egg_census)
 ```
 
 ### Abundance and biomass
+
+```{r}
+#| label: fig-egg-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by egg_surv, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(egg_stable, egg_cols)
+```
 
 ```{r}
 #| label: fig-egg-ts
@@ -694,37 +1013,6 @@ p_dg <- ggplot(egg_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-egg-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(egg_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = egg_cols) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Higher egg_surv: smaller age-0, larger age-2+ (size-selective thinning)") +
-  theme_sens()
-
-p_aget <- ggplot(egg_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(values = egg_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight — burn-in cohort mean") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-### Density-dependent duration below s_w0
-
 ```{r}
 #| label: fig-egg-danger-duration
 #| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
@@ -736,23 +1024,128 @@ egg_cross <- bind_rows(Map(days_to_threshold, egg_sims, egg_labels)) |>
 plot_danger_duration(egg_cross, egg_cols)
 ```
 
-### Stability summary {.unnumbered}
+### Age and growth
 
 ```{r}
-#| label: fig-egg-stable
-#| fig-cap: "Mean Oct 1 abundance and CV by egg_surv, split by simulation phase."
+#| label: fig-egg-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(egg_stable, egg_cols)
+p_waa <- ggplot(egg_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = egg_cols) +
+  scale_fill_manual(values = egg_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(egg_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = egg_cols) +
+  scale_fill_manual(values = egg_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
-#| label: tbl-egg-stable
-#| tbl-cap: "Stability statistics by egg_surv."
+#| label: fig-egg-ag
+#| fig-cap: "Mean and Q95 age and weight across egg_surv scenarios (experimental period)."
+#| fig-height: 5
 
-egg_stable |>
-  knitr::kable(col.names = c("egg_surv", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+egg_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = egg_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-egg-mincond
+#| fig-cap: "Mean minimum condition by integer age class across egg_surv scenarios."
+#| fig-height: 4
+
+ggplot(egg_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                         color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = egg_cols) +
+  scale_fill_manual(values = egg_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-egg-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across egg_surv scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  egg_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", egg_cols
+)
+
+p_part_bar <- simple_bar(
+  egg_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", egg_cols
+)
+
+p_rec_bar <- bind_rows(
+  egg_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  egg_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = egg_cols) +
+  scale_color_manual(values = egg_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  egg_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", egg_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
 ---
@@ -764,24 +1157,34 @@ each age class. β = 0 is pure scramble (all fish experience the same effective 
 regardless of size); β = 1 means a fish twice the size of its competitor imposes a full
 competitive unit of pressure, while a fish half its size imposes only half a unit.
 
+*Note that we run these simulations with* `pcmax_cold = 0.7`. *When food is more limiting (e.g.,* `pcmax_cold = 0.5` *), fish do not have enough growth capacity to create the "runaway" effect on weight-at-age. We increase* `pcmax_cold` *here to illustrate how fish can "escape" density dependence under higher consumption conditions.* 
+
 ```{r}
 #| label: sim-beta
-#| cache: true
+#| cache: false
 
 beta_vals   <- c(0, 0.5, 1)
 beta_labels <- paste0("β = ", beta_vals)
 beta_cols   <- sens_cols
 
-cat("Running dominance_beta sensitivity simulations...\n")
-beta_sims <- lapply(seq_along(beta_vals), function(i) {
-  cat(" beta =", beta_vals[i], "... ")
-  p   <- modifyList(baseline, list(dominance_beta = beta_vals[i]))
-  hdf <- build_habitat(p)
-  res <- run_simulation(hdf, p, wt_growth = wt.growth)
-  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
-  res
-})
-names(beta_sims) <- beta_labels
+cache_file <- "cache/beta_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading dominance_beta simulations from cache...\n")
+  beta_sims <- readRDS(cache_file)
+} else {
+  cat("Running dominance_beta sensitivity simulations...\n")
+  beta_sims <- lapply(seq_along(beta_vals), function(i) {
+    cat(" beta =", beta_vals[i], "... ")
+    p   <- modifyList(baseline, list(dominance_beta = beta_vals[i], pcmax_cold = 0.7))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(beta_sims) <- beta_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(beta_sims, cache_file)
+}
 ```
 
 ```{r}
@@ -799,10 +1202,30 @@ beta_waa      <- bind_rows(Map(wt_at_age,     beta_sims, beta_labels)) |>
   mutate(label = factor(label, levels = beta_labels))
 beta_age0_dly <- bind_rows(Map(age0_daily_wt, beta_sims, beta_labels)) |>
   mutate(label = factor(label, levels = beta_labels))
-beta_stable   <- stability_stats(beta_census)
+beta_ag       <- bind_rows(Map(age_growth_stats,    beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_mincond  <- bind_rows(Map(min_condition_by_age, beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_afr      <- bind_rows(Map(spawn_afr,            beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_part     <- bind_rows(Map(spawn_participation,  beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_rec      <- bind_rows(Map(recruit_indices,       beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_repeat   <- bind_rows(Map(repeat_spawning,       beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+beta_stable   <- population_stats(beta_census)
 ```
 
 ### Abundance and biomass
+
+```{r}
+#| label: fig-beta-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by dominance_beta, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(beta_stable, beta_cols)
+```
 
 ```{r}
 #| label: fig-beta-ts
@@ -881,37 +1304,6 @@ p_dg <- ggplot(beta_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-beta-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(beta_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = beta_cols) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Higher β: larger dominant adults, more skewed size distribution") +
-  theme_sens()
-
-p_aget <- ggplot(beta_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(values = beta_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight — burn-in cohort mean") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-### Density-dependent duration below s_w0
-
 ```{r}
 #| label: fig-beta-danger-duration
 #| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
@@ -923,23 +1315,128 @@ beta_cross <- bind_rows(Map(days_to_threshold, beta_sims, beta_labels)) |>
 plot_danger_duration(beta_cross, beta_cols)
 ```
 
-### Stability summary {.unnumbered}
+### Age and growth
 
 ```{r}
-#| label: fig-beta-stable
-#| fig-cap: "Mean Oct 1 abundance and CV by dominance_beta, split by simulation phase."
+#| label: fig-beta-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(beta_stable, beta_cols)
+p_waa <- ggplot(beta_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = beta_cols) +
+  scale_fill_manual(values = beta_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(beta_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = beta_cols) +
+  scale_fill_manual(values = beta_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
-#| label: tbl-beta-stable
-#| tbl-cap: "Stability statistics by dominance_beta."
+#| label: fig-beta-ag
+#| fig-cap: "Mean and Q95 age and weight across dominance_beta scenarios (experimental period)."
+#| fig-height: 5
 
-beta_stable |>
-  knitr::kable(col.names = c("β", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+beta_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = beta_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-beta-mincond
+#| fig-cap: "Mean minimum condition by integer age class across dominance_beta scenarios."
+#| fig-height: 4
+
+ggplot(beta_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                          color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = beta_cols) +
+  scale_fill_manual(values = beta_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-beta-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across dominance_beta scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  beta_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", beta_cols
+)
+
+p_part_bar <- simple_bar(
+  beta_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", beta_cols
+)
+
+p_rec_bar <- bind_rows(
+  beta_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  beta_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = beta_cols) +
+  scale_color_manual(values = beta_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  beta_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", beta_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
 ---
@@ -963,22 +1460,30 @@ All other parameters held at baseline.
 
 ```{r}
 #| label: sim-s_min
-#| cache: true
+#| cache: false
 
 s_min_vals   <- c(0.94, 0.96, 0.98)
 s_min_labels <- paste0("s_min = ", s_min_vals)
 s_min_cols   <- sens_cols
 
-cat("Running s_min sensitivity simulations...\n")
-s_min_sims <- lapply(seq_along(s_min_vals), function(i) {
-  cat(" s_min =", s_min_vals[i], "... ")
-  p   <- modifyList(baseline, list(s_min = s_min_vals[i]))
-  hdf <- build_habitat(p)
-  res <- run_simulation(hdf, p, wt_growth = wt.growth)
-  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
-  res
-})
-names(s_min_sims) <- s_min_labels
+cache_file <- "cache/s_min_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading s_min simulations from cache...\n")
+  s_min_sims <- readRDS(cache_file)
+} else {
+  cat("Running s_min sensitivity simulations...\n")
+  s_min_sims <- lapply(seq_along(s_min_vals), function(i) {
+    cat(" s_min =", s_min_vals[i], "... ")
+    p   <- modifyList(baseline, list(s_min = s_min_vals[i]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(s_min_sims) <- s_min_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(s_min_sims, cache_file)
+}
 ```
 
 ```{r}
@@ -996,10 +1501,30 @@ s_min_waa      <- bind_rows(Map(wt_at_age, s_min_sims, s_min_labels)) |>
   mutate(label = factor(label, levels = s_min_labels))
 s_min_age0_dly <- bind_rows(Map(age0_daily_wt, s_min_sims, s_min_labels)) |>
   mutate(label = factor(label, levels = s_min_labels))
-s_min_stable   <- stability_stats(s_min_census)
+s_min_ag       <- bind_rows(Map(age_growth_stats,    s_min_sims, s_min_labels)) |>
+  mutate(label = factor(label, levels = s_min_labels))
+s_min_mincond  <- bind_rows(Map(min_condition_by_age, s_min_sims, s_min_labels)) |>
+  mutate(label = factor(label, levels = s_min_labels))
+s_min_afr      <- bind_rows(Map(spawn_afr,            s_min_sims, s_min_labels)) |>
+  mutate(label = factor(label, levels = s_min_labels))
+s_min_part     <- bind_rows(Map(spawn_participation,  s_min_sims, s_min_labels)) |>
+  mutate(label = factor(label, levels = s_min_labels))
+s_min_rec      <- bind_rows(Map(recruit_indices,       s_min_sims, s_min_labels)) |>
+  mutate(label = factor(label, levels = s_min_labels))
+s_min_repeat   <- bind_rows(Map(repeat_spawning,       s_min_sims, s_min_labels)) |>
+  mutate(label = factor(label, levels = s_min_labels))
+s_min_stable   <- population_stats(s_min_census)
 ```
 
 ### Abundance and biomass
+
+```{r}
+#| label: fig-s_min-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by s_min, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(s_min_stable, s_min_cols)
+```
 
 ```{r}
 #| label: fig-s_min-ts
@@ -1078,37 +1603,6 @@ p_dg <- ggplot(s_min_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-s_min-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(s_min_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = s_min_cols) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Lower s_min = stronger size selection = heavier surviving cohorts") +
-  theme_sens()
-
-p_aget <- ggplot(s_min_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(values = s_min_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight — burn-in cohort mean") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-### Density-dependent duration below s_w0
-
 ```{r}
 #| label: fig-s_min-danger-duration
 #| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
@@ -1120,23 +1614,128 @@ s_min_cross <- bind_rows(Map(days_to_threshold, s_min_sims, s_min_labels)) |>
 plot_danger_duration(s_min_cross, s_min_cols)
 ```
 
-### Stability summary {.unnumbered}
+### Age and growth
 
 ```{r}
-#| label: fig-s_min-stable
-#| fig-cap: "Mean Oct 1 abundance and CV by s_min value, split by simulation phase."
+#| label: fig-s_min-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(s_min_stable, s_min_cols)
+p_waa <- ggplot(s_min_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = s_min_cols) +
+  scale_fill_manual(values = s_min_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(s_min_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = s_min_cols) +
+  scale_fill_manual(values = s_min_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
-#| label: tbl-s_min-stable
-#| tbl-cap: "Stability statistics by s_min value."
+#| label: fig-s_min-ag
+#| fig-cap: "Mean and Q95 age and weight across s_min scenarios (experimental period)."
+#| fig-height: 5
 
-s_min_stable |>
-  knitr::kable(col.names = c("s_min", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+s_min_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = s_min_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-s_min-mincond
+#| fig-cap: "Mean minimum condition by integer age class across s_min scenarios."
+#| fig-height: 4
+
+ggplot(s_min_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                           color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = s_min_cols) +
+  scale_fill_manual(values = s_min_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-s_min-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across s_min scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  s_min_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", s_min_cols
+)
+
+p_part_bar <- simple_bar(
+  s_min_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", s_min_cols
+)
+
+p_rec_bar <- bind_rows(
+  s_min_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  s_min_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = s_min_cols) +
+  scale_color_manual(values = s_min_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  s_min_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", s_min_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
 ---
@@ -1152,30 +1751,38 @@ for the default. This section tests sensitivity to that assumption.
 
 | Scenario | `s_w0` | Approx. days post-hatch to reach inflection (cold) |
 |---|---|---|
-| Low | 4g | ~35 days |
-| **Baseline** | **7g** | **~60 days** |
+| Low | 2g | ~35 days |
+| **Baseline** | **5g** | **~60 days** |
 | High | 10g | ~90 days |
 
 All other parameters held at baseline.
 
 ```{r}
 #| label: sim-s_w0
-#| cache: true
+#| cache: false
 
-w0_vals   <- c(4, 7, 10)
+w0_vals   <- c(2, 5, 10)
 w0_labels <- paste0("s_w0 = ", w0_vals, "g")
 w0_cols   <- sens_cols
 
-cat("Running s_w0 sensitivity simulations...\n")
-w0_sims <- lapply(seq_along(w0_vals), function(i) {
-  cat(" s_w0 =", w0_vals[i], "... ")
-  p   <- modifyList(baseline, list(s_w0 = w0_vals[i]))
-  hdf <- build_habitat(p)
-  res <- run_simulation(hdf, p, wt_growth = wt.growth)
-  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
-  res
-})
-names(w0_sims) <- w0_labels
+cache_file <- "cache/w0_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading s_w0 simulations from cache...\n")
+  w0_sims <- readRDS(cache_file)
+} else {
+  cat("Running s_w0 sensitivity simulations...\n")
+  w0_sims <- lapply(seq_along(w0_vals), function(i) {
+    cat(" s_w0 =", w0_vals[i], "... ")
+    p   <- modifyList(baseline, list(s_w0 = w0_vals[i]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(w0_sims) <- w0_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(w0_sims, cache_file)
+}
 ```
 
 ```{r}
@@ -1193,10 +1800,30 @@ w0_waa      <- bind_rows(Map(wt_at_age,           w0_sims, w0_labels)) |>
   mutate(label = factor(label, levels = w0_labels))
 w0_age0_dly <- bind_rows(Map(age0_daily_wt,       w0_sims, w0_labels)) |>
   mutate(label = factor(label, levels = w0_labels))
-w0_stable   <- stability_stats(w0_census)
+w0_ag       <- bind_rows(Map(age_growth_stats,    w0_sims, w0_labels)) |>
+  mutate(label = factor(label, levels = w0_labels))
+w0_mincond  <- bind_rows(Map(min_condition_by_age, w0_sims, w0_labels)) |>
+  mutate(label = factor(label, levels = w0_labels))
+w0_afr      <- bind_rows(Map(spawn_afr,            w0_sims, w0_labels)) |>
+  mutate(label = factor(label, levels = w0_labels))
+w0_part     <- bind_rows(Map(spawn_participation,  w0_sims, w0_labels)) |>
+  mutate(label = factor(label, levels = w0_labels))
+w0_rec      <- bind_rows(Map(recruit_indices,       w0_sims, w0_labels)) |>
+  mutate(label = factor(label, levels = w0_labels))
+w0_repeat   <- bind_rows(Map(repeat_spawning,       w0_sims, w0_labels)) |>
+  mutate(label = factor(label, levels = w0_labels))
+w0_stable   <- population_stats(w0_census)
 ```
 
 ### Abundance and biomass
+
+```{r}
+#| label: fig-w0-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by s_w0, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(w0_stable, w0_cols)
+```
 
 ```{r}
 #| label: fig-w0-ts
@@ -1277,38 +1904,6 @@ p_dg <- ggplot(w0_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-w0-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(w0_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = w0_cols) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Larger s_w0 = more early thinning = heavier surviving cohorts") +
-  theme_sens()
-
-p_aget <- ggplot(w0_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(values = w0_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight \u2014 burn-in cohort mean",
-       subtitle = "Larger s_w0 = survivor bias persists longer into summer") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-### Density-dependent duration below s_w0
-
 Larger cohorts experience slower growth through food competition, which delays
 the date at which mean cohort weight first exceeds `s_w0`. This plot directly
 quantifies that effect: the x-axis is cohort size (fry born), the y-axis is
@@ -1316,11 +1911,6 @@ days post-hatch until the burn-in cohort-mean weight trajectory first crosses
 `s_w0`. A positive slope confirms that density extends the low-survival window,
 and the slope magnitude indicates how many extra days of size-based mortality
 each additional 1,000 fry born imposes.
-
-`n_born` is used as the density metric because it is causally prior — it is the
-initial condition that drives food competition. An alternative is age-0 abundance
-in early June (the competitive environment fish actually experience), but in
-practice this is highly correlated with `n_born` and harder to extract.
 
 ```{r}
 #| label: fig-w0-danger-duration
@@ -1333,240 +1923,142 @@ w0_cross <- bind_rows(Map(days_to_threshold, w0_sims, w0_labels)) |>
 plot_danger_duration(w0_cross, w0_cols)
 ```
 
-### Stability summary {.unnumbered}
+### Age and growth
 
 ```{r}
-#| label: fig-w0-stable
-#| fig-cap: "Mean Oct 1 abundance and CV by s_w0 value, split by simulation phase."
+#| label: fig-w0-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(w0_stable, w0_cols)
-```
-
-```{r}
-#| label: tbl-w0-stable
-#| tbl-cap: "Stability statistics by s_w0 value."
-
-w0_stable |>
-  knitr::kable(col.names = c("s_w0", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
-```
-
----
-
-## `s_k`: sigmoid steepness
-
-`s_k` controls how sharply daily survival transitions from `s_min` to the habitat-specific
-maximum near `s_w0`. Low `s_k` produces a gradual transition spread across a wide size
-range; high `s_k` creates a near-cliff where fish below `s_w0` experience near-`s_min`
-mortality and fish above it experience near-maximum survival. The transition width from
-10% to 90% of the full `s_min`–`s_max` range spans w₀ ± ln(9)/s_k grams.
-
-| Scenario | `s_k` | Transition width (10%–90% of range) | Character |
-|---|---|---|---|
-| Shallow | 0.5 | ±4.4g around `s_w0` | Gradual — broad size range under partial penalty |
-| **Baseline** | **1** | **±2.2g around `s_w0`** | **Moderate transition** |
-| Steep | 10 | ±0.2g around `s_w0` | Near-cliff — survival almost binary at `s_w0` |
-
-All other parameters held at baseline.
-
-```{r}
-#| label: sim-s_k
-#| cache: true
-
-sk_vals   <- c(0.5, 1, 10)
-sk_labels <- paste0("s_k = ", sk_vals)
-sk_cols   <- sens_cols
-
-cat("Running s_k sensitivity simulations...\n")
-sk_sims <- lapply(seq_along(sk_vals), function(i) {
-  cat(" s_k =", sk_vals[i], "... ")
-  p   <- modifyList(baseline, list(s_k = sk_vals[i]))
-  hdf <- build_habitat(p)
-  res <- run_simulation(hdf, p, wt_growth = wt.growth)
-  cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
-  res
-})
-names(sk_sims) <- sk_labels
-```
-
-```{r}
-#| label: sk-outcomes
-
-sk_census   <- bind_rows(Map(oct1_census,         sk_sims, sk_labels)) |>
-  mutate(label = factor(label, levels = sk_labels))
-sk_sr       <- bind_rows(Map(stock_recruit,       sk_sims, sk_labels)) |>
-  mutate(label = factor(label, levels = sk_labels))
-sk_thin     <- bind_rows(Map(thinning_rate,       sk_sims, sk_labels)) |>
-  mutate(label = factor(label, levels = sk_labels))
-sk_dg       <- bind_rows(Map(age0_density_growth, sk_sims, sk_labels)) |>
-  mutate(label = factor(label, levels = sk_labels))
-sk_waa      <- bind_rows(Map(wt_at_age,           sk_sims, sk_labels)) |>
-  mutate(label = factor(label, levels = sk_labels))
-sk_age0_dly <- bind_rows(Map(age0_daily_wt,       sk_sims, sk_labels)) |>
-  mutate(label = factor(label, levels = sk_labels))
-sk_stable   <- stability_stats(sk_census)
-```
-
-### Abundance and biomass
-
-```{r}
-#| label: fig-sk-ts
-#| fig-cap: "Oct 1 annual abundance and total biomass for each s_k value. Grey band = burn-in."
-#| fig-height: 5
-
-p_N <- ggplot(sk_census, aes(x = year, y = N, color = label)) +
-  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
-           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
-  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
-             color = "grey55", linewidth = 0.4) +
-  geom_line(linewidth = 0.75) +
-  scale_color_manual(values = sk_cols) +
-  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
-  theme_sens() + theme(legend.position = "none")
-
-p_B <- ggplot(sk_census, aes(x = year, y = biomass_kg, color = label)) +
-  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
-           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
-  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
-             color = "grey55", linewidth = 0.4) +
-  geom_line(linewidth = 0.75) +
-  scale_color_manual(values = sk_cols) +
-  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
-  theme_sens()
-
-p_N | p_B
-```
-
-### Compensatory dynamics
-
-```{r}
-#| label: fig-sk-comp
-#| fig-cap: "Top-left: burn-in population map. Top-right: stock-recruitment. Bottom-left: size-based early thinning (% of fry surviving to day 60). Bottom-right: density–growth relationship. The bottom row together shows the two pathways of size-based density-dependent compensation: cohort thinning (left) and growth suppression (right)."
-#| fig-height: 8
-
-sk_map <- pop_map(sk_census)
-
-p_map <- ggplot(sk_map, aes(x = N, y = N_next, color = label)) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
-  geom_point(alpha = 0.4, size = 1.5) +
-  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
-  scale_color_manual(values = sk_cols) +
-  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
-       title = "Population map (burn-in)",
-       subtitle = "Steeper s_k = more abrupt size threshold = stronger compensation near s_w0") +
-  theme_sens() + theme(legend.position = "none")
-
-p_sr <- ggplot(sk_sr |> filter(spawner_kg > 0),
-               aes(x = spawner_kg, y = bio_surv60_kg, color = label)) +
-  geom_point(alpha = 0.5, size = 1.5) +
-  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
-  scale_color_manual(values = sk_cols) +
-  labs(x = "Spawner biomass (kg)", y = "Fry biomass at 60 days (kg)",
-       color = NULL, title = "Stock-recruitment") +
-  theme_sens() + theme(legend.position = "right")
-
-p_thin <- ggplot(sk_thin, aes(x = n_born, y = surv_rate, color = label)) +
-  geom_point(alpha = 0.45, size = 1.5) +
-  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  scale_color_manual(values = sk_cols) +
-  labs(x = "Fry born", y = "% of fry surviving to day 60",
-       color = NULL, title = "Size-based thinning",
-       subtitle = "Steeper s_k = sharper thinning threshold around s_w0") +
-  theme_sens() + theme(legend.position = "none")
-
-p_dg <- ggplot(sk_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
-  geom_point(alpha = 0.5, size = 1.5) +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
-  geom_hline(yintercept = 7, linetype = "dotted", color = "grey50") +
-  scale_color_manual(values = sk_cols) +
-  labs(x = "Mean July N (all fish)", y = "Age-0 weight at Aug 1 (g)", color = NULL,
-       title = "Density\u2013growth relationship",
-       subtitle = "Higher density = slower early growth = more time below w\u2080") +
-  theme_sens() + theme(legend.position = "none")
-
-(p_map | p_sr) / (p_thin | p_dg)
-```
-
-### Age structure
-
-```{r}
-#| label: fig-sk-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(sk_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+p_waa <- ggplot(w0_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
   geom_line(linewidth = 0.9) +
   geom_point(size = 2.5) +
-  scale_color_manual(values = sk_cols) +
-  scale_x_continuous(breaks = 0:4) +
+  scale_color_manual(values = w0_cols) +
+  scale_fill_manual(values = w0_cols) +
+  scale_x_continuous(breaks = 0:14) +
   labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Steeper s_k = more abrupt threshold = stronger survivor size bias") +
-  theme_sens()
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
 
-p_aget <- ggplot(sk_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt, color = label)) +
+p_aget <- ggplot(w0_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
   geom_line(linewidth = 0.9) +
-  scale_color_manual(values = sk_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight \u2014 burn-in cohort mean",
-       subtitle = "Steeper s_k = sharper inflection in mean weight trajectory near s_w0") +
+  scale_color_manual(values = w0_cols) +
+  scale_fill_manual(values = w0_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-w0-ag
+#| fig-cap: "Mean and Q95 age and weight across s_w0 scenarios (experimental period)."
+#| fig-height: 5
+
+w0_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = w0_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-w0-mincond
+#| fig-cap: "Mean minimum condition by integer age class across s_w0 scenarios."
+#| fig-height: 4
+
+ggplot(w0_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                        color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = w0_cols) +
+  scale_fill_manual(values = w0_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-w0-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across s_w0 scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  w0_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", w0_cols
+)
+
+p_part_bar <- simple_bar(
+  w0_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", w0_cols
+)
+
+p_rec_bar <- bind_rows(
+  w0_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  w0_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = w0_cols) +
+  scale_color_manual(values = w0_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
   theme_sens()
 
-p_waa | p_aget
+p_repeat_bar <- simple_bar(
+  w0_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", w0_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
-### Density-dependent duration below s_w0
-
-```{r}
-#| label: fig-sk-danger-duration
-#| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
-#| fig-height: 5
-
-sk_cross <- bind_rows(Map(days_to_threshold, sk_sims, sk_labels)) |>
-  mutate(label = factor(label, levels = sk_labels))
-
-plot_danger_duration(sk_cross, sk_cols)
-```
-
-### Stability summary {.unnumbered}
-
-```{r}
-#| label: fig-sk-stable
-#| fig-cap: "Mean Oct 1 abundance and CV by s_k value, split by simulation phase."
-#| fig-height: 5
-
-plot_stability_fig(sk_stable, sk_cols)
-```
-
-```{r}
-#| label: tbl-sk-stable
-#| tbl-cap: "Stability statistics by s_k value."
-
-sk_stable |>
-  knitr::kable(col.names = c("s_k", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
-```
 
 ---
 
-## `pcmax_cold` / `pcmax_warm`: maximum consumption
+## `pcmax_cold` / `pcmax_warm`: consumption
 
-`pcmax` sets the ceiling on achievable daily consumption as a proportion of
-physiological maximum Cmax. The effective ration is
-`pcmax_adjusted = min(fT(temp), pcmax)`, so at peak summer cold-patch temperatures
-(T ≈ 15°C, fT ≈ 0.91), `pcmax_cold = 0.5` is the binding constraint — fish are
-food-limited by habitat quality, not by temperature. Raising pcmax relaxes this
-ceiling and directly increases `pcmax_adjusted_dd` for all fish.
+`pcmax` sets the fixed daily consumption as a proportion of physiological maximum Cmax. This (fixed-p) configuration effectively assumes that food availability scales with temperature. This assumption has broad support in the literature. Also see TestPValSpecs.qmd for a sensitivity analysis describing alternative methods for configurating consumption.
 
 ```{r}
 #| label: sim-pcmax
 #| cache: false
 
-pcmax_vals   <- c(0.50, 0.75, 1.00)
+pcmax_vals   <- c(0.50, 0.60, 0.70)
 pcmax_labels <- paste0("pcmax = ", pcmax_vals)
 pcmax_cols   <- c("#0072B2", "#009E73", "#D55E00")
 
@@ -1606,10 +2098,30 @@ pcmax_waa      <- bind_rows(Map(wt_at_age,     pcmax_sims, pcmax_labels)) |>
   mutate(label = factor(label, levels = pcmax_labels))
 pcmax_age0_dly <- bind_rows(Map(age0_daily_wt, pcmax_sims, pcmax_labels)) |>
   mutate(label = factor(label, levels = pcmax_labels))
-pcmax_stable   <- stability_stats(pcmax_census)
+pcmax_ag       <- bind_rows(Map(age_growth_stats,    pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_mincond  <- bind_rows(Map(min_condition_by_age, pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_afr      <- bind_rows(Map(spawn_afr,            pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_part     <- bind_rows(Map(spawn_participation,  pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_rec      <- bind_rows(Map(recruit_indices,       pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_repeat   <- bind_rows(Map(repeat_spawning,       pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+pcmax_stable   <- population_stats(pcmax_census)
 ```
 
 ### Abundance and biomass
+
+```{r}
+#| label: fig-pcmax-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by pcmax, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(pcmax_stable, pcmax_cols)
+```
 
 ```{r}
 #| label: fig-pcmax-ts
@@ -1689,38 +2201,6 @@ p_dg <- ggplot(pcmax_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-pcmax-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(pcmax_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = pcmax_cols) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Higher pcmax = better ration = larger fish at all ages") +
-  theme_sens()
-
-p_aget <- ggplot(pcmax_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(values = pcmax_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight — burn-in cohort mean",
-       subtitle = "Higher pcmax lifts the growth ceiling; peak weight and winter decline both affected") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-### Density-dependent duration below s_w0
-
 ```{r}
 #| label: fig-pcmax-danger-duration
 #| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
@@ -1732,23 +2212,128 @@ pcmax_cross <- bind_rows(Map(days_to_threshold, pcmax_sims, pcmax_labels)) |>
 plot_danger_duration(pcmax_cross, pcmax_cols)
 ```
 
-### Stability summary {.unnumbered}
+### Age and growth
 
 ```{r}
-#| label: fig-pcmax-stable
-#| fig-cap: "Stability by pcmax."
+#| label: fig-pcmax-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(pcmax_stable, pcmax_cols)
+p_waa <- ggplot(pcmax_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = pcmax_cols) +
+  scale_fill_manual(values = pcmax_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(pcmax_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = pcmax_cols) +
+  scale_fill_manual(values = pcmax_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
-#| label: tbl-pcmax-stable
-#| tbl-cap: "Stability statistics by pcmax."
+#| label: fig-pcmax-ag
+#| fig-cap: "Mean and Q95 age and weight across pcmax scenarios (experimental period)."
+#| fig-height: 5
 
-pcmax_stable |>
-  knitr::kable(col.names = c("pcmax", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+pcmax_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = pcmax_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-pcmax-mincond
+#| fig-cap: "Mean minimum condition by integer age class across pcmax scenarios."
+#| fig-height: 4
+
+ggplot(pcmax_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                           color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = pcmax_cols) +
+  scale_fill_manual(values = pcmax_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-pcmax-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across pcmax scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  pcmax_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", pcmax_cols
+)
+
+p_part_bar <- simple_bar(
+  pcmax_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", pcmax_cols
+)
+
+p_rec_bar <- bind_rows(
+  pcmax_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  pcmax_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = pcmax_cols) +
+  scale_color_manual(values = pcmax_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  pcmax_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", pcmax_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
 ---
@@ -1773,7 +2358,7 @@ Increasing `A_cold` is mathematically equivalent to scaling K upward: both reduc
 #| label: sim-area
 #| cache: false
 
-area_vals   <- c(1, 2, 4)
+area_vals   <- c(0.5, 1, 1.5)
 area_labels <- paste0("A_cold = ", area_vals)
 area_cols   <- c("#0072B2", "#009E73", "#D55E00")
 
@@ -1815,10 +2400,30 @@ area_waa      <- bind_rows(Map(wt_at_age,     area_sims, area_labels)) |>
   mutate(label = factor(label, levels = area_labels))
 area_age0_dly <- bind_rows(Map(age0_daily_wt, area_sims, area_labels)) |>
   mutate(label = factor(label, levels = area_labels))
-area_stable   <- stability_stats(area_census)
+area_ag       <- bind_rows(Map(age_growth_stats,    area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_mincond  <- bind_rows(Map(min_condition_by_age, area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_afr      <- bind_rows(Map(spawn_afr,            area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_part     <- bind_rows(Map(spawn_participation,  area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_rec      <- bind_rows(Map(recruit_indices,       area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_repeat   <- bind_rows(Map(repeat_spawning,       area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+area_stable   <- population_stats(area_census)
 ```
 
 ### Abundance and biomass
+
+```{r}
+#| label: fig-area-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by A_cold, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(area_stable, area_cols)
+```
 
 ```{r}
 #| label: fig-area-ts
@@ -1898,37 +2503,6 @@ p_dg <- ggplot(area_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-area-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(area_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = area_cols) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = NULL, title = "Weight at age (burn-in mean)",
-       subtitle = "Larger area = lower competition = better individual growth") +
-  theme_sens()
-
-p_aget <- ggplot(area_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt, color = label)) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(values = area_cols) +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)", color = NULL,
-       title = "Age-0 daily weight — burn-in cohort mean") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-### Density-dependent duration below s_w0
-
 ```{r}
 #| label: fig-area-danger-duration
 #| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
@@ -1940,202 +2514,1018 @@ area_cross <- bind_rows(Map(days_to_threshold, area_sims, area_labels)) |>
 plot_danger_duration(area_cross, area_cols)
 ```
 
-### Stability summary {.unnumbered}
+### Age and growth
 
 ```{r}
-#| label: fig-area-stable
-#| fig-cap: "Stability by cold habitat area."
+#| label: fig-area-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(area_stable, area_cols)
+p_waa <- ggplot(area_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = area_cols) +
+  scale_fill_manual(values = area_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(area_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = area_cols) +
+  scale_fill_manual(values = area_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
-#| label: tbl-area-stable
-#| tbl-cap: "Stability statistics by cold habitat area. Experiment years are comparable across scenarios only if populations survive long enough; earlier collapse at smaller area is expected."
+#| label: fig-area-ag
+#| fig-cap: "Mean and Q95 age and weight across A_cold scenarios (experimental period)."
+#| fig-height: 5
 
-area_stable |>
-  knitr::kable(col.names = c("A_cold", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+area_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = area_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-area-mincond
+#| fig-cap: "Mean minimum condition by integer age class across A_cold scenarios."
+#| fig-height: 4
+
+ggplot(area_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                          color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = area_cols) +
+  scale_fill_manual(values = area_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-area-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across A_cold scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  area_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", area_cols
+)
+
+p_part_bar <- simple_bar(
+  area_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", area_cols
+)
+
+p_rec_bar <- bind_rows(
+  area_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  area_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = area_cols) +
+  scale_color_manual(values = area_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  area_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", area_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
 ---
 
-## Size and age structured competition (`age_structured_competition` × `dominance_beta`)
+## `K1_starv` / `K9_starv`: condition-based survival inflection
 
-`age_structured_competition` controls whether fry (age-0) and older fish (age-1+)
-compete as separate pools. When `TRUE`, fry compete only with other fry and adults
-only with other adults, reflecting ontogenetic habitat segregation (channel margins
-vs. pools and runs). When `FALSE`, all fish in a patch compete in one pool.
+`K1_starv` and `K9_starv` are the condition values at which daily survival probability
+is 10% and 90% of the way from `s_min` to `S_max`, respectively. Together they define the
+steepness and position of the sigmoid survival–condition curve. The three scenarios tested
+span a weak (wide, gentle sigmoid), moderate (baseline), and strong (narrow, steep sigmoid)
+condition effect on survival.
 
-The effect of this toggle depends critically on `dominance_beta`:
-
-- At **β = 1** adults are already near-immune to fry competition — a fry imposes a
-  competitive cost of `(m_fry / m_adult)^1 ≈ 0` on a large adult regardless of
-  age-class structuring. The toggle has little practical effect.
-- At **β = 0.5** a fry imposes `(m_fry / m_adult)^0.5 ≈ 0.05` — non-trivial — so
-  adults feel meaningful fry competition when structuring is off.
-
-This section uses a **2×2 design** (age_structured × dominance_beta) to make the
-interaction explicit. `sim_crit` (TRUE, β = 1) and `sim_b05` (TRUE, β = 0.5) are
-aliased from `beta_sims`; two new simulations complete the grid.
+| Scenario | `K1_starv` / `K9_starv` | Interpretation |
+|---|---|---|
+| Weak | 0.45 / 0.55 | Fish only need to lose 50% of mass before severe mortality |
+| Moderate | 0.55 / 0.65 | Fish can lose 40% of mass before severe mortality |
+| Strong | 0.65 / 0.75 | Fish only need to lose 30% of mass before severe mortality |
 
 ```{r}
-#| label: sim-agestr
+#| label: sim-starv
 #| cache: false
 
-# Pull the structured runs directly from beta_sims (baseline has
-# age_structured_competition = TRUE, so these are identical to sim_crit / sim_b05)
-sim_crit <- beta_sims[["β = 1"]]
-sim_b05  <- beta_sims[["β = 0.5"]]
+starv_vals   <- list(c(0.5, 0.6), c(0.6, 0.7), c(0.7, 0.8))
+starv_labels <- c("K1=0.5 / K9=0.6", "K1=0.6 / K9=0.7", "K1=0.7 / K9=0.8")
+starv_cols   <- sens_cols
 
-cache_file <- "cache/agestr_sims.rds"
+cache_file <- "cache/starv_sims.rds"
 if (file.exists(cache_file)) {
-  cat("Loading age-structure simulations from cache...\n")
-  agestr_cache     <- readRDS(cache_file)
-  sim_agestr_F_b05 <- agestr_cache$sim_agestr_F_b05
-  sim_agestr_F_b1  <- agestr_cache$sim_agestr_F_b1
+  cat("Loading K1_starv/K9_starv simulations from cache...\n")
+  starv_sims <- readRDS(cache_file)
 } else {
-  cat("Running age-class competition 2x2 simulations...\n")
-  sim_agestr_F_b05 <- {
-    cat(" age_structured=FALSE, beta=0.5 ... ")
-    p   <- modifyList(baseline, list(age_structured_competition = FALSE,
-                                     dominance_beta             = 0.5))
-    res <- run_simulation(build_habitat(p), p, wt_growth = wt.growth)
+  cat("Running K1_starv/K9_starv sensitivity simulations...\n")
+  starv_sims <- lapply(seq_along(starv_vals), function(i) {
+    sv <- starv_vals[[i]]
+    cat(" K1_starv =", sv[1], ", K9_starv =", sv[2], "... ")
+    p   <- modifyList(baseline, list(K1_starv = sv[1], K9_starv = sv[2]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
     cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
     res
-  }
-  sim_agestr_F_b1 <- {
-    cat(" age_structured=FALSE, beta=1.0 ... ")
-    p   <- modifyList(baseline, list(age_structured_competition = FALSE,
-                                     dominance_beta             = 1))
-    res <- run_simulation(build_habitat(p), p, wt_growth = wt.growth)
-    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
-    res
-  }
+  })
+  names(starv_sims) <- starv_labels
   dir.create("cache", showWarnings = FALSE)
-  saveRDS(list(sim_agestr_F_b05 = sim_agestr_F_b05,
-               sim_agestr_F_b1  = sim_agestr_F_b1),
-          cache_file)
+  saveRDS(starv_sims, cache_file)
 }
 ```
 
 ```{r}
-#| label: agestr-outcomes
+#| label: starv-outcomes
 
-agestr_sims <- list(
-  "Structured, β = 1\n(baseline)" = sim_crit,
-  "Structured, β = 0.5"           = sim_b05,
-  "Unstructured, β = 1"           = sim_agestr_F_b1,
-  "Unstructured, β = 0.5"         = sim_agestr_F_b05
-)
-agestr_labels <- names(agestr_sims)
-
-# Colour = beta; linetype = competition structure
-agestr_cols <- c("β = 1" = "#D55E00", "β = 0.5" = "#0072B2")
-agestr_lty  <- c("Structured" = "solid", "Unstructured" = "dashed")
-
-mk_agestr <- function(df)
-  df |>
-    mutate(beta_lab = if_else(grepl("0\\.5", label), "β = 0.5", "β = 1"),
-           str_lab  = if_else(grepl("Unstr", label), "Unstructured", "Structured"))
-
-agestr_census <- bind_rows(Map(oct1_census,   agestr_sims, agestr_labels)) |>
-  mutate(label = factor(label, levels = agestr_labels)) |> mk_agestr()
-agestr_thin   <- bind_rows(Map(thinning_rate, agestr_sims, agestr_labels)) |>
-  mutate(label = factor(label, levels = agestr_labels)) |> mk_agestr()
-agestr_waa    <- bind_rows(Map(wt_at_age,     agestr_sims, agestr_labels)) |>
-  mutate(label = factor(label, levels = agestr_labels)) |> mk_agestr()
-agestr_stable <- stability_stats(agestr_census)
+starv_census  <- bind_rows(Map(oct1_census,         starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_sr      <- bind_rows(Map(stock_recruit,       starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_thin    <- bind_rows(Map(thinning_rate,       starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_dg      <- bind_rows(Map(age0_density_growth, starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_waa     <- bind_rows(Map(wt_at_age,           starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_age0_dly <- bind_rows(Map(age0_daily_wt,      starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_ag      <- bind_rows(Map(age_growth_stats,    starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_mincond <- bind_rows(Map(min_condition_by_age, starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_afr     <- bind_rows(Map(spawn_afr,            starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_part    <- bind_rows(Map(spawn_participation,  starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_rec     <- bind_rows(Map(recruit_indices,       starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_repeat  <- bind_rows(Map(repeat_spawning,       starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+starv_stable  <- population_stats(starv_census)
 ```
 
-### Abundance over time and population map
+### Abundance and biomass
 
 ```{r}
-#| label: fig-agestr-ts
-#| fig-cap: "Oct 1 abundance and burn-in population map for the 2×2 age-structured × beta design. Colour = beta; linetype = competition structure."
-#| fig-height: 9
+#| label: fig-starv-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by K1_starv/K9_starv scenario, experimental period."
+#| fig-height: 4
 
-p_ts <- ggplot(agestr_census,
-               aes(x = year, y = N, color = beta_lab, linetype = str_lab)) +
+plot_stability_fig(starv_stable, starv_cols)
+```
+
+```{r}
+#| label: fig-starv-ts
+#| fig-cap: "Oct 1 annual abundance and total biomass for each condition-survival scenario."
+#| fig-height: 5
+
+p_N <- ggplot(starv_census, aes(x = year, y = N, color = label)) +
   annotate("rect", xmin = burn_start, xmax = exp_start_yr,
            ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
   geom_vline(xintercept = exp_start_yr, linetype = "dashed",
-             color = "grey55", linewidth = 0.35) +
-  geom_line(linewidth = 0.8) +
-  scale_color_manual(values = agestr_cols) +
-  scale_linetype_manual(values = agestr_lty) +
-  labs(x = NULL, y = "N (Oct 1)", color = "dominance_beta",
-       linetype = "Competition structure",
-       title = "A: Annual abundance",
-       subtitle = "Divergence between solid and dashed of same colour shows effect of age-class structuring") +
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = starv_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(starv_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = starv_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
   theme_sens()
 
-agestr_map <- agestr_census |>
-  filter(phase == "burn-in") |>
-  group_by(label, beta_lab, str_lab) |> arrange(year) |>
-  mutate(N_next = lead(N)) |> ungroup() |> filter(!is.na(N_next))
+p_N | p_B
+```
 
-p_map <- ggplot(agestr_map,
-                aes(x = N, y = N_next, color = beta_lab, linetype = str_lab)) +
+### Compensatory dynamics
+
+```{r}
+#| label: fig-starv-comp
+#| fig-cap: "Top-left: burn-in population map. Top-right: stock-recruitment. Bottom-left: size-based early thinning. Bottom-right: density–growth relationship."
+#| fig-height: 8
+
+starv_map <- pop_map(starv_census)
+
+p_map <- ggplot(starv_map, aes(x = N, y = N_next, color = label)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
   geom_point(alpha = 0.4, size = 1.5) +
   geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
-  scale_color_manual(values = agestr_cols) +
-  scale_linetype_manual(values = agestr_lty) +
-  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)",
-       color = "dominance_beta", linetype = "Competition structure",
-       title = "B: Population map (burn-in only)") +
-  theme_sens()
-
-p_ts / p_map
-```
-
-### Size-based thinning and weight at age
-
-```{r}
-#| label: fig-agestr-thin
-#| fig-cap: "Thinning rate and weight-at-age for the 2×2 design."
-#| fig-height: 5
-
-p_thin <- ggplot(agestr_thin,
-                 aes(x = n_born, y = surv_rate,
-                     color = beta_lab, linetype = str_lab)) +
-  geom_point(alpha = 0.4, size = 1.5) +
-  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  scale_color_manual(values = agestr_cols) +
-  scale_linetype_manual(values = agestr_lty) +
-  labs(x = "Fry born", y = "% surviving 60 days",
-       color = "dominance_beta", linetype = "Competition structure",
-       title = "Size-based thinning") +
+  scale_color_manual(values = starv_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)") +
   theme_sens() + theme(legend.position = "none")
 
-p_waa <- ggplot(agestr_waa,
-                aes(x = age_yrs, y = mean_wt,
-                    color = beta_lab, linetype = str_lab)) +
-  geom_line(linewidth = 0.9) + geom_point(size = 2.5) +
-  scale_color_manual(values = agestr_cols) +
-  scale_linetype_manual(values = agestr_lty) +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       color = "dominance_beta", linetype = "Competition structure",
-       title = "Weight at age (burn-in mean)") +
-  theme_sens()
+p_sr <- ggplot(starv_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = bio_surv60_kg, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = starv_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry biomass at 60 days (kg)",
+       color = NULL, title = "Stock-recruitment") +
+  theme_sens() + theme(legend.position = "right")
 
-p_thin | p_waa
+p_thin <- ggplot(starv_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = starv_cols) +
+  labs(x = "Fry born", y = "% of fry surviving to day 60",
+       color = NULL, title = "Size-based thinning") +
+  theme_sens() + theme(legend.position = "none")
+
+p_dg <- ggplot(starv_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+  geom_hline(yintercept = 7, linetype = "dotted", color = "grey50") +
+  scale_color_manual(values = starv_cols) +
+  labs(x = "Mean July N (all fish)", y = "Age-0 weight at Aug 1 (g)", color = NULL,
+       title = "Density\u2013growth relationship",
+       subtitle = "Higher density = slower early growth = more time below w\u2080") +
+  theme_sens() + theme(legend.position = "none")
+
+(p_map | p_sr) / (p_thin | p_dg)
 ```
-
-### Stability summary {.unnumbered}
 
 ```{r}
-#| label: tbl-agestr-stable
-#| tbl-cap: "Stability statistics for the 2×2 age-class structured competition design."
+#| label: fig-starv-danger-duration
+#| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born."
+#| fig-height: 5
 
-agestr_stable |>
-  knitr::kable(col.names = c("Scenario", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+starv_cross <- bind_rows(Map(days_to_threshold, starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+
+plot_danger_duration(starv_cross, starv_cols)
 ```
+
+### Age and growth
+
+```{r}
+#| label: fig-starv-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(starv_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = starv_cols) +
+  scale_fill_manual(values = starv_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(starv_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = starv_cols) +
+  scale_fill_manual(values = starv_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-starv-ag
+#| fig-cap: "Mean and Q95 age and weight across condition-survival scenarios (experimental period)."
+#| fig-height: 5
+
+starv_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = starv_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-starv-mincond
+#| fig-cap: "Mean minimum condition by integer age class across condition-survival scenarios."
+#| fig-height: 4
+
+ggplot(starv_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                           color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = starv_cols) +
+  scale_fill_manual(values = starv_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-starv-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across condition-survival scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  starv_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", starv_cols
+)
+
+p_part_bar <- simple_bar(
+  starv_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", starv_cols
+)
+
+p_rec_bar <- bind_rows(
+  starv_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  starv_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = starv_cols) +
+  scale_color_manual(values = starv_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  starv_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", starv_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+---
+
+## `s_floor_starv`: starvation survival floor
+
+`s_floor_starv` sets the minimum daily survival probability from starvation, acting as a floor on the logistic curve. Without a floor, daily survival approaches zero at very low condition, making condition-based mortality essentially a death sentence once fish fall below K1. A positive floor means even severely depleted fish retain some daily survival probability, with mortality accumulating gradually over days rather than acutely per day. All three scenarios hold `K1_starv = 0.55` and `K9_starv = 0.65` fixed.
+
+| Scenario | `s_floor_starv` | Interpretation |
+|---|---|---|
+| Low floor | 0.85 | At zero condition, daily survival = 0.85; 30-day survival at nadir ≈ 7–63% |
+| Mid floor | 0.90 | At zero condition, daily survival = 0.90; 30-day survival at nadir ≈ 26–74% |
+| High floor | 0.95 | At zero condition, daily survival = 0.95; 30-day survival at nadir ≈ 60–86% |
+
+```{r}
+#| label: sim-floor
+#| cache: false
+
+floor_vals   <- c(0.85, 0.90, 0.95)
+floor_labels <- paste0("s_floor = ", floor_vals)
+floor_cols   <- sens_cols
+
+cache_file <- "cache/floor_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading s_floor_starv simulations from cache...\n")
+  floor_sims <- readRDS(cache_file)
+} else {
+  cat("Running s_floor_starv sensitivity simulations...\n")
+  floor_sims <- lapply(seq_along(floor_vals), function(i) {
+    cat(" s_floor_starv =", floor_vals[i], "... ")
+    p   <- modifyList(baseline, list(K1_starv = 0.6, K9_starv = 0.7,
+                                     s_floor_starv = floor_vals[i]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(floor_sims) <- floor_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(floor_sims, cache_file)
+}
+```
+
+```{r}
+#| label: floor-outcomes
+
+floor_census   <- bind_rows(Map(oct1_census,         floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_sr       <- bind_rows(Map(stock_recruit,       floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_thin     <- bind_rows(Map(thinning_rate,        floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_dg       <- bind_rows(Map(age0_density_growth, floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_waa      <- bind_rows(Map(wt_at_age,           floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_age0_dly <- bind_rows(Map(age0_daily_wt,       floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_ag       <- bind_rows(Map(age_growth_stats,    floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_mincond  <- bind_rows(Map(min_condition_by_age, floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_afr      <- bind_rows(Map(spawn_afr,            floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_part     <- bind_rows(Map(spawn_participation,  floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_rec      <- bind_rows(Map(recruit_indices,       floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_repeat   <- bind_rows(Map(repeat_spawning,       floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+floor_stable   <- population_stats(floor_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-floor-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by s_floor_starv scenario, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(floor_stable, floor_cols)
+```
+
+```{r}
+#| label: fig-floor-ts
+#| fig-cap: "Oct 1 annual abundance and total biomass for each s_floor_starv scenario."
+#| fig-height: 5
+
+p_N <- ggplot(floor_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = floor_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(floor_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = floor_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-floor-comp
+#| fig-cap: "Top-left: burn-in population map. Top-right: stock-recruitment. Bottom-left: size-based early thinning. Bottom-right: density–growth relationship."
+#| fig-height: 8
+
+floor_map <- pop_map(floor_census)
+
+p_map <- ggplot(floor_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = floor_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(floor_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = bio_surv60_kg, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = floor_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry biomass at 60 days (kg)",
+       color = NULL, title = "Stock-recruitment") +
+  theme_sens() + theme(legend.position = "right")
+
+p_thin <- ggplot(floor_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = floor_cols) +
+  labs(x = "Fry born", y = "% of fry surviving to day 60",
+       color = NULL, title = "Size-based thinning") +
+  theme_sens() + theme(legend.position = "none")
+
+p_dg <- ggplot(floor_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+  geom_hline(yintercept = 7, linetype = "dotted", color = "grey50") +
+  scale_color_manual(values = floor_cols) +
+  labs(x = "Mean July N (all fish)", y = "Age-0 weight at Aug 1 (g)", color = NULL,
+       title = "Density\u2013growth relationship",
+       subtitle = "Higher density = slower early growth = more time below w\u2080") +
+  theme_sens() + theme(legend.position = "none")
+
+(p_map | p_sr) / (p_thin | p_dg)
+```
+
+```{r}
+#| label: fig-floor-danger-duration
+#| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
+#| fig-height: 5
+
+floor_cross <- bind_rows(Map(days_to_threshold, floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+
+plot_danger_duration(floor_cross, floor_cols)
+```
+
+### Age and growth
+
+```{r}
+#| label: fig-floor-waa
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(floor_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label),
+              color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = floor_cols) +
+  scale_fill_manual(values = floor_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(floor_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label),
+              color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = floor_cols) +
+  scale_fill_manual(values = floor_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight \u2014 mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-floor-ag
+#| fig-cap: "Mean and Q95 age and weight across s_floor_starv scenarios (experimental period)."
+#| fig-height: 5
+
+floor_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = floor_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary \u2014 experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-floor-mincond
+#| fig-cap: "Mean minimum condition by integer age class across s_floor_starv scenarios."
+#| fig-height: 4
+
+ggplot(floor_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                           color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = floor_cols) +
+  scale_fill_manual(values = floor_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class \u2014 experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-floor-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across s_floor_starv scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  floor_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", floor_cols
+)
+
+p_part_bar <- simple_bar(
+  floor_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", floor_cols
+)
+
+p_rec_bar <- bind_rows(
+  floor_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  floor_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = floor_cols) +
+  scale_color_manual(values = floor_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  floor_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", floor_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+---
+
+## `S_max_cold`: maximum daily survival probability
+
+`S_max_cold` sets the ceiling on daily survival for fish in optimal condition in cold
+habitat. Three values are tested spanning approximately 70%, 80%, and 90% annual survival
+for large, healthy fish (assuming ~365 survival opportunities per year).
+
+| Scenario | `S_max_cold` | Approx. annual survival (healthy fish) |
+|---|---|---|
+| Low | 0.9990 | ~70% |
+| **Baseline** | **0.9994** | **~80%** |
+| High | 0.9997 | ~90% |
+
+```{r}
+#| label: sim-smax
+#| cache: false
+
+smax_vals   <- c(0.9990, 0.9994, 0.9997)
+smax_labels <- paste0("S_max = ", smax_vals)
+smax_cols   <- sens_cols
+
+cache_file <- "cache/smax_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading S_max_cold simulations from cache...\n")
+  smax_sims <- readRDS(cache_file)
+} else {
+  cat("Running S_max_cold sensitivity simulations...\n")
+  smax_sims <- lapply(seq_along(smax_vals), function(i) {
+    sv <- smax_vals[i]
+    cat(" S_max_cold =", sv, "... ")
+    p   <- modifyList(baseline, list(S_max_cold = sv))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(smax_sims) <- smax_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(smax_sims, cache_file)
+}
+```
+
+```{r}
+#| label: smax-outcomes
+
+smax_census   <- bind_rows(Map(oct1_census,         smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_sr       <- bind_rows(Map(stock_recruit,       smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_thin     <- bind_rows(Map(thinning_rate,       smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_dg       <- bind_rows(Map(age0_density_growth, smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_waa      <- bind_rows(Map(wt_at_age,           smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_age0_dly <- bind_rows(Map(age0_daily_wt,       smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_ag       <- bind_rows(Map(age_growth_stats,    smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_mincond  <- bind_rows(Map(min_condition_by_age, smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_afr      <- bind_rows(Map(spawn_afr,            smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_part     <- bind_rows(Map(spawn_participation,  smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_rec      <- bind_rows(Map(recruit_indices,       smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_repeat   <- bind_rows(Map(repeat_spawning,       smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+smax_stable   <- population_stats(smax_census)
+```
+
+### Abundance and biomass
+
+```{r}
+#| label: fig-smax-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by S_max_cold, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(smax_stable, smax_cols)
+```
+
+```{r}
+#| label: fig-smax-ts
+#| fig-cap: "Oct 1 annual abundance and total biomass for each S_max_cold value."
+#| fig-height: 5
+
+p_N <- ggplot(smax_census, aes(x = year, y = N, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = smax_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
+
+p_B <- ggplot(smax_census, aes(x = year, y = biomass_kg, color = label)) +
+  annotate("rect", xmin = burn_start, xmax = exp_start_yr,
+           ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
+  geom_vline(xintercept = exp_start_yr, linetype = "dashed",
+             color = "grey55", linewidth = 0.4) +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = smax_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
+  theme_sens()
+
+p_N | p_B
+```
+
+### Compensatory dynamics
+
+```{r}
+#| label: fig-smax-comp
+#| fig-cap: "Top-left: burn-in population map. Top-right: stock-recruitment. Bottom-left: size-based early thinning. Bottom-right: density–growth relationship."
+#| fig-height: 8
+
+smax_map <- pop_map(smax_census)
+
+p_map <- ggplot(smax_map, aes(x = N, y = N_next, color = label)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = smax_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
+       title = "Population map (burn-in)") +
+  theme_sens() + theme(legend.position = "none")
+
+p_sr <- ggplot(smax_sr |> filter(spawner_kg > 0),
+               aes(x = spawner_kg, y = bio_surv60_kg, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = smax_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry biomass at 60 days (kg)",
+       color = NULL, title = "Stock-recruitment") +
+  theme_sens() + theme(legend.position = "right")
+
+p_thin <- ggplot(smax_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = smax_cols) +
+  labs(x = "Fry born", y = "% of fry surviving to day 60",
+       color = NULL, title = "Size-based thinning") +
+  theme_sens() + theme(legend.position = "none")
+
+p_dg <- ggplot(smax_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+  geom_hline(yintercept = 7, linetype = "dotted", color = "grey50") +
+  scale_color_manual(values = smax_cols) +
+  labs(x = "Mean July N (all fish)", y = "Age-0 weight at Aug 1 (g)", color = NULL,
+       title = "Density\u2013growth relationship",
+       subtitle = "Higher density = slower early growth = more time below w\u2080") +
+  theme_sens() + theme(legend.position = "none")
+
+(p_map | p_sr) / (p_thin | p_dg)
+```
+
+```{r}
+#| label: fig-smax-danger-duration
+#| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born."
+#| fig-height: 5
+
+smax_cross <- bind_rows(Map(days_to_threshold, smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+
+plot_danger_duration(smax_cross, smax_cols)
+```
+
+### Age and growth
+
+```{r}
+#| label: fig-smax-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
+#| fig-height: 5
+
+p_waa <- ggplot(smax_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = smax_cols) +
+  scale_fill_manual(values = smax_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(smax_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = smax_cols) +
+  scale_fill_manual(values = smax_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-smax-ag
+#| fig-cap: "Mean and Q95 age and weight across S_max_cold scenarios (experimental period)."
+#| fig-height: 5
+
+smax_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = smax_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
+```
+
+```{r}
+#| label: fig-smax-mincond
+#| fig-cap: "Mean minimum condition by integer age class across S_max_cold scenarios."
+#| fig-height: 4
+
+ggplot(smax_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                          color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = smax_cols) +
+  scale_fill_manual(values = smax_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-smax-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary across S_max_cold scenarios (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  smax_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", smax_cols
+)
+
+p_part_bar <- simple_bar(
+  smax_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", smax_cols
+)
+
+p_rec_bar <- bind_rows(
+  smax_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  smax_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = smax_cols) +
+  scale_color_manual(values = smax_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  smax_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", smax_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+---
 
 ---
 
@@ -2143,209 +3533,226 @@ agestr_stable |>
 
 ```{r}
 #| label: fig-cv-summary
-#| fig-width: 13
-#| fig-height: 13
-#| fig-cap: "Sensitivity analysis summary. Row 1: mean Oct 1 abundance. Row 2: CV of abundance (lower = more stable). Row 3: total years simulated (burn-in + experiment; < 40 = collapsed before burn-in end). Row 4: peak mean age-0 weight (g) — the burn-in cohort-mean weight trajectory maximum, a summary of early growth potential under each parameter value. Row 5: among-cohort average time (days) to escape the critical period for survival (the size-based survival inflection weight, s_w0)."
+#| fig-width: 10
+#| fig-height: 12
+#| fig-cap: "Cross-parameter sensitivity summary (experimental period). Rows: years simulated (dashed line = max possible), mean Oct 1 abundance, mean Oct 1 biomass, mean Oct 1 age-0 weight, Q95 age, Q95 weight, mean age at first reproduction, and mean spawning participation. Error bars: ±1 SD across years. Columns: nine parameters tested."
 
-param_levels <- c("K_cold", "egg_surv", "dominance_beta",
-                  "pcmax_cold/warm", "A_cold",
-                  "s_min", "s_w0", "s_k")
-param_labels <- c("K", "egg_surv", "dom.\nbeta",
-                  "pcmax\ncold/warm", "A_cold",
-                  "s_min", "s_w0", "s_k")
+param_levels <- c("K_cold", "egg_surv", "dom_beta", "s_min", "s_w0",
+                  "pcmax_cold", "A_cold", "S_cond_inflect", "S_cond_floor", "S_max_cold")
+param_labels <- c("K", "egg_surv", "dom. beta\n(pcmax = 0.7)", "s_min", "s_w0",
+                  "pcmax", "A_cold", "Surv. cond.\ninflect.", "Surv. cond.\nfloor", "S_max")
 
-# Mean length in days of the critical period (time to escape the period of reduced juvenile survival) per label
-critical_time_all <- bind_rows(
-  K_cross     |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "K_cold"),
-  egg_cross   |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "egg_surv"),
-  beta_cross  |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "dominance_beta"),
-  pcmax_cross |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "pcmax_cold/warm"),
-  area_cross  |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "A_cold"),
-  s_min_cross |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "s_min"),
-  w0_cross    |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "s_w0"),
-  sk_cross    |> group_by(label) |> summarise(critical_time = mean(days_to_cross, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "s_k")
+# ── Helper: assemble one row per scenario label for a given parameter ─────────
+param_summary <- function(stable, age0_dly, ag, afr, part, census, `repeat`, param_name) {
+  age0_oct1 <- age0_dly |>
+    filter(month(date) == 10, day(date) == 1) |>
+    select(-c("date", "n")) |>
+    rename("mean_age0_wt" = "mean_wt", "sd_age0_wt" = "sd_wt") 
+
+  # Anchor on ALL labels from the census (includes collapsed scenarios).
+  # Experimental-period metrics will be NA for scenarios that collapse early.
+  total_sim_yrs(census) |>
+    left_join(stable |> filter(phase == "experiment") |>
+                select(label, mean_N, sd_N, mean_bio, sd_bio),
+              by = "label") |>
+    left_join(age0_oct1,                                  by = "label") |>
+    left_join(ag   |> select(label, q95_age, q95_wt),    by = "label") |>
+    left_join(afr  |> select(label, mean_afr, sd_afr),   by = "label") |>
+    left_join(part |> select(label, mean_part, sd_part),  by = "label") |>
+    left_join(`repeat` |> select(label, mean_pct_repeat, sd_pct_repeat),  by = "label") |>
+    mutate(parameter = param_name)
+}
+
+cross_all <- bind_rows(
+  param_summary(K_stable,     K_age0_dly,     K_ag,     K_afr,     K_part,     K_census,     K_repeat,     "K_cold"),
+  param_summary(egg_stable,   egg_age0_dly,   egg_ag,   egg_afr,   egg_part,   egg_census,   egg_repeat,   "egg_surv"),
+  param_summary(beta_stable,  beta_age0_dly,  beta_ag,  beta_afr,  beta_part,  beta_census,  beta_repeat,  "dom_beta"),
+  param_summary(s_min_stable, s_min_age0_dly, s_min_ag, s_min_afr, s_min_part, s_min_census, s_min_repeat, "s_min"),
+  param_summary(w0_stable,    w0_age0_dly,    w0_ag,    w0_afr,    w0_part,    w0_census,    w0_repeat,    "s_w0"),
+  param_summary(pcmax_stable, pcmax_age0_dly, pcmax_ag, pcmax_afr, pcmax_part, pcmax_census, pcmax_repeat, "pcmax_cold"),
+  param_summary(area_stable,  area_age0_dly,  area_ag,  area_afr,  area_part,  area_census,  area_repeat,  "A_cold"),
+  param_summary(starv_stable, starv_age0_dly, starv_ag, starv_afr, starv_part, starv_census, starv_repeat, "S_cond_inflect"),
+  param_summary(floor_stable, floor_age0_dly, floor_ag, floor_afr, floor_part, floor_census, floor_repeat, "S_cond_floor"),
+  param_summary(smax_stable,  smax_age0_dly,  smax_ag,  smax_afr,  smax_part,  smax_census,  smax_repeat,  "S_max_cold")
 )
 
-# Peak age-0 daily weight (max of burn-in cohort-mean trajectory) per label
-peak_age0_all <- bind_rows(
-  K_age0_dly     |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "K_cold"),
-  egg_age0_dly   |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "egg_surv"),
-  beta_age0_dly  |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "dominance_beta"),
-  pcmax_age0_dly |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "pcmax_cold/warm"),
-  area_age0_dly  |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "A_cold"),
-  s_min_age0_dly |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "s_min"),
-  w0_age0_dly    |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "s_w0"),
-  sk_age0_dly    |> group_by(label) |> summarise(peak_age0_wt = max(mean_wt, na.rm = TRUE), .groups = "drop") |> mutate(parameter = "s_k")
-)
+# ── Pivot to long format with matched SD column ───────────────────────────────
+cross_long <- cross_all |>
+  pivot_longer(
+    cols      = c(total_yrs, mean_N, mean_bio, mean_age0_wt,
+                  q95_age, q95_wt, mean_afr, mean_part, mean_pct_repeat),
+    names_to  = "metric",
+    values_to = "value"
+  ) |>
+  mutate(
+    sd = case_when(
+      metric == "mean_N"          ~ sd_N,
+      metric == "mean_bio"        ~ sd_bio,
+      metric == "mean_age0_wt"    ~ sd_age0_wt,
+      metric == "mean_afr"        ~ sd_afr,
+      metric == "mean_part"       ~ sd_part,
+      metric == "mean_pct_repeat" ~ sd_pct_repeat,
+      TRUE                        ~ NA_real_
+    ),
+    metric = factor(metric,
+                    levels = c("total_yrs", "mean_N", "mean_bio", "mean_age0_wt",
+                               "q95_age", "q95_wt", "mean_afr", "mean_part", "mean_pct_repeat"),
+                    labels = c("Years simulated", "N (Oct 1)", "Biomass (kg, Oct. 1)",
+                               "Age-0 wt (g, Oct. 1)", "Q95 age (yr)", "Q95 weight (g)",
+                               "Age at 1st repro. (yr)", "Spawning participation", "Repeat spawning (%)")),
+    parameter = factor(parameter, levels = param_levels, labels = param_labels)
+  )
 
-# Burn-in stability (mean N, CV) joined with total years across both phases
-total_yrs_all <- bind_rows(
-  total_sim_yrs(K_census)      |> mutate(parameter = "K_cold"),
-  total_sim_yrs(egg_census)    |> mutate(parameter = "egg_surv"),
-  total_sim_yrs(beta_census)   |> mutate(parameter = "dominance_beta"),
-  total_sim_yrs(pcmax_census)  |> mutate(parameter = "pcmax_cold/warm"),
-  total_sim_yrs(area_census)   |> mutate(parameter = "A_cold"),
-  total_sim_yrs(s_min_census)  |> mutate(parameter = "s_min"),
-  total_sim_yrs(w0_census)     |> mutate(parameter = "s_w0"),
-  total_sim_yrs(sk_census)     |> mutate(parameter = "s_k")
-)
-
-cv_all <- bind_rows(
-  K_stable      |> filter(phase == "burn-in") |> mutate(parameter = "K_cold"),
-  egg_stable    |> filter(phase == "burn-in") |> mutate(parameter = "egg_surv"),
-  beta_stable   |> filter(phase == "burn-in") |> mutate(parameter = "dominance_beta"),
-  pcmax_stable  |> filter(phase == "burn-in") |> mutate(parameter = "pcmax_cold/warm"),
-  area_stable   |> filter(phase == "burn-in") |> mutate(parameter = "A_cold"),
-  s_min_stable  |> filter(phase == "burn-in") |> mutate(parameter = "s_min"),
-  w0_stable     |> filter(phase == "burn-in") |> mutate(parameter = "s_w0"),
-  sk_stable     |> filter(phase == "burn-in") |> mutate(parameter = "s_k")
-) |>
-  left_join(total_yrs_all,  by = c("label", "parameter")) |>
-  left_join(peak_age0_all, by = c("label", "parameter")) |>
-  left_join(critical_time_all, by = c("label", "parameter")) |>
-  mutate(parameter = factor(parameter, levels = param_levels,
-                            labels = param_labels))
-
-cv_all_long <- cv_all |>
-  pivot_longer(c(mean_N, cv, total_yrs, peak_age0_wt, critical_time),
-               names_to  = "metric",
-               values_to = "value") |>
-  mutate(metric = factor(metric,
-                         levels = c("mean_N", "cv", "total_yrs", "peak_age0_wt", "critical_time"),
-                         labels = c("Mean N (Oct 1)", 
-                                    "CV (abundance)",
-                                    "Years simulated (max = 100)",
-                                    "Peak age-0 weight (g)",
-                                    "Critical period (days)")))
-
-# Okabe-Ito 8-color palette (colorblind-friendly)
-param_fill <- c("#0072B2", "#009E73", "#D55E00", "#56B4E9", "#999999",
-                "#E69F00", "#CC79A7", "#000000")
+# ── 10-color palette (Okabe-Ito extended) ────────────────────────────────────
+param_fill <- c("#0072B2", "#009E73", "#D55E00", "#E69F00", "#56B4E9",
+                "#CC79A7", "#999999", "#F0E442", "#8B4513", "#1B7837")
 names(param_fill) <- param_labels
 
-ggplot(cv_all_long, aes(x = label, y = value, fill = parameter)) +
+max_sim_yrs <- baseline$nyears_burnin + baseline$nyears_experiment
+
+ggplot(cross_long, aes(x = label, y = value, fill = parameter)) +
   geom_col(width = 0.65, show.legend = FALSE) +
-  # Year 40: end of burn-in (bars below = collapsed during burn-in)
+  geom_errorbar(aes(ymin = value - sd, ymax = value + sd),
+                width = 0.3, linewidth = 0.5, na.rm = TRUE) +
   geom_hline(
-    data = \(d) filter(d, metric == "Years simulated (max = 100)"),
-    aes(yintercept = 40),
-    linetype = "dotted", color = "grey35", linewidth = 0.6
-  ) +
-  # Year 100: end of full simulation (bars below = collapsed during experiment)
-  geom_hline(
-    data = \(d) filter(d, metric == "Years simulated (max = 100)"),
-    aes(yintercept = 100),
+    data = \(d) filter(d, metric == "Years simulated"),
+    aes(yintercept = max_sim_yrs),
     linetype = "dashed", color = "grey35", linewidth = 0.6
   ) +
   facet_grid(metric ~ parameter, scales = "free") +
   scale_fill_manual(values = param_fill) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(x = NULL, y = NULL,
-       title = "Burn-in stability across all parameter sensitivity analyses",
-       subtitle = paste0(
-         "Row 1: burn-in mean N.  Row 2: burn-in CV (lower = more stable).  ",
-         "Row 3: total years simulated (burn-in + experiment). ",
-         "Row 4: peak mean age-0 weight (g) — summarises early growth potential.  ",
-         "Dotted = yr 40 (burn-in end); dashed = yr 100 (full simulation). "
-         )) +
+       title = "Cross-parameter sensitivity summary — experimental period",
+       subtitle = paste0("Error bars: \u00b11 SD across years.  ",
+                         "Dashed line (years simulated panel): maximum possible years.")) +
   theme_bw() +
-  theme(strip.background  = element_rect(fill = "grey88"),
-        strip.text.x      = element_text(size = 8),
-        strip.text.y      = element_text(size = 7.5, lineheight = 0.85),
-        panel.grid.minor  = element_blank(),
-        axis.text.x       = element_text(size = 6.5, lineheight = 0.8),
-        plot.title        = element_text(size = 10, face = "bold"),
-        plot.subtitle     = element_text(size = 7.5, color = "grey30"),
-        panel.spacing     = unit(0.6, "lines"))
+  theme(strip.background = element_rect(fill = "grey88"),
+        strip.text.x     = element_text(size = 7.5),
+        strip.text.y     = element_text(size = 7, lineheight = 0.85),
+        panel.grid.minor = element_blank(),
+        axis.text.x      = element_text(size = 5.5, lineheight = 0.8,
+                                        angle = 30, hjust = 1),
+        plot.title       = element_text(size = 10, face = "bold"),
+        plot.subtitle    = element_text(size = 7.5, color = "grey30"),
+        panel.spacing    = unit(0.5, "lines"))
 ```
 
-### Age-class structured competition — 2×2 stability {.unnumbered}
-
-The age-class section uses a factorial design rather than a single-axis sweep, so
-it is not directly comparable to the single-parameter bar charts above. The table
-below summarises burn-in stability for all four combinations.
-
-```{r}
-#| label: tbl-agestr-summary
-#| tbl-cap: "Burn-in stability for the 2×2 age-structured × dominance_beta design. Rows where years simulated < 100 indicate premature collapse."
-
-agestr_stable |>
-  left_join(
-    bind_rows(Map(function(s, l)
-      tibble(label = l, total_yrs = n_distinct(
-        year(s$ibm_long$date[!is.na(s$ibm_long$date)]))),
-      agestr_sims, agestr_labels)),
-    by = "label"
-  ) |>
-  filter(phase == "burn-in") |>
-  select(label, mean_N, cv, total_yrs) |>
-  knitr::kable(col.names = c("Scenario", "Burn-in mean N",
-                              "Burn-in CV", "Total years simulated"))
-```
 
 
 ## Final tune
 
-This section runs a single candidate parameterisation that combines adjustments
-identified during the sensitivity analysis: `egg_surv = 0.2` (higher egg-to-fry
-survival than the baseline of 0.1), `s_w0 = 5` (a lower size-based survival
-inflection weight), `s_k = 0.8` (a slightly lower inflection steepness), and 
-`K_cold/K_warm = 400` (a high half-saturation density, i.e., lower strength of 
-density density dependence). All other parameters are held at their baseline values. 
-The purpose is to assess whether this combination produces acceptable burn-in dynamics
-and compensatory regulation before committing to it as the working parameterisation
-for scenario runs.
+This section runs a single candidate parameterization that combines adjustments identified during the sensitivity analysis: 
+
+- `K_cold = 400`, `K_warm = 400`
+- `egg_surv = 0.15`
+- `dominance_beta = 0.5`
+- `s_min = 0.96`
+- `s_w0 = 5`
+- `pcmax_cold = 0.5`, `pcmax_warm = 0.5`
+- `A_cold = 1.0`, `A_warm = 0.0`
+- `K1_starv = 0.6`, `K9_starv = 0.7`
+- `S_max_cold = 0.9994`, `S_max_warm = 0.9994`
+
+All other parameters are held at their baseline values. The purpose is to assess whether this combination produces acceptable burn-in dynamics and compensatory regulation before committing to it as the working parameterization for scenario runs.
 
 ```{r}
 #| label: sim-final
-#| cache: true
+#| cache: false
 
-cat("Running final tune simulation...\n")
-p          <- modifyList(baseline, list(egg_surv = 0.15, s_w0 = 5, s_k = 0.8, K_cold = 400, K_warm = 400))
-hdf        <- build_habitat(p)
-final_sims <- run_simulation(hdf, p, wt_growth = wt.growth)
-cat("ends", format(max(final_sims$ibm_long$date, na.rm = TRUE)), "\n")
+p <- modifyList(baseline, list(K_cold = 400, K_warm = 400,
+                               egg_surv = 0.15,
+                               dominance_beta = 0.5,
+                               s_min = 0.96,
+                               s_w0 = 5,
+                               pcmax_cold = 0.5, pcmax_warm = 0.5,
+                               A_cold = 1.0, A_warm = 0.0,
+                               K1_starv = 0.60, K9_starv = 0.70,
+                               s_floor_starv = 0.9,
+                               S_max_cold = 0.9994, S_max_warm = 0.9994))
+
+cache_file <- "cache/final_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading final tune simulation from cache...\n")
+  final_sims <- readRDS(cache_file)
+} else {
+  cat("Running final tune simulation...\n")
+  hdf        <- build_habitat(p)
+  final_sims <- run_simulation(hdf, p, wt_growth = wt.growth)
+  cat("ends", format(max(final_sims$ibm_long$date, na.rm = TRUE)), "\n")
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(final_sims, cache_file)
+}
+
+final_sims <- list(final_sims)
 ```
 
 ```{r}
 #| label: final-outcomes
 
-final_label   <- "egg_surv=0.15 / s_w0=5 / s_k=0.8 / K=400"
-final_col     <- c("egg_surv=0.15 / s_w0=5 / s_k=0.8 / K=400" = "#009E73")
+final_labels   <- c("Final set")
+final_cols      <- c("Final set" = "#009E73")
 
-final_census  <- oct1_census(         final_sims, final_label)
-final_sr      <- stock_recruit(        final_sims, final_label)
-final_thin    <- thinning_rate(        final_sims, final_label)
-final_dg      <- age0_density_growth(  final_sims, final_label)
-final_waa     <- wt_at_age(            final_sims, final_label)
-final_age0_dly <- age0_daily_wt(       final_sims, final_label)
-final_stable  <- stability_stats(final_census)
-final_cross   <- days_to_threshold(    final_sims, final_label)
+final_census   <- bind_rows(Map(oct1_census,   final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_sr       <- bind_rows(Map(stock_recruit, final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_thin     <- bind_rows(Map(thinning_rate,        final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_dg       <- bind_rows(Map(age0_density_growth, final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_waa      <- bind_rows(Map(wt_at_age,     final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_age0_dly <- bind_rows(Map(age0_daily_wt, final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_ag       <- bind_rows(Map(age_growth_stats,    final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_mincond  <- bind_rows(Map(min_condition_by_age, final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_afr      <- bind_rows(Map(spawn_afr,            final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_part     <- bind_rows(Map(spawn_participation,  final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_rec      <- bind_rows(Map(recruit_indices,       final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_repeat   <- bind_rows(Map(repeat_spawning,       final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+final_stable   <- population_stats(final_census)
 ```
 
 ### Abundance and biomass
 
 ```{r}
+#| label: fig-final-stable
+#| fig-cap: "Mean Oct 1 abundance and biomass by A_cold, experimental period."
+#| fig-height: 4
+
+plot_stability_fig(final_stable, final_cols)
+```
+
+```{r}
 #| label: fig-final-ts
-#| fig-cap: "Oct 1 annual abundance and total biomass for the final-tune parameterisation. Grey band = burn-in."
+#| fig-cap: "Oct 1 abundance and biomass."
 #| fig-height: 5
 
-p_N <- ggplot(final_census, aes(x = year, y = N)) +
+p_N <- ggplot(final_census, aes(x = year, y = N, color = label)) +
   annotate("rect", xmin = burn_start, xmax = exp_start_yr,
            ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
   geom_vline(xintercept = exp_start_yr, linetype = "dashed",
              color = "grey55", linewidth = 0.4) +
-  geom_line(linewidth = 0.75, color = "#009E73") +
-  labs(x = NULL, y = "N (Oct 1)", title = "Annual abundance") +
-  theme_sens()
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = final_cols) +
+  labs(x = NULL, y = "N (Oct 1)", color = NULL, title = "Annual abundance") +
+  theme_sens() + theme(legend.position = "none")
 
-p_B <- ggplot(final_census, aes(x = year, y = biomass_kg)) +
+p_B <- ggplot(final_census, aes(x = year, y = biomass_kg, color = label)) +
   annotate("rect", xmin = burn_start, xmax = exp_start_yr,
            ymin = -Inf, ymax = Inf, fill = "grey92", alpha = 0.7) +
   geom_vline(xintercept = exp_start_yr, linetype = "dashed",
              color = "grey55", linewidth = 0.4) +
-  geom_line(linewidth = 0.75, color = "#009E73") +
-  labs(x = NULL, y = "Total biomass (kg)", title = "Total biomass") +
+  geom_line(linewidth = 0.75) +
+  scale_color_manual(values = final_cols) +
+  labs(x = NULL, y = "Total biomass (kg)", color = NULL, title = "Total biomass") +
   theme_sens()
 
 p_N | p_B
@@ -2360,96 +3767,199 @@ p_N | p_B
 
 final_map <- pop_map(final_census)
 
-p_map <- ggplot(final_map, aes(x = N, y = N_next)) +
+p_map <- ggplot(final_map, aes(x = N, y = N_next, color = label)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
-  geom_point(alpha = 0.4, size = 1.5, color = "#009E73") +
-  geom_smooth(method = "loess", se = FALSE, span = 0.75,
-              linewidth = 0.9, color = "#009E73") +
-  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)",
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.75, linewidth = 0.9) +
+  scale_color_manual(values = final_cols) +
+  labs(x = "N (year t, Oct 1)", y = "N (year t+1, Oct 1)", color = NULL,
        title = "Population map (burn-in)") +
-  theme_sens()
+  theme_sens() + theme(legend.position = "none")
 
 p_sr <- ggplot(final_sr |> filter(spawner_kg > 0),
-               aes(x = spawner_kg, y = bio_surv60_kg)) +
-  geom_point(alpha = 0.5, size = 1.5, color = "#009E73") +
-  geom_smooth(method = "loess", se = FALSE, span = 0.7,
-              linewidth = 0.9, color = "#009E73") +
-  labs(x = "Spawner biomass (kg)", y = "Fry biomass at 60 days (kg)",
+               aes(x = spawner_kg, y = bio_surv60_kg, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
+  scale_color_manual(values = final_cols) +
+  labs(x = "Spawner biomass (kg)", y = "Fry biomass at 60 days (kg)", color = NULL,
        title = "Stock-recruitment") +
-  theme_sens()
+  theme_sens() + theme(legend.position = "right")
 
-p_thin <- ggplot(final_thin, aes(x = n_born, y = surv_rate)) +
-  geom_point(alpha = 0.45, size = 1.5, color = "#009E73") +
-  geom_smooth(method = "loess", se = FALSE, span = 0.7,
-              linewidth = 0.9, color = "#009E73") +
+p_thin <- ggplot(final_thin, aes(x = n_born, y = surv_rate, color = label)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_color_manual(values = final_cols) +
   labs(x = "Fry born", y = "% of fry surviving to day 60",
-       title = "Size-based thinning") +
-  theme_sens()
+       color = NULL, title = "Size-based thinning",
+       subtitle = "Larger final = lower eff_density = weaker thinning (same interaction as high K)") +
+  theme_sens() + theme(legend.position = "none")
 
-p_dg <- ggplot(final_dg, aes(x = mean_july_n, y = mean_wt)) +
-  geom_point(alpha = 0.5, size = 1.5, color = "#009E73") +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9, color = "#009E73") +
+p_dg <- ggplot(final_dg, aes(x = mean_july_n, y = mean_wt, color = label)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
   geom_hline(yintercept = 7, linetype = "dotted", color = "grey50") +
-  labs(x = "Mean July N (all fish)", y = "Age-0 weight at Aug 1 (g)",
+  scale_color_manual(values = final_cols) +
+  labs(x = "Mean July N (all fish)", y = "Age-0 weight at Aug 1 (g)", color = NULL,
        title = "Density\u2013growth relationship",
        subtitle = "Higher density = slower early growth = more time below w\u2080") +
-  theme_sens()
+  theme_sens() + theme(legend.position = "none")
 
 (p_map | p_sr) / (p_thin | p_dg)
 ```
 
-### Age structure
-
-```{r}
-#| label: fig-final-age0
-#| fig-cap: "Left: mean weight at age (burn-in). Right: age-0 daily weight by day of year, averaged across burn-in cohorts."
-#| fig-height: 5
-
-p_waa <- ggplot(final_waa, aes(x = age_yrs, y = mean_wt)) +
-  geom_line(linewidth = 0.9, color = "#009E73") +
-  geom_point(size = 2.5, color = "#009E73") +
-  scale_x_continuous(breaks = 0:4) +
-  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
-       title = "Weight at age (burn-in mean)") +
-  theme_sens()
-
-p_aget <- ggplot(final_age0_dly |> filter(doy >= 118),
-                 aes(x = doy, y = mean_wt)) +
-  geom_line(linewidth = 0.9, color = "#009E73") +
-  scale_x_continuous(breaks = month_doys, labels = month_labels) +
-  labs(x = NULL, y = "Mean weight (g)",
-       title = "Age-0 daily weight \u2014 burn-in cohort mean") +
-  theme_sens()
-
-p_waa | p_aget
-```
-
-### Density-dependent duration below s_w0
-
 ```{r}
 #| label: fig-final-danger-duration
-#| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; line is an OLS fit with 95% CI."
+#| fig-cap: "Days post-hatch until cohort-mean weight first exceeds s_w0, vs fry born. Each point is one burn-in cohort year; lines are OLS fits with 95% CI."
 #| fig-height: 5
 
-plot_danger_duration(final_cross, final_col)
+final_cross <- bind_rows(Map(days_to_threshold, final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+
+plot_danger_duration(final_cross, final_cols)
 ```
 
-### Stability summary {.unnumbered}
+### Age and growth
 
 ```{r}
-#| label: fig-final-stable
-#| fig-cap: "Mean Oct 1 abundance and CV for the final-tune parameterisation, split by simulation phase."
+#| label: fig-final-thin
+#| fig-cap: "Left: mean weight at age. Right: mean age-0 fry weight by date, averaged across cohorts."
 #| fig-height: 5
 
-plot_stability_fig(final_stable, final_col)
+p_waa <- ggplot(final_waa, aes(x = age_yrs, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = final_cols) +
+  scale_fill_manual(values = final_cols) +
+  scale_x_continuous(breaks = 0:14) +
+  labs(x = "Age (years)", y = "Mean weight (g, Oct 1)",
+       color = NULL, title = "Weight at age (experiment mean)") +
+  theme_sens() +
+  guides(color = "none", fill = "none")
+
+p_aget <- ggplot(final_age0_dly, aes(x = date, y = mean_wt, color = label)) +
+  geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt, fill = label), color = NA, alpha = 0.2) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = final_cols) +
+  scale_fill_manual(values = final_cols) +
+  scale_x_date(date_labels = "%b") +
+  labs(x = "Date", y = "Mean weight (g)", color = NULL,
+       title = "Age-0 daily weight — mean across all individuals") +
+  theme_sens() +
+  guides(fill = "none")
+
+p_waa + p_aget + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
-#| label: tbl-final-stable
-#| tbl-cap: "Stability statistics for the final-tune parameterisation."
+#| label: fig-final-ag
+#| fig-cap: "Mean and Q95 age and weight (experimental period)."
+#| fig-height: 5
 
-final_stable |>
-  knitr::kable(col.names = c("Scenario", "Phase", "Mean N",
-                              "CV (abundance)", "Mean biomass (kg)", "Years"))
+final_ag |>
+  pivot_longer(c(mean_age, q95_age, mean_wt, q95_wt),
+               names_to  = "metric",
+               values_to = "value") |>
+  mutate(metric = factor(metric,
+                         levels = c("mean_age", "q95_age", "mean_wt", "q95_wt"),
+                         labels = c("Mean age (yr)", "Q95 age (yr)",
+                                    "Mean weight (g)", "Q95 weight (g)"))) |>
+  ggplot(aes(x = label, y = value, fill = label)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = final_cols) +
+  labs(x = NULL, y = NULL,
+       title = "Age and growth summary — experimental period",
+       subtitle = "Oct 1 snapshot: mean and Q95 across all individuals and years") +
+  theme_sens()
 ```
+
+```{r}
+#| label: fig-final-mincond
+#| fig-cap: "Mean minimum condition by integer age class."
+#| fig-height: 4
+
+ggplot(final_mincond, aes(x = factor(age_class), y = mean_min_cond,
+                          color = label, group = label)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = mean_min_cond - sd_min_cond,
+                  ymax = mean_min_cond + sd_min_cond,
+                  fill = label),
+              color = NA, alpha = 0.15) +
+  scale_color_manual(values = final_cols) +
+  scale_fill_manual(values = final_cols) +
+  labs(x = "Age class", y = "Mean minimum condition",
+       color = NULL, fill = NULL,
+       title = "Minimum condition by age class — experimental period",
+       subtitle = "Mean \u00b1 SD of per-individual annual minima") +
+  theme_sens() +
+  guides(fill = "none")
+```
+
+### Spawning and recruitment
+
+```{r}
+#| label: fig-final-spawn-recruit
+#| fig-cap: "Spawning and recruitment summary (experimental period)."
+#| fig-height: 7
+#| fig-width: 7
+
+p_afr_bar <- simple_bar(
+  final_afr |> transmute(label, mean = mean_afr, sd = sd_afr),
+  "Age (years)", "Age at first reproduction", final_cols
+)
+
+p_part_bar <- simple_bar(
+  final_part |> transmute(label, mean = mean_part, sd = sd_part),
+  "Proportion", "Spawning participation (spawners / Oct. 1 N)", final_cols
+)
+
+p_rec_bar <- bind_rows(
+  final_rec |> transmute(label, timepoint = "Age-0 (Oct 1)", mean = mean_age0_oct1, sd = sd_age0_oct1),
+  final_rec |> transmute(label, timepoint = "Age-1 (Jun 1)", mean = mean_age1_jun1, sd = sd_age1_jun1)
+) |>
+  mutate(timepoint = factor(timepoint, levels = c("Age-0 (Oct 1)", "Age-1 (Jun 1)"))) |>
+  ggplot(aes(x = label, y = mean, fill = label)) +
+  geom_col(aes(alpha = timepoint, color = label), position = position_dodge(0.72),
+           width = 0.65, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd, group = timepoint),
+                position = position_dodge(0.72), width = 0.25, linewidth = 0.6) +
+  scale_fill_manual(values = final_cols) +
+  scale_color_manual(values = final_cols) +
+  scale_alpha_manual(name = NULL, values = c("Age-0 (Oct 1)" = 1.0, "Age-1 (Jun 1)" = 0.4),
+                     guide = guide_legend(override.aes = list(fill = "grey40"))) +
+  labs(x = NULL, y = "Abundance", title = "Cohort recruitment",
+       subtitle = "Oct 1 (solid) \u2192 Jun 1 of following year (faded); same cohort") +
+  theme_sens()
+
+p_repeat_bar <- simple_bar(
+  final_repeat |> transmute(label, mean = mean_pct_repeat, sd = sd_pct_repeat),
+  "% of spawners", "Repeat spawning prevalence", final_cols
+)
+
+(p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+
+### Generic population plots
+
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+#| 
+source("PlotResults.R")
+
+plot_population(
+  ibm_summary    = final_sims[[1]]$ibm_summary,
+  spawn_log      = final_sims[[1]]$spawn_log,
+  fish_registry  = final_sims[[1]]$fish_registry,
+  habitat_df     = final_sims[[1]]$habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+
+

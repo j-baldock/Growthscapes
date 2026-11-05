@@ -1,0 +1,589 @@
+---
+title: "Reproducibility and replication"
+---
+
+
+```{r, include = FALSE, cache = FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggpubr)
+library(ggtext)
+library(egg)
+library(RColorBrewer)
+library(ggridges)
+library(patchwork)
+library(scales)
+library(ggrepel)
+
+source("Functions.R")
+source("PlotResults.R")
+source("ScenarioDefs.R")
+```
+
+
+**Purpose:** Test for reproducibility and replication of key population outcomes/results across seeds.
+
+
+## Setup
+
+Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as `ibm_long` is extracted, avoiding duplicate references that would force R to copy the data frames.
+```{r}
+#| cache: false
+
+# Extract params from one file (small object)
+# res            <- readRDS("results/Baseline_ColdOnly_005percold_rep01.rds")
+# sim_params     <- res$params
+exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
+# rm(res)
+
+# Helper: read one scenario, extract ibm_long and spawn_log, and free res before returning
+load_scen <- function(path, repl, pc, ht, pcmax_cold, pcmax_warm) {
+  res <- readRDS(path)
+  list(df = res$ibm_long, df_summ = res$ibm_summary, spawn_log = res$spawn_log,
+       repl = repl, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+}
+
+
+ibm_list_mech <- list(
+  
+  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds", 1,  0.25, "Cold only",    0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_025percold_rep02.rds", 2,  0.25, "Cold only",    0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_025percold_rep03.rds", 3,  0.25, "Cold only",    0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_025percold_rep04.rds", 4,  0.25, "Cold only",    0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_025percold_rep05.rds", 5,  0.25, "Cold only",    0.5, NA_real_),
+  
+  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds", 1,  0.25, "Cold + Warm",  0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_025percold_rep02.rds", 2,  0.25, "Cold + Warm",  0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_025percold_rep03.rds", 3,  0.25, "Cold + Warm",  0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_025percold_rep04.rds", 4,  0.25, "Cold + Warm",  0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_025percold_rep05.rds", 5,  0.25, "Cold + Warm",  0.5, 0.5)
+)
+```
+
+
+```{r}
+#| cache: false
+
+# ── Scenario metadata ─────────────────────────────────────────────────────────
+scen_meta <- tibble(
+  scen_key  = c("100", "95", "75", "50", "25", "10", "05"),
+  label     = c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "10% cold", "5% cold"),
+  prop_cold = c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+)
+
+# factor levels
+pc_levels <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+pc_levels_mech <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+pc_labels_mech <- c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "10% cold", "5% cold")
+
+scen_pal <- setNames(
+  hcl.colors(7, "Zissou 1"),
+  scen_meta$label
+)
+
+# Linetype and shape palettes for habitat availability
+hab_cols  <- c("Cold only" = "#6BAED6",  "Cold + Warm" = "#FC8D59",   "Cold + Warm (high P)" = "#B30000")
+hab_lty   <- c("Cold only" = "solid" ,   "Cold + Warm" = "solid",     "Cold + Warm (high P)" = "solid")
+hab_shape <- c("Cold only" = 16,         "Cold + Warm" = 16,          "Cold + Warm (high P)" = 16)
+
+# Helper: derive scen_key string from numeric prop_cold
+pc_to_key <- function(pc) sprintf("%02d", round(pc * 100))
+
+# Helper: TRUE if the population went extinct before the experimental period
+# (ibm_long is NULL, has no rows, or lacks a date column)
+ibm_is_empty <- function(ibm_long) {
+  is.null(ibm_long) || nrow(ibm_long) == 0 || !"date" %in% names(ibm_long)
+}
+
+# Per-scenario extinction flag
+scen_extinct <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  tibble(scen_key = pc_to_key(scen$pc),
+         hab_type = scen$ht,
+         extinct  = ibm_is_empty(scen$df))
+})
+
+# Scenarios with data (extinct scenarios dropped) for chunks that need ibm_long rows
+ibm_list_live <- Filter(\(s) !ibm_is_empty(s$df), ibm_list_mech)
+
+# Helper: extract Oct 1 experimental-period rows from one ibm_long
+# Filtering before bind_rows() keeps only ~1/365th of each data frame.
+extract_oct1_exp <- function(ibm_long, scen_key) {
+  if (ibm_is_empty(ibm_long)) return(tibble())
+  ibm_long |>
+    filter(date >= exp_start_date,
+           month(date) == 10, day(date) == 1,
+           survived == 1) |>
+    mutate(scen_key  = scen_key,
+           year      = year(date),
+           age_class = floor(age),
+           peak_weight = weight / condition)
+}
+
+# Helper: compute per-year biomass accrual by patch (experimental period only).
+# Summarises to n_years × 2 rows per scenario before combining.
+compute_patch_growth <- function(ibm_long, scen_key) {
+  if (ibm_is_empty(ibm_long)) return(tibble())
+  ibm_long |>
+    filter(date >= exp_start_date, !is.na(ggd)) |>
+    mutate(daily_growth_g = weight * ggd, year = year(date)) |>
+    group_by(year, patch) |>
+    summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+    mutate(scen_key = scen_key)
+}
+
+# ── Oct 1 census: experimental period, all hab types, all scenarios ───────────
+exp_oct1 <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  extract_oct1_exp(scen$df, pc_to_key(scen$pc)) |>
+    mutate(hab_type = scen$ht, repl = scen$repl)
+}) |>
+  left_join(scen_meta, by = "scen_key") |>
+  mutate(
+    label    = factor(label,    levels = scen_meta$label),
+    hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))
+  )
+
+# ── Annual biomass accrual by patch, all hab types, all scenarios ─────────────
+patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  compute_patch_growth(scen$df, pc_to_key(scen$pc)) |>
+    mutate(hab_type = scen$ht, repl = scen$repl)
+}) |>
+  left_join(scen_meta, by = "scen_key") |>
+  mutate(
+    label    = factor(label,    levels = scen_meta$label),
+    hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))
+  )
+
+# ── Annual population totals per scenario × hab_type × year ──────────────────
+exp_pop_yr <- exp_oct1 |>
+  group_by(hab_type, label, prop_cold, repl, year) |>
+  summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
+
+# ── Annual adult (peak weight > 200g) totals per scenario × hab_type × year ──
+exp_adult_yr <- exp_oct1 |>
+  filter(peak_weight >= 200) |>
+  group_by(hab_type, label, prop_cold, repl, year) |>
+  summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
+
+# ── Annual spawner totals per scenario × hab_type × year ─────────────────────
+# Each parent may appear multiple times per year (repeat spawning attempts);
+# average weight within (year, parent) before summing to avoid double-counting mass.
+exp_spawn_yr <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  scen$spawn_log |>
+    mutate(date = base_params$mindate + (dayofsim - 1L),
+           yr   = year(date)) |>
+    filter(date >= exp_start_date) |>
+    group_by(yr, parent_pid) |>
+    summarise(parent_wt = mean(weight), .groups = "drop") |>
+    group_by(yr) |>
+    summarise(n_spawners    = n_distinct(parent_pid),
+              biom_spawn_kg = sum(parent_wt) / 1000,
+              .groups = "drop") |>
+    mutate(hab_type = scen$ht, prop_cold = scen$pc, repl = scen$repl)
+}) |>
+  left_join(scen_meta, by = "prop_cold") |>
+  mutate(
+    label    = factor(label,    levels = scen_meta$label),
+    hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))
+  )
+```
+
+
+## Key metrics
+
+Same metrics as the "Summary of key metrics" section of CompareOutcomes.qmd, shown as the distribution of annual values (experimental period) for each replicate. Maximum age and size are the annual 99th percentiles in the Oct 1 census. Age at first reproduction is the annual mean among parents whose first spawn occurred that year. Spawning participation is the number of spawners in a year divided by the Oct 1 census of the previous year.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 7
+
+first_repro <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  sl <- scen$spawn_log
+  births <- sl |>
+    distinct(dayofsim, offspring_pid_start, offspring_pid_end) |>
+    rename(birth_day = dayofsim)
+
+  sl |>
+    mutate(date = base_params$mindate + (dayofsim - 1L)) |>
+    left_join(births, by = join_by(between(parent_pid, offspring_pid_start, offspring_pid_end))) |>
+    filter(!is.na(birth_day)) |>
+    arrange(parent_pid, dayofsim) |>
+    distinct(parent_pid, .keep_all = TRUE) |>
+    filter(date >= exp_start_date) |>
+    transmute(parent_pid,
+              year      = year(date),
+              age_first = (dayofsim - birth_day) / 365,
+              hab_type  = scen$ht,
+              prop_cold = scen$pc,
+              repl      = scen$repl)
+}) |>
+  left_join(scen_meta, by = "prop_cold") |>
+  mutate(label    = factor(label,    levels = scen_meta$label),
+         hab_type = factor(hab_type, levels = levels(exp_oct1$hab_type)))
+
+annual_max <- exp_oct1 |>
+  group_by(hab_type, repl, year) |>
+  summarise(max_age = quantile(age, 0.99),
+            max_wt  = quantile(weight, 0.99),
+            .groups = "drop")
+
+annual_repro <- first_repro |>
+  group_by(hab_type, repl, year) |>
+  summarise(age_first = mean(age_first), .groups = "drop")
+
+# Spawners in year y relative to the Oct 1 census of year y - 1
+annual_part <- exp_spawn_yr |>
+  inner_join(exp_pop_yr |> transmute(hab_type, label, repl, yr = year + 1L, n_census = n),
+             by = c("hab_type", "label", "repl", "yr")) |>
+  transmute(hab_type, repl, year = yr, participation = n_spawners / n_census)
+
+annual_all <- annual_max |>
+  full_join(annual_repro, by = c("hab_type", "repl", "year")) |>
+  full_join(annual_part,  by = c("hab_type", "repl", "year")) |>
+  mutate(repl = factor(repl))
+
+rep_plot <- function(y_var, y_lab) {
+  ggplot(annual_all, aes(x = repl, y = .data[[y_var]], fill = hab_type)) +
+    geom_boxplot(outlier.size = 0.8, linewidth = 0.4, na.rm = TRUE) +
+    scale_fill_manual(values = hab_cols, name = "Scenario") +
+    labs(x = "Replicate", y = y_lab) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid = element_blank(), axis.text = element_text(color = "black"))
+}
+
+(rep_plot("max_age",       "Maximum age (99th percentile, yr)") +
+   rep_plot("max_wt",        "Maximum size (99th percentile, g)") +
+   rep_plot("age_first",     "Mean age at first reproduction (yr)") +
+   rep_plot("participation", "Spawning participation")) +
+  plot_layout(ncol = 2, guides = "collect") +
+  plot_annotation(title = "Key population metrics by replicate")
+```
+
+
+## Abundance and biomass
+
+Oct 1 total abundance and biomass across the burn-in and experimental periods (from `ibm_summary`). The dashed line marks the start of the experimental period.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+
+oct1_ts <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  scen$df_summ |>
+    filter(month(date) == 10, day(date) == 1) |>
+    group_by(date) |>
+    summarise(n = sum(n_alive), biomass_kg = sum(biomass_g) / 1000, .groups = "drop") |>
+    mutate(hab_type = scen$ht, repl = factor(scen$repl))
+}) |>
+  mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")))
+
+ts_plot <- function(y_var, y_lab) {
+  ggplot(oct1_ts, aes(x = date, y = .data[[y_var]], color = repl)) +
+    geom_vline(xintercept = exp_start_date, linetype = "dashed") +
+    geom_line(linewidth = 0.5, alpha = 0.8) +
+    facet_wrap(~ hab_type, ncol = 1) +
+    scale_color_brewer(palette = "Dark2", name = "Replicate") +
+    labs(x = NULL, y = y_lab) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid = element_blank(), axis.text = element_text(color = "black"))
+}
+
+(ts_plot("n", "Oct 1 abundance") + ts_plot("biomass_kg", "Oct 1 biomass (kg)")) +
+  plot_layout(guides = "collect")
+```
+
+Distribution of annual Oct 1 total abundance and biomass among experimental years, by replicate.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+
+exp_pop_yr |>
+  pivot_longer(c(n, biomass_kg), names_to = "metric", values_to = "value") |>
+  mutate(metric = factor(metric, levels = c("n", "biomass_kg"),
+                         labels = c("Oct 1 abundance", "Oct 1 biomass (kg)"))) |>
+  ggplot(aes(x = factor(repl), y = value, fill = hab_type)) +
+  geom_boxplot(outlier.size = 0.8, linewidth = 0.4) +
+  facet_grid(metric ~ hab_type, scales = "free_y", switch = "y") +
+  scale_fill_manual(values = hab_cols, guide = "none") +
+  labs(x = "Replicate", y = NULL) +
+  theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank(), axis.text = element_text(color = "black"),
+        strip.background.y = element_blank(), strip.placement = "outside")
+```
+
+
+## Size spectra
+
+Body-size distributions of all Oct 1 individual records from the experimental period, by replicate (colour) and habitat scenario (panels).
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4
+
+repl_scale_col  <- scale_color_brewer(palette = "Dark2", name = "Replicate")
+repl_scale_fill <- scale_fill_brewer(palette = "Dark2", name = "Replicate")
+theme_repl <- theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank(), axis.text = element_text(color = "black"))
+
+exp_oct1 <- exp_oct1 |> mutate(repl = factor(repl))
+
+ggplot(exp_oct1, aes(x = weight, color = repl, fill = repl)) +
+  geom_density(alpha = 0.1, linewidth = 0.7) +
+  repl_scale_col + repl_scale_fill +
+  facet_wrap(~ hab_type) +
+  labs(x = "Body weight (g)", y = "Density",
+       title = "Body-weight density by replicate (Oct 1)") +
+  theme_repl
+```
+
+Survival function, P(weight $$\geq$$ x). Quantiles are computed per year on a fixed exceedance-probability grid and averaged across years within each replicate.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4
+
+p_grid <- seq(0.001, 0.999, length.out = 200)
+
+surv_summ <- exp_oct1 |>
+  group_by(hab_type, repl, year) |>
+  reframe(p_exceed = rev(p_grid),
+          q        = quantile(weight, probs = 1 - rev(p_grid))) |>
+  group_by(hab_type, repl, p_exceed) |>
+  summarise(mean_q = mean(q), .groups = "drop")
+
+ggplot(surv_summ, aes(x = mean_q, y = p_exceed, color = repl)) +
+  geom_line(linewidth = 0.8) +
+  repl_scale_col +
+  facet_wrap(~ hab_type) +
+  labs(x = "Body weight (g)", y = "P(weight \u2265 x)",
+       title = "Empirical complementary CDF by replicate (Oct 1 census)",
+       subtitle = "Mean across years") +
+  theme_repl
+```
+
+## Weight at age
+
+Mean weight at each integer age class, pooled across experimental Oct 1 censuses, by replicate. Ribbons are $$\pm$$ 1 SD. Means are only shown for age classes with 5 or more individuals.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4
+
+waa_repl <- exp_oct1 |>
+  group_by(hab_type, repl, age_class) |>
+  summarise(mean_wt = mean(weight), sd_wt = sd(weight), n = n(), .groups = "drop") |>
+  filter(n >= 5)
+
+ggplot(waa_repl, aes(x = age_class, y = mean_wt, color = repl, fill = repl)) +
+  geom_ribbon(aes(ymin = pmax(0, mean_wt - sd_wt), ymax = mean_wt + sd_wt),
+              alpha = 0.08, color = NA) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.8) +
+  repl_scale_col + repl_scale_fill +
+  scale_x_continuous(breaks = sort(unique(waa_repl$age_class))) +
+  facet_wrap(~ hab_type) +
+  labs(x = "Age class (years)", y = "Mean weight (g)",
+       title = "Mean weight-at-age by replicate (Oct 1, experimental period)") +
+  theme_repl
+```
+
+## Age structure
+
+Mean proportion of total Oct 1 abundance at each age class during the experimental period, by replicate. Ribbons are $$\pm$$ 1 SD among years. Differences from cold-only are not shown because replicates are independent seeds, so pairing cold-only and warm replicates by number would be arbitrary.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4
+
+prop_n_repl <- exp_oct1 |>
+  count(hab_type, repl, year, age_class, name = "n") |>
+  complete(nesting(hab_type, repl), year, age_class, fill = list(n = 0)) |>
+  group_by(hab_type, repl, year) |>
+  mutate(prop_n = n / sum(n)) |>
+  group_by(hab_type, repl, age_class) |>
+  summarise(mean_prop = mean(prop_n), sd_prop = sd(prop_n), .groups = "drop") |>
+  filter(mean_prop > 0)
+
+ggplot(prop_n_repl, aes(x = age_class, y = mean_prop, color = repl, fill = repl)) +
+  geom_ribbon(aes(ymin = pmax(0, mean_prop - sd_prop), ymax = mean_prop + sd_prop),
+              alpha = 0.08, color = NA) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.8) +
+  repl_scale_col + repl_scale_fill +
+  scale_x_continuous(breaks = sort(unique(prop_n_repl$age_class))) +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1)) +
+  facet_wrap(~ hab_type) +
+  labs(x = "Age class (years)", y = "Mean proportional abundance",
+       title = "Age structure by replicate (Oct 1, experimental period)") +
+  theme_repl
+```
+
+## Warm habitat contribution
+
+The relative importance of warm habitat is estimated with the counterfactual approach from WarmContribution.qmd: each Cold + Warm run is compared with the Cold only run at the same cold proportion and replicate (replicates share a seed across scenarios), so that:
+
+$$\text{benefit} = \underbrace{N_{warm}}_{\text{direct}} + \underbrace{(N_{cold} - N_{cold,\,\text{cold only}})}_{\text{indirect}}$$
+
+where $N$ is signed net growth (g). Years are paired between scenarios, and the first and last calendar years are dropped because the simulation starts and ends on May 1. Importance is expressed as a fraction of annual Cold + Warm net production, so seasonal fractions sum to the annual fraction.
+
+```{r}
+#| cache: false
+
+cf_seas <- c("Winter", "Spring", "Summer", "Fall")
+yr_drop <- range(patch_growth$year)
+cf_comp_cols <- c("Warm patch net growth (direct)" = unname(hab_cols["Cold + Warm"]),
+                  "Change in cold-patch growth vs Cold only (indirect)" = unname(hab_cols["Cold only"]))
+
+theme_cf <- theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank(), axis.text = element_text(color = "black"))
+
+# Seasonal net growth by patch (summarised within each run before combining)
+compute_patch_growth_seasonal <- function(ibm_long) {
+  if (ibm_is_empty(ibm_long)) return(tibble())
+  ibm_long |>
+    filter(date >= exp_start_date, !is.na(ggd)) |>
+    mutate(daily_growth_g = weight * ggd,
+           year   = year(date),
+           season = case_when(month(date) %in% c(12, 1, 2)  ~ "Winter",
+                              month(date) %in% c(3, 4, 5)   ~ "Spring",
+                              month(date) %in% c(6, 7, 8)   ~ "Summer",
+                              month(date) %in% c(9, 10, 11) ~ "Fall"),
+           season = factor(season, levels = cf_seas)) |>
+    group_by(year, season, patch) |>
+    summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop")
+}
+
+patch_growth_seasonal <- purrr::map_dfr(ibm_list_mech, function(scen) {
+  compute_patch_growth_seasonal(scen$df) |>
+    mutate(hab_type = scen$ht, repl = scen$repl)
+}) |>
+  filter(!year %in% yr_drop)
+
+# Annual counterfactual
+cold_only_annual <- patch_growth |>
+  filter(hab_type == "Cold only", patch == "cold") |>
+  select(repl, year, C_co = total_g)
+
+cf_annual <- patch_growth |>
+  filter(hab_type == "Cold + Warm", !year %in% yr_drop) |>
+  select(repl, year, patch, total_g) |>
+  pivot_wider(names_from = patch, values_from = total_g, values_fill = 0) |>
+  left_join(cold_only_annual, by = c("repl", "year")) |>
+  mutate(direct   = warm,
+         indirect = cold - C_co,
+         benefit  = direct + indirect,
+         I_cf     = benefit / (warm + cold),
+         repl     = factor(repl))
+
+# Seasonal counterfactual
+cold_only_seasonal <- patch_growth_seasonal |>
+  filter(hab_type == "Cold only", patch == "cold") |>
+  select(repl, year, season, C_co = total_g)
+
+cf_seasonal <- patch_growth_seasonal |>
+  filter(hab_type == "Cold + Warm") |>
+  select(repl, year, season, patch, total_g) |>
+  pivot_wider(names_from = patch, values_from = total_g, values_fill = 0) |>
+  left_join(cold_only_seasonal, by = c("repl", "year", "season")) |>
+  mutate(direct   = warm,
+         indirect = cold - C_co,
+         benefit  = direct + indirect) |>
+  group_by(repl, year) |>
+  mutate(annual_cw = sum(warm + cold)) |>
+  ungroup() |>
+  mutate(I_seas = benefit / annual_cw,
+         repl   = factor(repl))
+```
+
+### Annual
+
+Fraction of annual net production due to warm habitat (direct and indirect effects), as the distribution of annual values for each replicate.
+
+```{r}
+#| fig-width: 6
+#| fig-height: 4
+
+ggplot(cf_annual, aes(x = repl, y = I_cf)) +
+  geom_boxplot(fill = hab_cols["Cold + Warm"], outlier.size = 0.8, linewidth = 0.4) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs(x = "Replicate", y = "Fraction of annual net production\ndue to warm habitat",
+       title = "Relative importance of warm habitat by replicate") +
+  theme_cf
+```
+
+Decomposition into direct and indirect components. Bars are means across years; the diamond is the total benefit.
+
+```{r}
+#| fig-width: 6
+#| fig-height: 4.5
+
+cf_decomp <- cf_annual |>
+  group_by(repl) |>
+  summarise(across(c(direct, indirect, benefit), mean), .groups = "drop")
+
+cf_decomp |>
+  pivot_longer(c(direct, indirect), names_to = "component", values_to = "g") |>
+  mutate(component = if_else(component == "direct",
+                             "Warm patch net growth (direct)",
+                             "Change in cold-patch growth vs Cold only (indirect)")) |>
+  ggplot(aes(x = repl, y = g / 1000, fill = component)) +
+  geom_col() +
+  geom_point(data = cf_decomp, aes(y = benefit / 1000, fill = NULL),
+             shape = 18, size = 3.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_fill_manual(values = cf_comp_cols, name = NULL) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  labs(x = "Replicate", y = "Mean annual net production (kg)",
+       title = "Warm-habitat benefit decomposed",
+       subtitle = "Diamond = total benefit (direct + indirect)") +
+  theme_cf +
+  theme(legend.position = "bottom", legend.direction = "vertical")
+```
+
+### Seasonal
+
+Seasonal benefit as a fraction of annual Cold + Warm net production, by replicate.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4
+
+ggplot(cf_seasonal, aes(x = repl, y = I_seas)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, linetype = "dashed") +
+  geom_boxplot(fill = hab_cols["Cold + Warm"], outlier.size = 0.8, linewidth = 0.4) +
+  facet_wrap(~ season, nrow = 1) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs(x = "Replicate", y = "Seasonal benefit as fraction of\nannual net production",
+       title = "Seasonal relative importance of warm habitat by replicate") +
+  theme_cf
+```
+
+Seasonal decomposition into direct and indirect components (means across years; diamond = total seasonal benefit).
+
+```{r}
+#| fig-width: 9
+#| fig-height: 5
+
+cf_decomp_seas <- cf_seasonal |>
+  group_by(repl, season) |>
+  summarise(across(c(direct, indirect, benefit), mean), .groups = "drop")
+
+cf_decomp_seas |>
+  pivot_longer(c(direct, indirect), names_to = "component", values_to = "g") |>
+  mutate(component = if_else(component == "direct",
+                             "Warm patch net growth (direct)",
+                             "Change in cold-patch growth vs Cold only (indirect)")) |>
+  ggplot(aes(x = repl, y = g / 1000, fill = component)) +
+  geom_col() +
+  geom_point(data = cf_decomp_seas, aes(y = benefit / 1000, fill = NULL),
+             shape = 18, size = 3, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_fill_manual(values = cf_comp_cols, name = NULL) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  facet_wrap(~ season, nrow = 1) +
+  labs(x = "Replicate", y = "Mean seasonal net production (kg)",
+       title = "Seasonal warm-habitat benefit decomposed",
+       subtitle = "Diamond = total seasonal benefit (Cold + Warm \u2212 Cold only)") +
+  theme_cf +
+  theme(legend.position = "bottom", legend.direction = "vertical")
+```

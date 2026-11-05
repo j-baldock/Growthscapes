@@ -119,7 +119,7 @@ Run the IBM simulation loop over the full `habitat_df` time series. Returns a na
 | Element | Description |
 |---|---|
 | `ibm_long` | Long-format tibble (one row per fish × day) |
-| `ibm_summary` | Daily summary statistics by strategy |
+| `ibm_summary` | Summary on the 1st of each month (all years, incl. burn-in) by strategy × patch × age class (`floor(age)`): `n_start`, `n_alive` and `biomass_g` (survivors only), plus mean weight, temp, ggd and condition |
 | `fish_registry` | One row per fish (founders + all offspring) |
 | `spawn_log` | One row per spawning event |
 | `harvest_log` | One row per harvested fish: pid, weight, age, patch, condition at time of harvest |
@@ -139,39 +139,47 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
                                                                         #   - "abiotic_only" = Omniscient to abiotic (temp-based) GP only
                                                                         #   - "density_current" = Sense density dependent GP in current habitat, and compare to abiotic GP in the alternative habitat (perhaps the most biologically realistic)
                                                                         #   - "density_all" = Omniscient to density dependent GP in all habitats
+  p_calc            <- params$p_calc            %||% "legacy"           # how bioenergetics P passed to the growth lookup table is computed:
+                                                                        #   - "legacy"    = min(fT, pcmax) × dd  [current formulation; fT is double-counted in temperature-limited conditions]
+                                                                        #   - "corrected" = min(fT, pcmax) × dd / fT  [proper unit conversion: separates patch food availability from physiological temperature limit]
+                                                                        #   - "fixed_p"   = pcmax × dd  [no temperature adjustment to patch P; temperature still enters growth via the lookup table's internal f(T)]
 
   # misc. parameters
-  n_fish_per_strat  <- params$n_fish_per_strat  %||% 50        # fish per strategy
-  start_wt          <- params$start_wt          %||% 0.5       # initial weight (g)
-  wt_sd             <- params$wt_sd             %||% 0.05      # SD of starting weight
-  MaxDensity4Growth <- params$MaxDensity4Growth %||% 50        # growth is not depressed further above this density (currently this is arbitrary)
-  movecost_c        <- params$movecost_c        %||% 0.1       # movement cost allometric function: `c` = scaling constant
-  movecost_b        <- params$movecost_b        %||% 0.3       # movement cost allometric function `b` = decay exponent (higher = steeper drop-off)
-  sigma_bold        <- params$sigma_bold        %||% 0.002     # SD of boldness distribution, for dispersal propensity (g/g/d units)
-  tau               <- params$tau               %||% 0.003     # sensitivity to growth difference (for probabilistic/softmax variation in movement)
-  s_min             <- params$s_min             %||% 0.96      # minimum size-based daily survival probability
-  s_w0              <- params$s_w0              %||% 7         # inflection point of size-based survival logistic curve
-  s_k               <- params$s_k               %||% 1         # steepness of size-based survival logistic curve
-  T1_mort           <- params$T1_mort           %||% 30        # temperature (°C) at which daily survival from thermal stress = 0.1
-  T9_mort           <- params$T9_mort           %||% 25.8      # temperature (°C) at which daily survival from thermal stress = 0.9
-  K9_starv          <- params$K9_starv          %||% 0.55      # relative condition (W_current/W_peak) at which starvation survival = 0.9
-  K1_starv          <- params$K1_starv          %||% 0.45      # relative condition at which starvation survival = 0.1
-  age_x0            <- params$age_x0            %||% 14        # logistic inflection point — age (years) at which senescent decline is steepest
-  age_k             <- params$age_k             %||% 0.7       # steepness of logistic senescence decline; larger = sharper drop
-  age_pmin          <- params$age_pmin          %||% 0.99      # asymptotic daily survival floor for very old fish
-  dominance_beta    <- params$dominance_beta    %||% 1         # size-based dominance exponent for effective density (0 = pure scramble, 1 = linear dominance, Inf = pure contest)
-  egg_wt            <- params$egg_wt            %||% 0.07      # weight of a single egg (g); energetic cost per offspring
-  repro_cost        <- params$repro_cost        %||% 0.2       # energetic cost of reproduction in percentage of body mass
-  sigma_fecund      <- params$sigma_fecund      %||% 0.085     # random variation in weight-fecundity relationship
+  n_fish_per_strat           <- params$n_fish_per_strat           %||% 50        # fish per strategy
+  start_wt                   <- params$start_wt                   %||% 0.5       # initial weight (g)
+  wt_sd                      <- params$wt_sd                      %||% 0.05      # SD of starting weight
+  MaxDensity4Growth          <- params$MaxDensity4Growth          %||% 50        # growth is not depressed further above this density (currently this is arbitrary)
+  movecost_c                 <- params$movecost_c                 %||% 0.1       # movement cost allometric function: `c` = scaling constant
+  movecost_b                 <- params$movecost_b                 %||% 0.3       # movement cost allometric function `b` = decay exponent (higher = steeper drop-off)
+  sigma_bold                 <- params$sigma_bold                 %||% 0.002     # SD of boldness distribution, for dispersal propensity (g/g/d units)
+  tau                        <- params$tau                        %||% 0.003     # sensitivity to growth difference (for probabilistic/softmax variation in movement)
+  s_min                      <- params$s_min                      %||% 0.96      # minimum size-based daily survival probability
+  s_w0                       <- params$s_w0                       %||% 7         # inflection point of size-based survival logistic curve
+  s_k                        <- params$s_k                        %||% 1         # steepness of size-based survival logistic curve
+  T1_mort                    <- params$T1_mort                    %||% 30        # temperature (°C) at which daily survival from thermal stress = 0.1
+  T9_mort                    <- params$T9_mort                    %||% 25.8      # temperature (°C) at which daily survival from thermal stress = 0.9
+  K9_starv                   <- params$K9_starv                   %||% 0.55      # relative condition (W_current/W_peak) at which starvation survival = 0.9
+  K1_starv                   <- params$K1_starv                   %||% 0.45      # relative condition at which starvation survival = 0.1
+  s_floor_starv              <- params$s_floor_starv              %||% 0.90      # minimum condition-based daily survival probability
+  age_x0                     <- params$age_x0                     %||% 14        # logistic inflection point — age (years) at which senescent decline is steepest
+  age_k                      <- params$age_k                      %||% 0.7       # steepness of logistic senescence decline; larger = sharper drop
+  age_pmin                   <- params$age_pmin                   %||% 0.99      # asymptotic daily survival floor for very old fish
+  dominance_beta             <- params$dominance_beta             %||% 1         # size-based dominance exponent for effective density (0 = pure scramble, 1 = linear dominance, Inf = pure contest)
+  egg_wt                     <- params$egg_wt                     %||% 0.07      # weight of a single egg (g); energetic cost per offspring
+  repro_cost                 <- params$repro_cost                 %||% 0.2       # energetic cost of reproduction in percentage of body mass
+  sigma_fecund               <- params$sigma_fecund               %||% 0.085     # random variation in weight-fecundity relationship
   egg_surv                   <- params$egg_surv                   %||% 0.1    # egg-to-fry (hatching) survival probability ("pass-through" filter for fecundity)
   age_structured_competition <- params$age_structured_competition %||% TRUE   # if TRUE, fry (age-0) compete only with fry; age-1+ compete only with age-1+
-  crit_pcmax_lo              <- params$crit_pcmax_lo              %||% 0.30   # pcmax_adjusted_dd at which ~1% critical-period survival is achieved
-  crit_pcmax_hi              <- params$crit_pcmax_hi              %||% 0.40   # pcmax_adjusted_dd at which ~99% critical-period survival is achieved (negligible cost)
-  crit_period_days           <- params$crit_period_days           %||% 60L    # length of the critical period (days post-hatch)
+  anticipate_smaller         <- params$anticipate_smaller         %||% FALSE  # density_all only: if TRUE, fish also anticipate competition from smaller fish (using their previous-day patch positions) when choosing a patch. Corrects the over-commitment to the warm patch caused by sensing only larger, already-placed fish. No effect when dominance_beta = Inf.
+  age_class_cutoff           <- params$age_class_cutoff           %||% "04-15" # Biological year boundary (MM-DD): age-0 fish graduate to age-1+ on this date each year. Set just before spawning/emergence begins so the incoming cohort always enters as age-0. NOTE: revisit this date if spawn_date_mean or spawn_date_sd parameters change — the cutoff should fall before the earliest plausible emergence date in any simulated year.
+  # crit_pcmax_lo              <- params$crit_pcmax_lo              %||% 0.30   # pcmax_adjusted_dd at which ~1% critical-period survival is achieved
+  # crit_pcmax_hi              <- params$crit_pcmax_hi              %||% 0.40   # pcmax_adjusted_dd at which ~99% critical-period survival is achieved (negligible cost)
+  # crit_period_days           <- params$crit_period_days           %||% 60L    # length of the critical period (days post-hatch)
   sim_seed                   <- params$sim_seed                   %||% 7843
   harvest_rate               <- params$harvest_rate               %||% 0           # target seasonal exploitation rate E (proportion of eligible fish removed per harvest season; 0 = no harvest)
   harvest_window             <- params$harvest_window             %||% c(91L, 91L) # DOY range of the harvest season (default = April 1 single-pulse; e.g. c(152L, 273L) for June 1–Sept 30)
   nyears_burnin              <- params$nyears_burnin              %||% 50L         # burn-in years; harvest is suppressed during this period
+  save_burnin                <- params$save_burnin                %||% TRUE        # if FALSE, per-fish burn-in records are dropped from ibm_long (ibm_summary still covers burn-in, on the 1st of each month)
 
   # Back-calculate the daily exploitation rate d from the target seasonal rate E and window length N:
   #   E = 1 - (1 - d)^N  →  d = 1 - (1 - E)^(1/N)
@@ -203,8 +211,8 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   }
 
   # Lookup sequences — must match the axes of the wt_growth array
-  wt_seq_ibm <- seq(0.1,   25,  0.1)    # water temperature (250 values)
-  ra_seq_ibm <- seq(0.001, 0.4, 0.001)  # ration (400 values)
+  wt_seq_ibm <- seq(0.1,  25,  0.1)    # water temperature (250 values)
+  pv_seq_ibm <- seq(0.01, 1.0, 0.01)   # p-value (100 values)
   min_wt     <- 0.25                     # absolute minimum fish weight (g)
 
   # ── Initialise fish ─────────────────────────────────────────────────────────
@@ -223,11 +231,11 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
       pcmax_adjusted    = NA_real_,
       pcmax_adjusted_dd = NA_real_,
       func_temp         = NA_real_,
-      ration            = NA_real_,
       # Individual movement threshold — drawn once, fixed for life
       # Positive = reluctant to move (needs a clear advantage)
       # Negative = bold/prone to move (moves even when slightly disadvantaged)
       move_threshold    = rnorm(n_fish_per_strat, mean = 0, sd = sigma_bold),
+      hatch_wt          = weight,       # individual hatch weight; survival floor
       peak_weight       = weight,      # track historical max weight for condition factor
       age_days          = 0L,          # age in days, incremented each iteration independent of d
       spawned_this_year = FALSE,       # has this fish already spawned in the current calendar year?
@@ -255,8 +263,9 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   )
 
   # Pre-allocate per-day record/summary lists; one element per loop iteration.
-  # ibm_records is filled only for the experimental period (see step 7).
-  # ibm_summary_list is filled for every day and assembled into ibm_summary at the end.
+  # ibm_records is filled for all days if save_burnin = TRUE, otherwise only for the
+  # experimental period (see step 7).
+  # ibm_summary_list is filled on the 1st of each month and assembled into ibm_summary at the end.
   ibm_records      <- vector("list", n_days)
   ibm_summary_list <- vector("list", n_days)
   switches    <- integer(n_fish)  # count patch switches per fish (indexed by pid)
@@ -313,7 +322,12 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
 
   for (d in seq_len(n_days)) {
     t            <- habitat_df$dayofsim[d]
-    current_year <- year(habitat_df$date[d])     # calendar year of this simulation day
+    current_date    <- habitat_df$date[d]
+    current_year    <- year(current_date)                                     # calendar year of this simulation day
+    # Biological year: ticks on age_class_cutoff (MM-DD) rather than Jan 1.
+    # Before the cutoff, fish still belong to the previous biological year's cohort as age-0.
+    biological_year <- if_else(format(current_date, "%m-%d") >= age_class_cutoff,
+                               current_year, current_year - 1L)
     fish_pop$age_days <- fish_pop$age_days + 1L  # increment age for all living fish
 
     # 1. READ TIME-VARYING HABITAT PARAMETERS ─────────────────────────────────
@@ -363,7 +377,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
 
     if (length(mover_rows) > 0) {
       # Mass indices for each mover (clamped to array bounds)
-      ma_idx_vec    <- pmax(1L, pmin(4500L, round(fish_pop$weight[mover_rows])))  # get row index for current mass
+      ma_idx_vec    <- pmax(1L, pmin(24000L, round(fish_pop$weight[mover_rows] / 0.25)))  # mass array index (step = 0.25 g)
       ## 2.A.
       in_warm       <- fish_pop$patch[mover_rows] == "warm"  # is the fish in warm patch? T/F
       move_cost_vec <- fncMoveCost_allometric(fish_pop$weight[mover_rows],
@@ -374,20 +388,29 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
       # modes for switch detection in step 3.
       prev_patch    <- fish_pop$patch[mover_rows]
 
-      # Pre-compute each mover's hypothetical ration in BOTH patches for patch choice sensing.
-      # This initial step is done without accounting for the effect of density on p_cmax/ration.
-      # pcmax scalars are day-level constants; cmax_allometric is already in fish_pop from step 1.
-      pcmax_warm_adj <- min(fncTempDepend(T_warm), pcmax_warm)
-      pcmax_cold_adj <- min(fncTempDepend(T_cold), pcmax_cold)
-      ra_warm_vec    <- fish_pop$cmax_allometric[mover_rows] * pcmax_warm_adj
-      ra_cold_vec    <- fish_pop$cmax_allometric[mover_rows] * pcmax_cold_adj
-      ra_idx_warm_vec <- pmax(1L, pmin(400L, map_int(ra_warm_vec, ~which.min(abs(ra_seq_ibm - .x)))))
-      ra_idx_cold_vec <- pmax(1L, pmin(400L, map_int(ra_cold_vec, ~which.min(abs(ra_seq_ibm - .x)))))
+      # Pre-compute bioenergetics P in both patches for patch choice sensing.
+      # pcmax_warm/cold_adj are day-level scalars (same for all movers at the same temperature).
+      # No density adjustment at this stage — that happens in sense_environment branches below.
+      # p_calc governs how these P values are constructed (see parameter definition above).
+      fT_warm        <- fncTempDepend(T_warm)
+      fT_cold        <- fncTempDepend(T_cold)
+      pcmax_warm_adj <- switch(p_calc,
+        legacy    = min(fT_warm, pcmax_warm),
+        corrected = min(fT_warm, pcmax_warm) / max(fT_warm, 1e-6),
+        fixed_p   = pcmax_warm
+      )
+      pcmax_cold_adj <- switch(p_calc,
+        legacy    = min(fT_cold, pcmax_cold),
+        corrected = min(fT_cold, pcmax_cold) / max(fT_cold, 1e-6),
+        fixed_p   = pcmax_cold
+      )
+      pv_idx_warm    <- pmax(1L, pmin(100L, round(pcmax_warm_adj * 100)))  # p-value array index, warm patch
+      pv_idx_cold    <- pmax(1L, pmin(100L, round(pcmax_cold_adj * 100)))  # p-value array index, cold patch
 
       if (sense_environment == "abiotic_only") {
         ### 2.A.1. Individuals sense only temperature-based growth potential across all habitats
-        g_warm_vec <- wt_growth[cbind(wt_idx_warm, ra_idx_warm_vec, ma_idx_vec)]
-        g_cold_vec <- wt_growth[cbind(wt_idx_cold, ra_idx_cold_vec, ma_idx_vec)]
+        g_warm_vec <- wt_growth[cbind(wt_idx_warm, pv_idx_warm, ma_idx_vec)]
+        g_cold_vec <- wt_growth[cbind(wt_idx_cold, pv_idx_cold, ma_idx_vec)]
         g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec)  # growth if staying in current patch
         g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)  # growth if moving to alternate patch
 
@@ -398,7 +421,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         # Effective competitor density: grouped by patch × age_class when
         # age_structured_competition = TRUE, by patch only when FALSE.
         eff_density_all      <- fish_pop |>
-          mutate(age_class = if_else(cohort == current_year, "age0", "age1plus")) |>
+          mutate(age_class = if_else(cohort == biological_year, "age0", "age1plus")) |>
           group_by(across(all_of(eff_grp))) |>
           mutate(
             A_patch     = if_else(first(patch) == "warm", A_warm, A_cold),
@@ -408,20 +431,18 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
           pull(eff_density)
         eff_dens_current_vec <- eff_density_all[mover_rows]
 
-        # DD-adjusted ration uses each mover's per-area effective competitor density
-        ra_warm_dd_vec     <- fish_pop$cmax_allometric[mover_rows] * pcmax_warm_adj *
-                              (K_warm / (K_warm + eff_dens_current_vec))
-        ra_cold_dd_vec     <- fish_pop$cmax_allometric[mover_rows] * pcmax_cold_adj *
-                              (K_cold / (K_cold + eff_dens_current_vec))
-        ra_idx_warm_dd_vec <- pmax(1L, pmin(400L, map_int(ra_warm_dd_vec, ~which.min(abs(ra_seq_ibm - .x)))))
-        ra_idx_cold_dd_vec <- pmax(1L, pmin(400L, map_int(ra_cold_dd_vec, ~which.min(abs(ra_seq_ibm - .x)))))
+        # DD-adjusted p-values use each mover's per-area effective competitor density
+        pv_warm_dd_vec     <- pcmax_warm_adj * (K_warm / (K_warm + eff_dens_current_vec))
+        pv_cold_dd_vec     <- pcmax_cold_adj * (K_cold / (K_cold + eff_dens_current_vec))
+        pv_idx_warm_dd_vec <- pmax(1L, pmin(100L, round(pv_warm_dd_vec * 100)))
+        pv_idx_cold_dd_vec <- pmax(1L, pmin(100L, round(pv_cold_dd_vec * 100)))
 
         # Warm fish sense dd-adjusted warm / abiotic cold; cold fish sense abiotic warm / dd-adjusted cold
         g_warm_vec <- wt_growth[cbind(wt_idx_warm,
-                                      ifelse(in_warm, ra_idx_warm_dd_vec, ra_idx_warm_vec),
+                                      ifelse(in_warm, pv_idx_warm_dd_vec, pv_idx_warm),
                                       ma_idx_vec)]
         g_cold_vec <- wt_growth[cbind(wt_idx_cold,
-                                      ifelse(in_warm, ra_idx_cold_vec, ra_idx_cold_dd_vec),
+                                      ifelse(in_warm, pv_idx_cold, pv_idx_cold_dd_vec),
                                       ma_idx_vec)]
         g_stay     <- ifelse(in_warm, g_warm_vec, g_cold_vec)
         g_move_net <- ifelse(in_warm, g_cold_vec - move_cost_vec, g_warm_vec - move_cost_vec)
@@ -443,7 +464,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         # stochasticity block below is skipped for this sensing mode.
 
         mover_weights_vec <- fish_pop$weight[mover_rows]
-        age_class_all     <- if_else(fish_pop$cohort == current_year, "age0", "age1plus")
+        age_class_all     <- if_else(fish_pop$cohort == biological_year, "age0", "age1plus")
         mover_age_class   <- age_class_all[mover_rows]
         n_age0_total      <- sum(mover_age_class == "age0")
         n_age1p_total     <- length(mover_rows) - n_age0_total
@@ -490,11 +511,25 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
           # Sort dominant-first within this age class
           grp_idx <- grp_idx[order(mover_weights_vec[grp_idx], decreasing = TRUE)]
 
+          # Optional anticipation of smaller fish. Fish in this pool are placed largest-first,
+          # so a fish senses only larger fish already placed; but with dominance_beta < Inf
+          # smaller fish also reduce its realized ration. Add the dominance-weighted load
+          # expected from strictly smaller fish, assuming they remain where they were at the
+          # start of the day (prev_patch). Indexed by position within mover_rows.
+          sm_warm_all <- numeric(length(mover_rows))
+          sm_cold_all <- numeric(length(mover_rows))
+          if (anticipate_smaller) {
+            sm <- fncAnticipSmaller(mover_weights_vec[grp_idx],
+                                    prev_patch[grp_idx] == "warm",
+                                    beta = dominance_beta)
+            sm_warm_all[grp_idx] <- sm$warm
+            sm_cold_all[grp_idx] <- sm$cold
+          }
+
           for (ii in grp_idx) {
             fi       <- mover_rows[ii]          # row index in fish_pop
             wi       <- mover_weights_vec[ii]   # fish weight (g)
-            cmi      <- fish_pop$cmax_allometric[fi]
-            ma_idx_i <- pmax(1L, pmin(4500L, round(wi)))
+            ma_idx_i <- pmax(1L, pmin(24000L, round(wi / 0.25)))  # mass array index (step = 0.25 g)
             prev_i   <- prev_patch[ii]          # patch at start of this day
 
             # Fetch the filled slice of each accumulator for this age class.
@@ -512,16 +547,21 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
             # Effective density in each patch given already-placed fish this step
             ed_warm <- eff_dens_scalar(wi, pw, A_warm)
             ed_cold <- eff_dens_scalar(wi, pc, A_cold)
+            if (anticipate_smaller) {
+              # Inf (area = 0) stays Inf; otherwise add expected load from smaller fish
+              if (is.finite(ed_warm)) ed_warm <- ed_warm + sm_warm_all[ii] / A_warm
+              if (is.finite(ed_cold)) ed_cold <- ed_cold + sm_cold_all[ii] / A_cold
+            }
 
-            # Density-adjusted rations in each patch
-            ra_warm_i <- cmi * pcmax_warm_adj * (K_warm / (K_warm + ed_warm))
-            ra_cold_i <- cmi * pcmax_cold_adj * (K_cold / (K_cold + ed_cold))
-            ra_idx_w  <- pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - ra_warm_i))))
-            ra_idx_c  <- pmax(1L, pmin(400L, which.min(abs(ra_seq_ibm - ra_cold_i))))
+            # Density-adjusted p-values in each patch
+            pv_warm_i <- pcmax_warm_adj * (K_warm / (K_warm + ed_warm))
+            pv_cold_i <- pcmax_cold_adj * (K_cold / (K_cold + ed_cold))
+            pv_idx_w  <- pmax(1L, pmin(100L, round(pv_warm_i * 100)))
+            pv_idx_c  <- pmax(1L, pmin(100L, round(pv_cold_i * 100)))
 
             # Growth lookup in each patch
-            g_warm_i <- wt_growth[wt_idx_warm, ra_idx_w, ma_idx_i]
-            g_cold_i <- wt_growth[wt_idx_cold, ra_idx_c, ma_idx_i]
+            g_warm_i <- wt_growth[wt_idx_warm, pv_idx_w, ma_idx_i]
+            g_cold_i <- wt_growth[wt_idx_cold, pv_idx_c, ma_idx_i]
 
             # Effective growth after movement cost (cost applies only when switching patches).
             # move_cost_vec[ii] is already computed for all movers above.
@@ -639,7 +679,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # This reflects ontogenetic habitat segregation in salmonids when enabled. Self is
     # excluded via the (-1) correction from fncEffDensity.
     fish_pop <- fish_pop |>
-      mutate(age_class = if_else(cohort == current_year, "age0", "age1plus")) |>
+      mutate(age_class = if_else(cohort == biological_year, "age0", "age1plus")) |>
       group_by(patch) |>
       mutate(
         A_patch = if_else(first(patch) == "warm", A_warm, A_cold),
@@ -658,19 +698,29 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
       fdens[fdens > MaxDensity4Growth] <- MaxDensity4Growth
       density_effect <- fncRescale((1 - c(fdens, 0.01, MaxDensity4Growth)), c(0.5, 1))
       density_effect <- density_effect[-c(length(density_effect), length(density_effect) - 1)]
-      fish_pop <- fish_pop |> mutate(ration = ration * density_effect)
+      fish_pop <- fish_pop |> mutate(pcmax_adjusted_dd = pcmax_adjusted * density_effect)
     } else if (food_densdepen == "hyperbolic") {
       ### 3b. Hyperbolic reduction — each fish's P_Cmax is penalised by its own effective density
       # (eff_density, in fish per unit area, self excluded). Large dominant fish face a lower
       # eff_density → less suppression; small subordinate fish face a higher eff_density → more.
       # No -1 correction needed: self is already excluded from eff_density.
+      #
+      # p_calc governs how the bioenergetics P passed to the growth lookup is computed.
+      # The lookup table delivers growth as CMAX * PP * f(T), so:
+      #   legacy:    PP = min(fT, pcmax) * dd              [fT double-counted when temp-limited]
+      #   corrected: PP = min(fT, pcmax) * dd / fT         [unit conversion; table recovers intended ration]
+      #   fixed_p:   PP = pcmax * dd                       [patch P unaffected by temperature; fT still enters via table]
       fish_pop <- fish_pop |>
         mutate(
           k                 = if_else(patch == "warm", K_warm, K_cold),
-          pcmax_adjusted_dd = pcmax_adjusted * (k / (k + eff_density)),
-          ration            = cmax_allometric * pcmax_adjusted_dd
+          dd_factor         = k / (k + eff_density),
+          pcmax_adjusted_dd = case_when(
+            p_calc == "legacy"    ~ pcmax_adjusted * dd_factor,
+            p_calc == "corrected" ~ pcmax_adjusted * dd_factor / pmax(func_temp, 1e-6),
+            p_calc == "fixed_p"   ~ pcmax_baseline * dd_factor
+          )
         ) |>
-        select(-k)
+        select(-k, -dd_factor)
     }
 
     # 4. GROW FISH ─────────────────────────────────────────────────────────────
@@ -777,7 +827,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     condition_spw <- fish_pop$weight / fish_pop$peak_weight
 
     # Combined daily spawning probability: size × condition × date
-    p_spawn <- fncMaturitySize(fish_pop$weight) *
+    p_spawn <- fncMaturitySize(fish_pop$peak_weight) * # note that size-based spawning prob. is based on peak_weight, rather than weight which would effectively double counts the effect of condition for small-moderate sized spawners
                fncMaturityCondition(condition_spw) *
                fncMaturityDate(doy_d)
 
@@ -814,7 +864,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
         parent  <- fish_pop[si, ]
         parent$weight <- weight_at_spawn[i]  # restore pre-cost weight for logging
         n_off   <- n_eggs[i]
-        new_pids <- seq(next_pid, next_pid + n_off - 1L)
+        new_pids <- seq_len(n_off) + next_pid - 1L
 
         # Initial offspring weights drawn from same distribution as founders
         off_wt <- pmax(min_wt, rnorm(n_off, start_wt, wt_sd))
@@ -836,8 +886,8 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
           pcmax_adjusted    = NA_real_,
           pcmax_adjusted_dd = NA_real_,
           func_temp         = NA_real_,
-          ration            = NA_real_,
           move_threshold    = off_thresh,
+          hatch_wt          = off_wt,
           peak_weight       = off_wt,
           age_days          = 0L,
           spawned_this_year = FALSE,
@@ -884,75 +934,69 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     s_max_vec <- ifelse(fish_pop$patch == "warm", S_max_warm, S_max_cold)
 
     # Size-dependent survival: logistic sigmoid in weight, rising from minprob floor to habitat-specific maxprob
-    p_sg      <- fncSurviveSize(fish_pop$weight, minprob = s_min, maxprob = s_max_vec, w0 = s_w0, k = s_k)[[1]]
+    p_sg      <- fncSurviveSize(fish_pop$weight, minprob = s_min, maxprob = 1, w0 = s_w0, k = s_k)[[1]]
 
     # Temperature-dependent survival: multiplied with size/growth probability so both act simultaneously
     p_temp    <- fncSurviveTemp(growth_df$WT.actual, T1 = T1_mort, T9 = T9_mort)
 
     # Condition-based (starvation) survival: relative condition = current / peak weight
     condition <- fish_pop$weight / fish_pop$peak_weight
-    p_starv   <- fncSurviveStarve(condition, K9 = K9_starv, K1 = K1_starv)
+    p_starv   <- fncSurviveStarve(condition, K9 = K9_starv, K1 = K1_starv, s_floor = s_floor_starv)
 
-    # Age-based survival (senescence): survival probability declines past age_thresh years old.
+    # Age-based survival (senescent decline): survival probability declines past age_thresh years old.
     p_age <- fncSurviveAge(fish_pop$age_days / 365,
                            x0    = age_x0,
                            k     = age_k,
                            p_min = age_pmin)
 
-    # Critical-period consumption-based survival (Elliott 1989) — disabled.
-    # Replaced by the sigmoid shape of fncSurviveSize, which sustains strong size-dependent
-    # mortality below w0 (~7g) and achieves the same growth-mediated density dependence
-    # without requiring a separate consumption threshold module.
-    # p_crit <- fncSurviveConsumption(
-    #   pcmax_dd         = fish_pop$pcmax_adjusted_dd,
-    #   age_days         = fish_pop$age_days,
-    #   crit_pcmax_lo    = crit_pcmax_lo,
-    #   crit_pcmax_hi    = crit_pcmax_hi,
-    #   crit_period_days = crit_period_days
-    # )
-
     # Calculate combined daily survival rate
-    prb.srv   <- pmin(p_sg * p_temp * p_starv * p_age, 1)
+    prb.srv   <- pmin(p_sg * p_temp * p_starv * p_age, s_max_vec)
 
-    # Minimum weight floor: fish that drop below hatch weight die immediately (backstop)
-    prb.srv[fish_pop$weight < start_wt] <- 0
+    # Minimum weight floor: fish that drop below their individual hatch weight die immediately (backstop)
+    prb.srv[fish_pop$weight < fish_pop$hatch_wt] <- 0
 
     survivors <- rbinom(nrow(growth_df), size = 1, prob = prb.srv)
     growth_df <- growth_df |>
       mutate(prob_surv = prb.srv, survive = survivors)
 
     # 7. STORE RESULTS AND REMOVE NON-SURVIVORS ────────────────────────────────
-    # Daily summary (all days): one row per strategy, no per-fish detail.
-    # Avoids building a massive ibm_long just to summarise it post-loop.
-    ibm_summary_list[[d]] <- data.frame(
-      strategy  = fish_pop$strategy,
-      weight    = fish_pop$weight,
-      patch     = fish_pop$patch,
-      temp      = growth_df$WT.actual,
-      ggd       = growth_df$growth,
-      survived  = growth_df$survive,
-      condition = condition
-    ) |>
-      group_by(strategy) |>
-      summarise(
-        dayofsim       = d,
-        date           = habitat_df$date[d],
-        mean_weight    = mean(weight,    na.rm = TRUE),
-        sd_weight      = sd(weight,      na.rm = TRUE),
-        mean_temp      = mean(temp,      na.rm = TRUE),
-        sd_temp        = sd(temp,        na.rm = TRUE),
-        mean_ggd       = mean(ggd,       na.rm = TRUE),
-        sd_ggd         = sd(ggd,         na.rm = TRUE),
-        prop_warm      = mean(patch == "warm", na.rm = TRUE),
-        n_alive        = sum(survived,   na.rm = TRUE),
-        mean_condition = mean(condition, na.rm = TRUE),
-        sd_condition   = sd(condition,   na.rm = TRUE),
-        .groups        = "drop"
-      )
+    # Summary on the 1st of each month (all years, incl. burn-in): one row per
+    # strategy × patch × age class (age_class = floor(age in years)), no per-fish detail.
+    # n_alive and biomass_g count survivors only, so summing them across patches
+    # gives age-specific abundance and biomass. mean_weight/sd_weight are also
+    # survivor-only (biomass_g / n_alive); temp, ggd and condition are means over
+    # all fish present that day (n_start).
+    if (mday(habitat_df$date[d]) == 1L) {
+      ibm_summary_list[[d]] <- data.frame(
+        strategy  = fish_pop$strategy,
+        patch     = fish_pop$patch,
+        age_class = as.integer(floor(fish_pop$age_days / 365)),
+        weight    = fish_pop$weight,
+        temp      = growth_df$WT.actual,
+        ggd       = growth_df$growth,
+        survived  = growth_df$survive,
+        condition = condition
+      ) |>
+        group_by(strategy, patch, age_class) |>
+        summarise(
+          dayofsim       = d,
+          date           = habitat_df$date[d],
+          n_start        = n(),
+          n_alive        = as.integer(sum(survived, na.rm = TRUE)),
+          biomass_g      = sum(weight[survived == 1], na.rm = TRUE),
+          mean_weight    = mean(weight[survived == 1], na.rm = TRUE),
+          sd_weight      = sd(weight[survived == 1],   na.rm = TRUE),
+          mean_temp      = mean(temp,      na.rm = TRUE),
+          mean_ggd       = mean(ggd,       na.rm = TRUE),
+          mean_condition = mean(condition, na.rm = TRUE),
+          .groups        = "drop"
+        )
+    }
 
-    # Per-fish records (all days): join columns embedded directly so
-    # no post-loop left_join against fish_registry or habitat_df is needed.
-    ibm_records[[d]] <- data.frame(
+    # Per-fish records: join columns embedded directly so no post-loop left_join
+    # against fish_registry or habitat_df is needed. Burn-in days are skipped
+    # (left NULL, which bind_rows() ignores) when save_burnin = FALSE.
+    if (save_burnin || habitat_df$date[d] >= exp_start_date) ibm_records[[d]] <- data.frame(
       pid            = fish_pop$pid,
       dayofsim       = d,
       date           = habitat_df$date[d],
@@ -983,12 +1027,12 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   harvest_log      <- if (length(harvest_log_list)      > 0) bind_rows(harvest_log_list)      else harvest_log_empty
   harvest_summary  <- if (length(harvest_summary_list)  > 0) bind_rows(harvest_summary_list)  else harvest_summary_empty
 
-  # ── Collate ibm_long (experimental period only; join columns embedded) ────────
+  # ── Collate ibm_long (experimental period only if save_burnin = FALSE) ────────
   # No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored
   # directly in each ibm_records[[d]] during step 7.
   ibm_long <- bind_rows(ibm_records)
 
-  # ── Daily summary (all days, pre-computed in the loop) ────────────────────────
+  # ── Monthly summary (1st of each month, pre-computed in the loop) ─────────────
   ibm_summary <- bind_rows(ibm_summary_list)
 
   list(

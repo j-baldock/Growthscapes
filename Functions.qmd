@@ -24,7 +24,7 @@ Load pre-calculated growth
 
 ```{r}
 #| cache: false
-load("data/wt.growth.array.RData")
+load("data/wt.growth.array.pval.sthd.RData")
 ```
 
 ## Basic functions
@@ -502,7 +502,7 @@ fncGrowthFish <- function(PIDs = NA, fish, T_warm, T_cold) {
   } else {
     td <- fish[fish$pid %in% PIDs, c("pid", "weight", "pcmax_adjusted_dd", "patch")]  # specific fish
   }
-  td[, "weight"][td[, "weight"] < 1] <- 1  # minimum lookup weight is 1 g
+  td[, "weight"][td[, "weight"] < min(ma.seq)] <- min(ma.seq)  # clamp to minimum lookup weight (0.25 g)
 
   if (nrow(td) > 0) {
     n <- nrow(td)
@@ -659,7 +659,9 @@ Write softmax function
 
 ```{r}
 fncMoveSoftmax <- function(gwarm, gcold, tau = 0.001) {
-  exp(gwarm / tau) / (exp(gwarm / tau) + exp(gcold / tau))
+  # exp(gwarm / tau) / (exp(gwarm / tau) + exp(gcold / tau))
+  z <- (gwarm - gcold) / tau
+  1 / (1 + exp(-z))   # numerically stable; equivalent when z is finite
 }
 ```
 
@@ -1210,7 +1212,7 @@ ggplot(cost_df, aes(x = weight, y = cost, color = option)) +
 ```
 
 How do movement costs under different parameter sets actually compare to differences in growth between habitats, for different sized fish?
-```{r fig.width=8, fig.height=5}
+```{r fig.width=8, fig.height=5, eval=FALSE}
 #| purl: false
 
 rations <- seq(0.02, 0.17, 0.001)
@@ -1449,7 +1451,7 @@ Write the function:
 #   alpha_ij = (m_j/m_i)^beta if m_j <  m_i  (focal fish dominates j — reduced cost)
 # beta = 0 → pure scramble (all competitors equivalent, recovers standard hyperbolic scalar)
 # beta = 1 → linear size-based dominance
-# beta → Inf → pure contest (only larger fish impose any cost)
+# beta → Inf → pure contest (only larger fish impose any cost...entirely rank-based)
 fncEffDensity <- function(weights, beta = 1) {
   # Returns effective density for each fish: a size-weighted count of competitors.
   # Fish larger than or equal to focal fish count as 1; smaller fish count as (w_j/w_i)^beta.
@@ -1477,6 +1479,42 @@ fncEffDensity <- function(weights, beta = 1) {
   ed <- numeric(n)
   ed[ord] <- ed_sort
   ed
+}
+```
+
+#### Anticipated competition from smaller fish
+
+Fish choose patches in descending size order, so at the moment a fish chooses it can only "see" the larger fish already placed. For `beta < Inf`, however, smaller fish also reduce its realized ration. `fncAnticipSmaller` gives the dominance-weighted competitive load each fish should expect from *smaller* fish in each patch, based on where those fish were at the start of the day (i.e., their previous-day positions):
+
+$$
+\text{load}_{i,X} = \sum_{j:\, m_j < m_i} \left(\frac{m_j}{m_i}\right)^{\beta} \mathbb{1}[\text{patch}_j = X]
+$$
+
+It uses the same sorted cumulative-sum approach as `fncEffDensity` (O(n log n)). Divide by patch area and add to the density from larger, already-placed fish to obtain the density a fish expects to experience. Smaller fish contribute nothing when `beta = Inf`.
+
+```{r}
+# weights : body masses of fish in one competitive pool
+# in_warm : logical, TRUE if the fish was in the warm patch at the start of the day
+# beta    : dominance exponent
+# Returns list(warm, cold): expected (dominance-weighted) count of strictly smaller
+# fish in each patch, from the perspective of each focal fish. Not divided by area.
+fncAnticipSmaller <- function(weights, in_warm, beta = 1) {
+  n <- length(weights)
+  if (n <= 1L || is.infinite(beta)) {
+    return(list(warm = numeric(n), cold = numeric(n)))
+  }
+  ord      <- order(weights)
+  w_sort   <- weights[ord]
+  wb       <- w_sort^beta
+  warm_s   <- in_warm[ord]
+  cs_warm  <- c(0, cumsum(wb * warm_s))
+  cs_cold  <- c(0, cumsum(wb * !warm_s))
+  k_less   <- findInterval(w_sort, w_sort, left.open = TRUE)  # number strictly lighter
+  out_warm <- numeric(n)
+  out_cold <- numeric(n)
+  out_warm[ord] <- cs_warm[k_less + 1L] / wb
+  out_cold[ord] <- cs_cold[k_less + 1L] / wb
+  list(warm = out_warm, cold = out_cold)
 }
 ```
 
@@ -1818,7 +1856,7 @@ p1 <- ggplot(df_size, aes(x = weight, y = daily)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
   labs(x = "Fish weight (g)", y = "Daily survival probability",
        title = "Daily survival probability by weight") +
-  theme_bw()
+  theme_bw() + ylim(0.96,1)
 
 p2 <- ggplot(df_size, aes(x = weight, y = cum60)) +
   geom_line() +
@@ -1826,7 +1864,7 @@ p2 <- ggplot(df_size, aes(x = weight, y = cum60)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   labs(x = "Fish weight (g)", y = "60-day cumulative survival",
        title = "60-day cumulative survival by weight") +
-  theme_bw()
+  theme_bw() + ylim(0,1)
 
 p1 / p2
 ```
@@ -1997,22 +2035,24 @@ data.frame(temp = seq(15, 35, by = 0.1)) |>
 
 $$K_{\text{rel}} = \frac{W_{\text{current}}}{W_{\text{peak}}}$$
 
-A fish that has never lost mass has $K_{\text{rel}} = 1$; a fish that has lost 40% of its peak mass has $K_{\text{rel}} = 0.6$. Survival probability declines logistically below a threshold, using the same two-anchor parameterisation as `fncSurviveTemp`:
+A fish that has never lost mass has $K_{\text{rel}} = 1$; a fish that has lost 40% of its peak mass has $K_{\text{rel}} = 0.6$. Survival probability declines logistically below a threshold, using the same two-anchor parameterisation as `fncSurviveTemp`. A floor parameter sets a minimum daily survival probability even at zero condition, preventing the logistic from assigning near-certain death to fish in poor but recoverable condition:
 
--   `K9`: condition at which daily survival = 0.9 (onset of starvation effects; default 0.60)
--   `K1`: condition at which daily survival = 0.1 (near-lethal condition; default 0.40)
+-   `K9`: condition at which daily survival is 90% of the way from `s_floor` to 1.0 (onset of starvation effects; default 0.55)
+-   `K1`: condition at which daily survival is 10% of the way from `s_floor` to 1.0 (near-lethal condition; default 0.45)
+-   `s_floor`: minimum daily survival probability at zero condition (default 0, i.e. standard logistic with no floor)
 
 Letcher *et al.* (1996, TAFS) provides the strong support for parameterizing mortality due to starvation in this way. In that paper, they show that proportional mass loss until starvation was indepenent of body size, but did depend on feeding history. Fish fed continuously before starvation died after losing 55% of body mass, but intermittent feeders died when they were slightly heavier (51-46% mass loss). Note that this study was conducted on yellow perch.
 
 ```{r}
-fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
+fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45, s_floor = 0) {
   # condition: numeric vector of relative condition values (current_weight / peak_weight)
-  # K9:        condition at which daily survival = 0.9 (onset of starvation effects)
-  # K1:        condition at which daily survival = 0.1 (near-lethal)
+  # K9:        condition at which daily survival is 90% of the way from s_floor to 1.0
+  # K1:        condition at which daily survival is 10% of the way from s_floor to 1.0
+  # s_floor:   minimum daily survival probability (floor of the logistic; default 0)
   # Returns a probability vector; multiply with other survival probabilities before sampling.
   K50 <- (K1 + K9) / 2
   k   <- 2 * log(9) / (K9 - K1)  # note: sign flipped vs. temperature — survival rises with condition
-  1 / (1 + exp(-k * (condition - K50)))
+  s_floor + (1 - s_floor) * (1 / (1 + exp(-k * (condition - K50))))
 }
 ```
 
@@ -2021,75 +2061,68 @@ Plot the curve to check the anchor points:
 ```{r}
 #| purl: false
 
-data.frame(condition = seq(0, 1, by = 0.01)) |>
-  dplyr::mutate(p_survive = fncSurviveStarve(condition)) |>
-  ggplot(aes(x = condition, y = p_survive)) +
-  geom_line() +
-  geom_point(data = data.frame(condition = c(0.55, 0.45), p_survive = c(0.9, 0.1)),
+cond_seq <- seq(0, 1, by = 0.01)
+purrr::map_dfr(c(0, 0.90, 0.95), function(flr) {
+  data.frame(condition = cond_seq,
+             p_survive = fncSurviveStarve(cond_seq, s_floor = flr),
+             floor     = paste0("s_floor = ", flr))
+}) |>
+  ggplot(aes(x = condition, y = p_survive, color = floor)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(data = data.frame(condition = c(0.55, 0.45), p_survive = c(0.9, 0.1), floor = "s_floor = 0"),
              size = 3, shape = 21, fill = "white") +
   geom_hline(yintercept = c(0.1, 0.9), linetype = "dashed", alpha = 0.4) +
   geom_vline(xintercept = c(0.55, 0.45), linetype = "dashed", alpha = 0.4) +
-  theme_bw() + theme(panel.grid = element_blank()) +
+  scale_color_manual(values = c("black", "#E69F00", "#009E73"), name = NULL) +
+  theme_bw() + theme(panel.grid = element_blank(), legend.position = "top") +
   xlab("Relative condition (current weight / peak weight)") + ylab("Daily survival probability") +
   labs(title = "Condition-based (starvation) daily survival",
-       subtitle = "Anchor points: P = 0.9 at K = 0.75, P = 0.1 at K = 0.50")
+       subtitle = "Default K1=0.45, K9=0.55; open circles show anchor points for floor = 0")
 ```
 
-Plot the curve under a few candidate parameter sets to explore how the resulting curves relate to observed condition factors/mass loss from the IBM
+To compare candidate parameter sets concretely, compute 30-day cumulative survival for fish held at condition 0.65 and 0.70 — the typical minimum condition range for reproductively mature fish after winter mass loss and spawning:
 
 ```{r}
 #| purl: false
 
 candidate_params <- list(
-  "Stringent (K9=0.6, K1=0.5)"  = c(K9 = 0.7, K1 = 0.6),
-  "Default (K9=0.5, K1=0.4)" = c(K9 = 0.55, K1 = 0.45),
-  "Lenient (K9=0.4, K1=0.3)"  = c(K9 = 0.4, K1 = 0.3)
+  "K1=0.45 / K9=0.55 / floor=0"    = c(K1 = 0.45, K9 = 0.55, s_floor = 0.00),
+  "K1=0.60 / K9=0.70 / floor=0"    = c(K1 = 0.60, K9 = 0.70, s_floor = 0.00),
+  "K1=0.60 / K9=0.70 / floor=0.90" = c(K1 = 0.60, K9 = 0.70, s_floor = 0.90),
+  "K1=0.60 / K9=0.70 / floor=0.95" = c(K1 = 0.60, K9 = 0.70, s_floor = 0.95)
 )
 
-curve_df <- purrr::map_dfr(names(candidate_params), function(nm) {
+surv_df <- purrr::map_dfr(names(candidate_params), function(nm) {
   p <- candidate_params[[nm]]
-  data.frame(
-    condition  = seq(0, 1, by = 0.01),
-    p_survive  = fncSurviveStarve(seq(0, 1, by = 0.01), K9 = p["K9"], K1 = p["K1"]),
-    params     = nm
-  )
+  purrr::map_dfr(c(0.65, 0.70), function(cond) {
+    daily <- fncSurviveStarve(cond, K9 = p["K9"], K1 = p["K1"], s_floor = p["s_floor"])
+    data.frame(
+      params       = factor(nm, levels = names(candidate_params)),
+      condition    = paste0("Condition = ", cond),
+      surv_30d_pct = round(daily^30 * 100, 1)
+    )
+  })
 })
 
-# Observed condition density per strategy (rug-style summary)
-# cond_summary <- condition_long |>
-#   group_by(strategy) |>
-#   summarise(
-#     p05 = quantile(condition, 0.05, na.rm = TRUE),
-#     p25 = quantile(condition, 0.25, na.rm = TRUE),
-#     med = median(condition, na.rm = TRUE),
-#     .groups = "drop"
-#   )
-
-ggplot(curve_df, aes(x = condition, y = p_survive, color = params)) +
-  geom_line(linewidth = 0.9) +
-  # Shade the range of typical cold-resident summer condition
-  annotate("rect", xmin = 0.63, xmax = 0.80, ymin = -Inf, ymax = Inf,
-           fill = "blue", alpha = 0.07) +
-  annotate("text", x = 0.715, y = 0.1, label = "Cold resident\nsummer range",
-           color = "blue", size = 3, hjust = 0.5) +
-  # Mark warm resident crash zone
-  annotate("rect", xmin = 0, xmax = 0.40, ymin = -Inf, ymax = Inf,
-           fill = "red", alpha = 0.07) +
-  annotate("text", x = 0.20, y = 0.1, label = "Warm resident\ncrash zone",
-           color = "red", size = 3, hjust = 0.5) +
-  scale_color_manual(values = c("black", "steelblue", "darkorange")) +
-  theme_bw() + theme(panel.grid = element_blank(), legend.position = "top") +
-  xlab("Relative condition (W / W_peak)") + ylab("Daily survival probability") +
-  labs(title = "Candidate starvation mortality curves",
-       subtitle = "Shaded regions: typical cold-resident summer condition (blue) and warm-resident crash zone (red)",
-       color = NULL)
+ggplot(surv_df, aes(x = params, y = surv_30d_pct, fill = params)) +
+  geom_col(width = 0.65, show.legend = FALSE) +
+  geom_text(aes(label = paste0(surv_30d_pct, "%")),
+            vjust = -0.4, size = 3.5) +
+  facet_wrap(~condition) +
+  scale_fill_manual(values = c("grey55", "#D55E00", "#E69F00", "#009E73")) +
+  scale_y_continuous(limits = c(0, 112), expand = c(0, 0)) +
+  theme_bw() +
+  theme(panel.grid  = element_blank(),
+        axis.text.x = element_text(angle = 30, hjust = 1, size = 8)) +
+  xlab(NULL) + ylab("30-day cumulative survival (%)") +
+  labs(title    = "30-day cumulative survival at minimum condition",
+       subtitle = "Fish held at fixed condition for 30 days; typical post-spawn/winter nadir = 0.65–0.70")
 ```
 
-*The shaded regions above were generated from a previous simulation run. Current ranges of conditions between the strategies should be compared to survival curve used to make sure they are reasonable.*
-
--   **Default (K9=0.55, K1=0.45)**: K9 sits right at the lower edge of cold-resident winter condition, meaning most cold residents are spared but fish at their seasonal worst (\~0.63) face mild pressure. This is probably the most biologically defensible — seasonal mass loss is survivable, but persistent severe loss is not.
--   **Lenient (K9=0.4, K1=0.3)**: Cold residents mostly escape the starvation mortality entirely (their winter minimum \~0.63 sits above K9). The starvation mechanism only catches fish that have lost \>65% of peak mass — reserved for genuinely catastrophic deficit.
--   **Stringent (K9=0.6, K1=0.5)**: The inflection point falls within the blue shaded cold-resident summer range — starvation mortality would fire hard on cold residents every winter during normal seasonal mass loss. Too aggressive.
+-   **K1=0.45 / K9=0.55 / floor=0**: condition-based mortality is negligible at 0.65–0.70 (both values sit well above the K9 cliff). This parameterisation effectively disables the starvation mechanism for fish at realistic minimum conditions.
+-   **K1=0.55 / K9=0.65 / floor=0**: condition 0.65 falls exactly on K9 (daily survival = 0.9), compounding to only ~4% 30-day survival. Catastrophic at the nadir without a floor.
+-   **K1=0.55 / K9=0.65 / floor=0.90**: the floor rescues survival to 74% at condition 0.65 and 96% at 0.70 — a meaningful but non-lethal penalty for poor condition.
+-   **K1=0.55 / K9=0.65 / floor=0.95**: survival is 86% at condition 0.65 and 98% at 0.70 — the gentlest graded cost consistent with K1/K9=0.55/0.65.
 
 
 ### Critical period

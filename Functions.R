@@ -13,7 +13,7 @@ library(patchwork)
 source("Habitat.R")
 
 #| cache: false
-load("data/wt.growth.array.RData")
+load("data/wt.growth.array.pval.sthd.RData")
 
 
 # Rescale a vector to a specific
@@ -448,7 +448,7 @@ fncGrowthFish <- function(PIDs = NA, fish, T_warm, T_cold) {
   } else {
     td <- fish[fish$pid %in% PIDs, c("pid", "weight", "pcmax_adjusted_dd", "patch")]  # specific fish
   }
-  td[, "weight"][td[, "weight"] < 1] <- 1  # minimum lookup weight is 1 g
+  td[, "weight"][td[, "weight"] < min(ma.seq)] <- min(ma.seq)  # clamp to minimum lookup weight (0.25 g)
 
   if (nrow(td) > 0) {
     n <- nrow(td)
@@ -549,7 +549,9 @@ fncAllomCmax <- function(weight) {
 
 
 fncMoveSoftmax <- function(gwarm, gcold, tau = 0.001) {
-  exp(gwarm / tau) / (exp(gwarm / tau) + exp(gcold / tau))
+  # exp(gwarm / tau) / (exp(gwarm / tau) + exp(gcold / tau))
+  z <- (gwarm - gcold) / tau
+  1 / (1 + exp(-z))   # numerically stable; equivalent when z is finite
 }
 
 
@@ -603,7 +605,7 @@ fncDensityRationScalar <- function(fish_pop, k_warm = 50, k_cold = 50,
 #   alpha_ij = (m_j/m_i)^beta if m_j <  m_i  (focal fish dominates j — reduced cost)
 # beta = 0 → pure scramble (all competitors equivalent, recovers standard hyperbolic scalar)
 # beta = 1 → linear size-based dominance
-# beta → Inf → pure contest (only larger fish impose any cost)
+# beta → Inf → pure contest (only larger fish impose any cost...entirely rank-based)
 fncEffDensity <- function(weights, beta = 1) {
   # Returns effective density for each fish: a size-weighted count of competitors.
   # Fish larger than or equal to focal fish count as 1; smaller fish count as (w_j/w_i)^beta.
@@ -631,6 +633,31 @@ fncEffDensity <- function(weights, beta = 1) {
   ed <- numeric(n)
   ed[ord] <- ed_sort
   ed
+}
+
+
+# weights : body masses of fish in one competitive pool
+# in_warm : logical, TRUE if the fish was in the warm patch at the start of the day
+# beta    : dominance exponent
+# Returns list(warm, cold): expected (dominance-weighted) count of strictly smaller
+# fish in each patch, from the perspective of each focal fish. Not divided by area.
+fncAnticipSmaller <- function(weights, in_warm, beta = 1) {
+  n <- length(weights)
+  if (n <= 1L || is.infinite(beta)) {
+    return(list(warm = numeric(n), cold = numeric(n)))
+  }
+  ord      <- order(weights)
+  w_sort   <- weights[ord]
+  wb       <- w_sort^beta
+  warm_s   <- in_warm[ord]
+  cs_warm  <- c(0, cumsum(wb * warm_s))
+  cs_cold  <- c(0, cumsum(wb * !warm_s))
+  k_less   <- findInterval(w_sort, w_sort, left.open = TRUE)  # number strictly lighter
+  out_warm <- numeric(n)
+  out_cold <- numeric(n)
+  out_warm[ord] <- cs_warm[k_less + 1L] / wb
+  out_cold[ord] <- cs_cold[k_less + 1L] / wb
+  list(warm = out_warm, cold = out_cold)
 }
 
 
@@ -759,14 +786,15 @@ fncSurviveTemp <- function(temp, T1 = 30, T9 = 25.8) {
 
 
 
-fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45) {
+fncSurviveStarve <- function(condition, K9 = 0.55, K1 = 0.45, s_floor = 0) {
   # condition: numeric vector of relative condition values (current_weight / peak_weight)
-  # K9:        condition at which daily survival = 0.9 (onset of starvation effects)
-  # K1:        condition at which daily survival = 0.1 (near-lethal)
+  # K9:        condition at which daily survival is 90% of the way from s_floor to 1.0
+  # K1:        condition at which daily survival is 10% of the way from s_floor to 1.0
+  # s_floor:   minimum daily survival probability (floor of the logistic; default 0)
   # Returns a probability vector; multiply with other survival probabilities before sampling.
   K50 <- (K1 + K9) / 2
   k   <- 2 * log(9) / (K9 - K1)  # note: sign flipped vs. temperature — survival rises with condition
-  1 / (1 + exp(-k * (condition - K50)))
+  s_floor + (1 - s_floor) * (1 / (1 + exp(-k * (condition - K50))))
 }
 
 

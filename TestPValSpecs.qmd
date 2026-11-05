@@ -1,0 +1,877 @@
+---
+title: "Sensitivity to Consumption Type"
+---
+
+```{r, include = FALSE, cache = FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggpubr)
+library(egg)
+library(RColorBrewer)
+library(ggridges)
+library(patchwork)
+library(scales)
+
+source("Functions.R")
+source("PlotResults.R")
+```
+
+
+## Setup
+
+```{r}
+#| cache: false
+
+# Extract params from one file (small object)
+res            <- readRDS("results/Sensitivity_ColdOnly_Plegacy_05p.rds")
+sim_params     <- res$params
+exp_start_date <- sim_params$mindate + years(sim_params$nyears_burnin)
+rm(res)
+
+# Helper: read one scenario, extract ibm_long and spawn_log, and free res before returning
+load_scen <- function(path, ptype, pc, ht, ac, aw, pcmax_cold, pcmax_warm, species) {
+  res <- readRDS(path)
+  list(df = res$ibm_long, spawn_log = res$spawn_log, 
+       ptype = ptype, pc = pc, ht = ht, ac = ac, aw = aw, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm, species = species)
+}
+
+ibm_list_mech <- list(
+  load_scen("results/Sensitivity_ColdOnly_Plegacy_05p.rds",     "legacy",     0.50, "Cold only",    1.0,  0.0,  0.5,  NA_real_, "STHD"),
+  load_scen("results/Sensitivity_ColdOnly_Pcorrected_05p.rds",  "corrected",  0.50, "Cold only",    1.0,  0.0,  0.5,  NA_real_, "STHD"),
+  load_scen("results/Sensitivity_ColdOnly_Pfixedp_05p.rds",     "fixedp",     0.50, "Cold only",    1.0,  0.0,  0.5,  NA_real_, "STHD"),
+  load_scen("results/Sensitivity_ColdWarm_Plegacy_05p.rds",     "legacy",     0.50, "Cold + Warm",  1.0,  1.0,  0.5,  0.5,      "STHD"),
+  load_scen("results/Sensitivity_ColdWarm_Pcorrected_05p.rds",  "corrected",  0.50, "Cold + Warm",  1.0,  1.0,  0.5,  0.5,      "STHD"),
+  load_scen("results/Sensitivity_ColdWarm_Pfixedp_05p.rds",     "fixedp",     0.50, "Cold + Warm",  1.0,  1.0,  0.5,  0.5,      "STHD")
+  # load_scen("results/Test_ColdOnly_CUTT_Plegacy.rds",     "legacy",     0.50, "Cold only",    1.0,  0.0,  0.8,  NA_real_, "CUTT"),
+  # load_scen("results/Test_ColdOnly_CUTT_Pcorrected.rds",  "corrected",  0.50, "Cold only",    1.0,  0.0,  0.8,  NA_real_, "CUTT"),
+  # load_scen("results/Test_ColdOnly_CUTT_Pfixedp.rds",     "fixedp",     0.50, "Cold only",    1.0,  0.0,  0.8,  NA_real_, "CUTT"),
+  # load_scen("results/Test_ColdWarm_CUTT_Plegacy.rds",     "legacy",     0.50, "Cold + Warm",  1.0,  1.0,  0.8,  0.8,      "CUTT"),
+  # load_scen("results/Test_ColdWarm_CUTT_Pcorrected.rds",  "corrected",  0.50, "Cold + Warm",  1.0,  1.0,  0.8,  0.8,      "CUTT"),
+  # load_scen("results/Test_ColdWarm_CUTT_Pfixedp.rds",     "fixedp",     0.50, "Cold + Warm",  1.0,  1.0,  0.8,  0.8,      "CUTT")
+)
+
+```
+
+Data prep
+```{r}
+ptype_levels   <- c("legacy", "corrected", "fixedp")
+hab_levels     <- c("Cold only", "Cold + Warm")
+# species_levels <- c("STHD", "CUTT")
+hab_fills      <- c("Cold only" = "#6BAED6", "Cold + Warm" = "#FC8D59")
+
+# Annotate ptype (elements 1–3 = Cold only, 4–6 = Cold + Warm; order: legacy, corrected, fixedp)
+ptype_order <- c("legacy", "corrected", "fixedp")
+# for (i in seq_along(ibm_list_mech)) {
+#   ibm_list_mech[[i]]$ptype <- ptype_order[((i - 1) %% 3) + 1]
+# }
+
+# Oct 1 census: experimental period, survivors only
+exp_oct1_mech <- purrr::map_dfr(ibm_list_mech, function(s) {
+  s$df |>
+    filter(date >= exp_start_date,
+           month(date) == 10, day(date) == 1,
+           survived == 1) |>
+    mutate(ptype = s$ptype, hab_type = s$ht, #species = s$species,
+           year = year(date), age_class = floor(age))
+}) |>
+  mutate(ptype    = factor(ptype,    levels = ptype_levels),
+         hab_type = factor(hab_type, levels = hab_levels)
+         #species  = factor(species,  levels = species_levels)
+         )
+
+pop_yr <- exp_oct1_mech |>
+  group_by(ptype, hab_type, year) |>
+  summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
+
+pop_sum <- pop_yr |>
+  group_by(ptype, hab_type) |>
+  summarise(mean_n = mean(n), sd_n = sd(n),
+            mean_b = mean(biomass_kg), sd_b = sd(biomass_kg), .groups = "drop")
+
+age0_sum <- exp_oct1_mech |>
+  filter(age_class == 0) |>
+  group_by(ptype, hab_type, year) |>
+  summarise(n_age0 = n(), .groups = "drop") |>
+  group_by(ptype, hab_type) |>
+  summarise(mean_n0 = mean(n_age0), sd_n0 = sd(n_age0), .groups = "drop")
+
+waa <- exp_oct1_mech |>
+  filter(age_class >= 0, age_class <= 15) |>
+  group_by(ptype, hab_type, age_class) |>
+  summarise(mean_wt = mean(weight), sd_wt = sd(weight), n = n(), .groups = "drop") |>
+  filter(n >= 10)
+
+spawn_yr <- purrr::map_dfr(ibm_list_mech, function(s) {
+  s$spawn_log |>
+    mutate(date = sim_params$mindate + (dayofsim - 1L), yr = year(date)) |>
+    filter(date >= exp_start_date) |>
+    group_by(yr, parent_pid) |>
+    summarize(parent_wt = mean(weight), .groups = "drop") |>
+    group_by(yr) |>
+    summarise(n_spawners = n_distinct(parent_pid), 
+              biom_spawn_kg = sum(parent_wt)/1000, 
+              .groups = "drop") |>
+    mutate(ptype = s$ptype, hab_type = s$ht)
+}) |>
+  mutate(ptype    = factor(ptype,    levels = ptype_levels),
+         hab_type = factor(hab_type, levels = hab_levels))
+
+spawn_yr_sum <- spawn_yr %>%
+  group_by(ptype, hab_type) |>
+  summarise(mean_spawners = mean(n_spawners, na.rm = TRUE),
+            sd_spawners   = sd(n_spawners,   na.rm = TRUE), 
+            mean_spawn_biom = mean(biom_spawn_kg, na.rm = TRUE), 
+            sd_spawn_biom = sd(biom_spawn_kg, na.rm = TRUE), 
+            .groups = "drop")
+
+spawn_part_sum <- spawn_yr |>
+  left_join(pop_yr |> select(ptype, hab_type, year, n),
+            by = c("ptype", "hab_type", "yr" = "year")) |>
+  mutate(prop_spawn = n_spawners / n) |>
+  group_by(ptype, hab_type) |>
+  summarise(mean_prop = mean(prop_spawn, na.rm = TRUE),
+            sd_prop   = sd(prop_spawn,   na.rm = TRUE), .groups = "drop")
+```
+
+
+Calculate warm contribution
+```{r}
+
+```
+
+
+
+Calculate *seasonal* warm contribution
+```{r}
+patch_seasonal_mech <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold + Warm")],
+  function(s) {
+    s$df |>
+      filter(date >= exp_start_date, !is.na(ggd)) |>
+      mutate(
+        daily_growth_g = weight * ggd,
+        year   = year(date),
+        season = factor(case_when(
+          month(date) %in% c(12, 1, 2)  ~ "Winter",
+          month(date) %in% c(3, 4, 5)   ~ "Spring",
+          month(date) %in% c(6, 7, 8)   ~ "Summer",
+          month(date) %in% c(9, 10, 11) ~ "Fall"
+        ), levels = c("Winter", "Spring", "Summer", "Fall"))
+      ) |>
+      group_by(year, season, patch) |>
+      summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+      mutate(ptype = s$ptype)
+  }
+) |> mutate(ptype   = factor(ptype,   levels = ptype_levels))
+
+annual_total_mech <- patch_seasonal_mech |>
+  mutate(pos_g = pmax(total_g, 0)) |>
+  group_by(ptype, year) |>
+  summarise(annual_pos_g = sum(pos_g, na.rm = TRUE), .groups = "drop")
+
+warm_season_sum <- patch_seasonal_mech |>
+  filter(patch == "warm") |>
+  mutate(pos_g = pmax(total_g, 0)) |>
+  left_join(annual_total_mech, by = c("ptype", "year")) |>
+  mutate(f_warm = if_else(annual_pos_g > 0, pos_g / annual_pos_g, NA_real_)) |>
+  group_by(ptype, season) |>
+  summarise(mean_f = mean(f_warm, na.rm = TRUE), sd_f = sd(f_warm, na.rm = TRUE), .groups = "drop")
+```
+
+Shared helpers
+```{r}
+# ── Shared helpers ────────────────────────────────────────────────────────────
+dodge <- position_dodge(width = 0.75)
+ptype_greens <- c(legacy = "#74C476", corrected = "#238B45", fixedp = "#00441B")
+
+
+bar_plot <- function(data, y_var, y_sd, y_lab, pct = FALSE) {
+  p <- ggplot(data, aes(x = ptype, y = .data[[y_var]], fill = hab_type)) +
+    geom_col(position = dodge, width = 0.65) +
+    geom_errorbar(
+      aes(ymin = pmax(0, .data[[y_var]] - .data[[y_sd]]),
+          ymax = .data[[y_var]] + .data[[y_sd]]),
+      position = dodge, width = 0.25, linewidth = 0.5
+    ) +
+    scale_fill_manual(values = hab_fills, name = "Habitat") +
+    labs(x = "Consumption type", y = y_lab) +
+    # facet_wrap(~species) +
+    theme_bw(base_size = 11) +
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor   = element_blank(),
+          axis.text = element_text(color = "black"))
+  if (pct) {
+    p + scale_y_continuous(labels = label_percent(accuracy = 1),
+                           expand = expansion(mult = c(0, 0.08)))
+  } else {
+    p + scale_y_continuous(expand = expansion(mult = c(0, 0.08)))
+  }
+}
+```
+
+
+## Population outcomes
+
+### Population summary
+
+Cold only: LEGACY
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_long       = ibm_list_mech[[1]][[1]],
+  habitat_df     = habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+Cold only: CORRECTED
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_long       = ibm_list_mech[[2]][[1]],
+  habitat_df     = habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+Cold only: FIXED P
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_long       = ibm_list_mech[[3]][[1]],
+  habitat_df     = habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+Cold + Warm: LEGACY
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_long       = ibm_list_mech[[4]][[1]],
+  habitat_df     = habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+Cold + Warm: CORRECTED
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_long       = ibm_list_mech[[5]][[1]],
+  habitat_df     = habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+Cold + Warm: FIXED P
+```{r eval=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+plot_population(
+  ibm_long       = ibm_list_mech[[6]][[1]],
+  habitat_df     = habitat_df,
+  exp_start_date = exp_start_date
+)
+```
+
+
+### Abundance and Biomass
+
+```{r fig.width=7, fig.height=7}
+# ── 1. Total Oct 1 abundance and biomass ──────────────────────────────────────
+p_n <- bar_plot(pop_sum, "mean_n", "sd_n",  "Mean Oct 1 abundance (N)")
+p_b <- bar_plot(pop_sum, "mean_b", "sd_b",  "Mean Oct 1 biomass (kg)")
+p_spab <- bar_plot(spawn_yr_sum, "mean_spawners", "sd_spawners", "Spawner abundance (N)")
+
+((p_n + labs(title = "Oct 1 abundance")) / (p_b + labs(title = "Oct 1 biomass"))) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right") &
+  plot_annotation(
+    title    = "Oct 1 population metrics by consumption type and habitat scenario",
+    subtitle = "Experimental period  |  Error bars = \u00b11 SD across years"
+  )
+
+
+p_sn <- bar_plot(spawn_yr_sum, "mean_spawners", "sd_spawners", "Spawner abundance (N)")
+p_sb <- bar_plot(spawn_yr_sum, "mean_spawn_biom", "sd_spawn_biom", "Spawner biomass kg")
+
+((p_sn + labs(title = "Spawner abundance")) / (p_sb + labs(title = "Spawner biomass"))) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right") &
+  plot_annotation(
+    title    = "Spawning population metrics by consumption type and habitat scenario",
+    subtitle = "Experimental period  |  Error bars = \u00b11 SD across years"
+  )
+```
+
+
+### Spawning and Recruitment
+
+```{r fig.width=7, fig.height=7}
+# ── 2. Age-0 abundance ────────────────────────────────────────────────────────
+p_n0 <- bar_plot(age0_sum, "mean_n0", "sd_n0", "Mean age-0 abundance (N)")
+
+# ── 3. Spawning participation ─────────────────────────────────────────────────
+p_sp <- bar_plot(spawn_part_sum, "mean_prop", "sd_prop", "Spawning participation (spawners / Oct 1 N)", pct = TRUE)
+
+
+((p_n0 + labs(title = "Age-0 abundance")) / (p_sp + labs(title = "Spawning participation"))) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right") &
+  plot_annotation(
+    title    = "Oct 1 population metrics by consumption type and habitat scenario",
+    subtitle = "Experimental period  |  Error bars = \u00b11 SD across years"
+  )
+```
+
+
+### Weight-at-Age
+
+```{r}
+# ── 4. Weight-at-age ──────────────────────────────────────────────────────────
+p_waa <- ggplot(waa, aes(x = age_class, y = mean_wt,
+                          color = hab_type, #linetype = ptype,
+                          group = interaction(ptype, hab_type))) +
+  geom_ribbon(aes(ymin = pmax(0, mean_wt - sd_wt), ymax = mean_wt + sd_wt,
+                  fill = hab_type), alpha = 0.10, color = NA) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.8) +
+  scale_color_manual(values = hab_fills, name = "Habitat") +
+  scale_fill_manual( values = hab_fills, name = "Habitat") +
+  scale_linetype_manual(
+    values = c(legacy = "solid", corrected = "dashed", fixedp = "dotdash"),
+    name = "Consumption type"
+  ) +
+  scale_x_continuous(breaks = sort(unique(waa$age_class))) +
+  labs(x = "Age class (years)", y = "Mean weight (g)") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), axis.text = element_text(color = "black")) +
+  facet_wrap(~ ptype, nrow = 1) #+ coord_cartesian(ylim = c(0, 6000))
+
+
+p_waa +
+  labs(title = "Mean weight-at-age (Oct 1, experimental period)",
+       subtitle = "Ribbon = \u00b11 SD pooled across years") +
+  theme(legend.position = "right") #+ geom_hline(yintercept = 3000, linetype = "dashed")
+```
+
+
+## Mechanisms
+
+### Daily patch occupancy
+
+```{r fig.width=7, fig.height=5}
+#| cache: true
+
+# For each Cold+Warm scenario, compute daily proportion of adults in warm patch,
+# aligned to biological year (May 1 = day 1, April 30 = day 365), averaged over years.
+may1_doy <- yday(as.Date("2001-05-01"))
+
+occ_mean <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold + Warm")],
+  function(s) {
+    s$df |>
+      filter(date >= exp_start_date, survived == 1, floor(age) >= 1) |>
+      mutate(
+        year    = year(date),
+        bio_doy = ((yday(date) - may1_doy) %% 365L) + 1L
+      ) |>
+      group_by(year, bio_doy) |>
+      summarise(prop_warm = mean(patch == "warm"), .groups = "drop") |>
+      group_by(bio_doy) |>
+      summarise(
+        mean_prop_warm = mean(prop_warm),
+        sd_prop_warm   = sd(prop_warm),
+        .groups = "drop"
+      ) |>
+      mutate(ptype = s$ptype)
+  }
+) |>
+  mutate(
+    ptype    = factor(ptype,   levels = ptype_levels),
+    bio_date = as.Date("2001-05-01") + bio_doy - 1L
+  )
+
+ggplot(occ_mean, aes(x = bio_date, y = mean_prop_warm, color = ptype, fill = ptype)) +
+  geom_ribbon(aes(ymin = pmax(0, mean_prop_warm - sd_prop_warm),
+                  ymax = pmin(1, mean_prop_warm + sd_prop_warm)),
+              alpha = 0.15, color = NA) +
+  geom_line(linewidth = 0.7) +
+  scale_color_manual(values = ptype_greens, name = "Consumption type") +
+  scale_fill_manual( values = ptype_greens, name = "Consumption type") +
+  scale_x_date(
+    breaks = seq(as.Date("2001-05-01"), as.Date("2002-04-01"), by = "month"),
+    labels = \(x) substr(format(x, "%b"), 1, 1)
+  ) +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1),
+                     limits = c(0, 1),
+                     expand = expansion(mult = c(0, 0))) +
+  # facet_wrap(~species) +
+  labs(
+    x        = "Biological year (May\u2013April)",
+    y        = "Proportion of adults in warm patch",
+    title    = "Daily adult occupancy of warm patch over the biological year",
+    subtitle = "Cold + Warm scenarios only  |  Adults (age \u2265 1)  |  Ribbon = \u00b11 SD across years"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position  = "right",
+    axis.text        = element_text(color = "black")
+  )
+```
+
+### Bioenergetics P by temperature
+
+```{r fig.width=9, fig.height=5}
+
+# Theoretical p_bioe curves over temperature range (dd = 1, isolates temperature effect)
+# Formula by p_calc type (from SimulationLoop.R):
+#   legacy:    min(fT, pcmax)
+#   corrected: min(fT, pcmax) / fT
+#   fixed_p:   pcmax
+p_bioe_curves <- expand_grid(
+  temp    = seq(0, 25, by = 0.1),
+  ptype   = factor(ptype_levels,   levels = ptype_levels)
+) |>
+  mutate(
+    pcmax          = 0.5,
+    fT             = fncTempDepend(temp),
+    pcmax_adjusted = pmin(fT, pcmax),
+    p_bioe = case_when(
+      ptype == "legacy"    ~ pcmax_adjusted,
+      ptype == "corrected" ~ pcmax_adjusted / pmax(fT, 1e-6),
+      ptype == "fixedp"    ~ pcmax
+    )
+  )
+
+# Reconstruct empirical p_bioe from sampled simulation days.
+# p_bioe (= pcmax_adjusted_dd) is not stored in ibm_long, so we recompute it:
+#   1. Sample days from the experimental period.
+#   2. For each day × patch × age-class group, compute dominance-weighted effective
+#      density via fncEffDensity(), then dd_factor = K / (K + eff_density).
+#   3. Apply the p_calc formula to get per-fish p_bioe.
+#   4. Summarise to daily patch means for plotting.
+#
+# Parameters matching the Cold+Warm STHD/CUTT scenarios:
+A_patch        <- 1.0   # habitat area (A_cold = A_warm = 1)
+K_patch        <- 400   # hyperbolic half-saturation constant (K_cold = K_warm = 400)
+dominance_beta <- 1     # dominance exponent
+
+set.seed(5317)
+n_sample_days <- 50
+
+p_bioe_empirical <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold + Warm")],
+  function(s) {
+    pcmax_val   <- 0.5
+    ptype_val   <- s$ptype
+
+    df           <- s$df |> filter(date >= exp_start_date, !is.na(ggd))
+    sampled_days <- sample(unique(df$dayofsim), n_sample_days)
+
+    df |>
+      filter(dayofsim %in% sampled_days) |>
+      # mutate(age_class = if_else(floor(age) == 0, "age0", "age1plus")) |>
+      filter(floor(age) >= 1) |>
+      group_by(dayofsim, patch) |>
+      mutate(
+        eff_density    = (fncEffDensity(weight, beta = dominance_beta) - 1) / A_patch,
+        dd_factor      = K_patch / (K_patch + eff_density),
+        fT             = fncTempDepend(temp),
+        pcmax_adjusted = pmin(fT, pcmax_val),
+        p_bioe = case_when(
+          ptype_val == "legacy"    ~ pcmax_adjusted * dd_factor,
+          ptype_val == "corrected" ~ pcmax_adjusted * dd_factor / pmax(fT, 1e-6),
+          ptype_val == "fixedp"    ~ pcmax_val * dd_factor
+        )
+      ) |>
+      # Collapse to daily patch mean (temp is identical across fish within a patch-day)
+      # group_by(dayofsim, patch) |>
+      # summarise(temp = first(temp), mean_p_bioe = mean(p_bioe), .groups = "drop") |>
+      mutate(
+        ptype       = factor(ptype_val,   levels = ptype_levels),
+        patch_label = factor(if_else(patch == "cold", "Cold patch", "Warm patch"),
+                             levels = c("Cold patch", "Warm patch"))
+      )
+  }
+)
+
+
+### PLOT
+patchtypecols <- c("Cold patch" = "blue", "Warm patch" = "red")
+ggplot(p_bioe_curves, aes(x = temp, y = p_bioe)) +
+  # geom_rect(data = patch_ranges,
+  #           aes(xmin = xmin, xmax = xmax, fill = patch),
+  #           ymin = 0, ymax = Inf, alpha = 0.15, inherit.aes = FALSE) +
+  geom_line(linewidth = 0.9) +
+  geom_point(data = p_bioe_empirical, aes(x = temp, y = p_bioe, color = patch_label), alpha = 0.35, size = 1.5, inherit.aes = FALSE) +
+  scale_color_manual(values = patchtypecols, name = "") +
+  # scale_fill_manual(
+  #   values = ,
+  # name = "Patch (5\u201395th %ile)"
+  # ) +
+  scale_x_continuous(breaks = seq(0, 25, by = 5)) +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+facet_wrap(~ ptype, nrow = 1) +
+  labs(
+    x        = "Temperature (\u00b0C)",
+    y        = "p_bioe",
+    title    = "Bioenergetics P by temperature and consumption type",
+    subtitle = "Lines = theoretical maxima; points = individual empirical values for 50 randomly sampled days"
+  ) +
+theme_bw(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position  = "bottom",
+    axis.text        = element_text(color = "black")
+  )
+```
+
+
+
+### Weekly biomass change by patch
+
+```{r fig.width=9, fig.height=5}
+#| cache: true
+
+patch_cols <- c("Cold patch" = "#6BAED6", "Warm patch" = "#FC8D59")
+ref_year   <- year(sim_params$mindate) + 1L  # reference year for x-axis date labels
+
+week_abs <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold + Warm")],
+  function(s) {
+    s$df |>
+      filter(date >= exp_start_date, !is.na(ggd), floor(age) >= 1) |>
+      mutate(
+        daily_growth_g = weight * ggd,
+        year     = year(date),
+        cal_week = week(date)
+      ) |>
+      group_by(year, cal_week, patch) |>
+      summarise(mean_ggd = mean(ggd, na.rm = TRUE),
+                total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+      mutate(ptype = s$ptype)
+  }
+) |>
+  mutate(
+    ptype   = factor(ptype,   levels = ptype_levels)
+  ) |>
+  group_by(ptype, cal_week, patch) |>
+  summarise(mean_ggd  = mean(mean_ggd, na.rm = TRUE), 
+            mean_biom = mean(total_g, na.rm = TRUE), .groups = "drop") |>
+  mutate(
+    patch_label = factor(if_else(patch == "cold", "Cold patch", "Warm patch"),
+                         levels = c("Cold patch", "Warm patch")),
+    week_date   = as.Date(paste0(ref_year, "-01-01")) + (cal_week - 1L) * 7L
+  )
+
+ggplot(week_abs, aes(x = week_date, y = mean_ggd, color = patch_label)) +
+  geom_line() +
+  # geom_col(position = "stack", width = 7) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_color_manual(values = patch_cols, name = "Patch") +
+  scale_x_date(
+    breaks = seq(as.Date(paste0(ref_year, "-01-01")),
+                 as.Date(paste0(ref_year, "-12-01")), by = "month"),
+    labels = \(x) substr(format(x, "%b"), 1, 1),
+    expand = expansion(0)
+  ) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  facet_wrap(~ ptype, nrow = 1, scales = "free_y") +
+  labs(
+    x        = "Calendar week",
+    y        = "Mean weekly growth rate (g/g/d)",
+    title    = "Weekly growth rate by patch and consumption type",
+    subtitle = "Cold + Warm scenarios only  |  Mean over experimental years"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position  = "right",
+    axis.text        = element_text(color = "black")
+  )
+
+# ── Weekly adult occupancy (proportion in warm patch) ─────────────────────────
+occ_week <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold + Warm")],
+  function(s) {
+    s$df |>
+      filter(date >= exp_start_date, survived == 1, floor(age) >= 1) |>
+      mutate(year = year(date), cal_week = week(date)) |>
+      group_by(year, cal_week) |>
+      summarise(prop_warm = mean(patch == "warm"), .groups = "drop") |>
+      group_by(cal_week) |>
+      summarise(mean_prop_warm = mean(prop_warm), .groups = "drop") |>
+      mutate(ptype = s$ptype)
+  }
+) |>
+  mutate(ptype     = factor(ptype,   levels = ptype_levels),
+         week_date = as.Date(paste0(ref_year, "-01-01")) + (cal_week - 1L) * 7L)
+
+# ── Stacked biomass + occupancy overlay ───────────────────────────────────────
+# facet_grid(species ~ ptype, scales = "free_y") + sec_axis conflicts because
+# sec_axis uses a single global transformation. One plot per species (combined
+# with patchwork) gives each its own correctly scaled secondary axis.
+make_week_occ_plot <- function() {
+  wd    <- week_abs 
+  od    <- occ_week 
+  g_max <- max(wd$mean_biom, na.rm = TRUE)
+
+  ggplot(wd, aes(x = week_date, y = mean_biom, fill = patch_label)) +
+    geom_col(position = "stack", width = 7) +
+    geom_hline(yintercept = 0, linewidth = 0.3) +
+    geom_line(data = od,
+              aes(x = week_date, y = mean_prop_warm * g_max),
+              color = "black", linewidth = 0.7, inherit.aes = FALSE) +
+    scale_fill_manual(values = patch_cols, name = "Patch") +
+    scale_x_date(
+      breaks = seq(as.Date(paste0(ref_year, "-01-01")),
+                   as.Date(paste0(ref_year, "-12-01")), by = "month"),
+      labels = \(x) substr(format(x, "%b"), 1, 1),
+      expand = expansion(0)
+    ) +
+    scale_y_continuous(
+      labels   = scales::label_comma(),
+      sec.axis = sec_axis(~ . / g_max,
+                          name   = "Prop. adults in warm patch",
+                          labels = scales::label_percent(accuracy = 1))
+    ) +
+    facet_wrap(~ptype, nrow = 1) +
+    labs(x = NULL, y = NULL) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor   = element_blank(),
+          axis.title.y.right = element_blank(),
+          legend.position    = "right",
+          axis.text          = element_text(color = "black"))
+}
+
+# Shared y-axis titles: strip the titles from both plots, then flank the
+# stacked pair with narrow wrap_elements() textGrob strips on each side.
+y_left  <- wrap_elements(
+  grid::textGrob("Mean weekly biomass change (g)", rot = 90,
+                 gp = grid::gpar(fontsize = 12))
+)
+y_right <- wrap_elements(
+  grid::textGrob("Prop. adults in warm patch", rot = -90,
+                 gp = grid::gpar(fontsize = 12))
+)
+
+inner <- (make_week_occ_plot()) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+y_left + inner + y_right +
+  plot_layout(widths = c(0.04, 1, 0.04)) +
+  plot_annotation(
+    title    = "Weekly biomass change by patch with adult warm-patch occupancy",
+    subtitle = paste(
+      "Cold + Warm scenarios only  |  Bars = mean weekly biomass change (stacked cold + warm)",
+      "Line = proportion of adults in warm patch (right axis)", sep = "\n"
+    )
+  )
+```
+
+
+### Mean annual warm habitat contribution
+
+```{r fig.width=7, fig.height=4}
+# Sum seasonal totals to annual, then apply the WarmContribution.qmd approach:
+# positive warm / (positive warm + positive cold), averaged over years.
+warm_share <- patch_seasonal_mech |>
+  group_by(ptype, year, patch) |>
+  summarise(total_g = sum(total_g, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = patch, values_from = total_g, values_fill = 0) |>
+  mutate(
+    pos_warm   = pmax(warm, 0),
+    pos_cold   = pmax(cold, 0),
+    f_warm_pos = if_else(pos_warm + pos_cold > 0,
+                         pos_warm / (pos_warm + pos_cold),
+                         NA_real_)
+  ) |>
+  group_by(ptype) |>
+  summarise(
+    mean_f_warm = mean(f_warm_pos, na.rm = TRUE),
+    sd_f_warm   = sd(f_warm_pos,   na.rm = TRUE),
+    .groups     = "drop"
+  )
+
+ggplot(warm_share, aes(x = ptype, y = mean_f_warm, fill = ptype)) +
+  geom_col(width = 0.6) +
+  geom_errorbar(
+    aes(ymin = pmax(0, mean_f_warm - sd_f_warm),
+        ymax = pmin(1, mean_f_warm + sd_f_warm)),
+    width = 0.25, linewidth = 0.5
+  ) +
+  scale_fill_manual(values = ptype_greens, guide = "none") +
+  scale_y_continuous(labels = label_percent(accuracy = 1),
+                     limits = c(0, 1),
+                     expand = expansion(mult = c(0, 0.05))) +
+  labs(
+    x        = "Consumption type",
+    y        = "Mean proportion of annual biomass\naccrued in warm patch",
+    title    = "Annual biomass accrued in warm patch by consumption type",
+    subtitle = "Cold + Warm scenarios only  |  Positive growth only  |  Error bars = \u00b11 SD across years"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.text          = element_text(color = "black")
+  )
+```
+
+
+### Per-capita seasonal growth rate by patch
+
+```{r fig.width=9, fig.height=7, eval=FALSE}
+# Re-process raw IBM data to get mean daily ggd per fish, by patch and season
+season_percap <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold + Warm")],
+  function(s) {
+    s$df |>
+      filter(date >= exp_start_date, !is.na(ggd), floor(age) >= 1) |>
+      mutate(
+        year   = year(date),
+        season = factor(case_when(
+          month(date) %in% c(12, 1, 2)  ~ "Winter",
+          month(date) %in% c(3, 4, 5)   ~ "Spring",
+          month(date) %in% c(6, 7, 8)   ~ "Summer",
+          month(date) %in% c(9, 10, 11) ~ "Fall"
+        ), levels = c("Winter", "Spring", "Summer", "Fall"))
+      ) |>
+      mutate(daily_growth_g = weight * ggd) |>
+      group_by(year, season, patch) |>
+      summarise(
+        total_g    = sum(daily_growth_g, na.rm = TRUE),
+        n_fish_days = n(),
+        .groups = "drop"
+      ) |>
+      mutate(mean_daily_g = total_g / n_fish_days,
+             ptype = s$ptype)
+  }
+) |>
+  mutate(ptype   = factor(ptype,   levels = ptype_levels)) |>
+  group_by(ptype, season, patch) |>
+  summarise(
+    mean_percap = mean(mean_daily_g, na.rm = TRUE),
+    sd_percap   = sd(mean_daily_g,   na.rm = TRUE),
+    mean_totalg = mean(total_g, na.rm = TRUE),
+    sd_totalg   = sd(total_g,   na.rm = TRUE),
+    mean_fishdays = mean(n_fish_days, na.rm = TRUE),
+    sd_fishdays   = sd(n_fish_days,   na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(patch_label = factor(
+    if_else(patch == "cold", "Cold patch", "Warm patch"),
+    levels = c("Cold patch", "Warm patch")
+  ))
+
+ggplot(season_percap, aes(x = season, y = mean_percap, fill = ptype)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.65) +
+  geom_errorbar(
+    aes(ymin = mean_percap - sd_percap,
+        ymax = mean_percap + sd_percap),
+    position = position_dodge(width = 0.75), width = 0.25, linewidth = 0.5
+  ) +
+  geom_hline(yintercept = 0, linewidth = 0.4) +
+  scale_fill_manual(values = ptype_greens, name = "Consumption type") +
+  facet_grid(species ~ patch_label, scales = "free_y") +
+  labs(
+    x        = "Season",
+    y        = "Mean daily biomass change per fish (g/fish/day)",
+    title    = "Per-capita seasonal biomass change by patch and consumption type",
+    subtitle = "Cold + Warm scenarios only  |  Mean of annual (total patch growth / fish-days)  |  Error bars = \u00b11 SD across years"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    legend.position    = "right",
+    axis.text          = element_text(color = "black")
+  )
+
+
+ggplot(season_percap, aes(x = season, y = mean_fishdays, fill = ptype)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.65) +
+  geom_errorbar(
+    aes(ymin = mean_fishdays - sd_fishdays,
+        ymax = mean_fishdays + sd_fishdays),
+    position = position_dodge(width = 0.75), width = 0.25, linewidth = 0.5
+  ) +
+  geom_hline(yintercept = 0, linewidth = 0.4) +
+  scale_fill_manual(values = ptype_greens, name = "Consumption type") +
+  facet_grid(species ~ patch_label, scales = "free_y") +
+  labs(
+    x        = "Season",
+    y        = "Mean fish-days",
+    title    = "Occupancy by patch and consumption type",
+    subtitle = "Cold + Warm scenarios only  |  Mean of annual fish-days  |  Error bars = \u00b11 SD across years"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    legend.position    = "right",
+    axis.text          = element_text(color = "black")
+  )
+```
+
+
+
+### Seasonal warm habitat contribution
+
+Restricted to positive growth only
+```{r eval=FALSE}
+# ── 5. Seasonal warm contribution ─────────────────────────────────────────────
+ptype_greens <- c(legacy = "#74C476", corrected = "#238B45", fixedp = "#00441B")
+
+p_warm <- ggplot(warm_season_sum,
+                 aes(x = season, y = mean_f, fill = ptype)) +
+  geom_col(position = dodge, width = 0.65) +
+  geom_errorbar(
+    aes(ymin = pmax(0, mean_f - sd_f), ymax = mean_f + sd_f),
+    position = dodge, width = 0.25, linewidth = 0.5
+  ) +
+  scale_fill_manual(values = ptype_greens, name = "Consumption type") +
+  scale_y_continuous(labels = label_percent(accuracy = 1),
+                     expand = expansion(mult = c(0, 0.08))) +
+  labs(x = "Season",
+       y = "Mean proportion of annual\nbiomass accrued in warm patch") +
+  facet_wrap(~species) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor   = element_blank(),
+        axis.text = element_text(color = "black"))
+
+
+p_warm +
+  labs(title = "Warm habitat biomass contribution by season",
+       subtitle = "Cold + Warm scenarios only  |  Error bars = \u00b11 SD across years") +
+  theme(legend.position = "right")
+```
+
+
+
+## messing
+
+```{r eval=FALSE}
+test <- ibm_list_mech[[7]][1]$df
+test %>% filter(date <= as.Date("2002-05-01")) %>%
+  ggplot(aes(x = date, y = weight, group = pid)) + geom_line()
+
+test <- ibm_list_mech[[8]][1]$df
+test %>% filter(date <= as.Date("2002-05-01")) %>%
+  ggplot(aes(x = date, y = weight, group = pid)) + geom_line()
+
+test <- ibm_list_mech[[9]][1]$df
+test %>% filter(date <= as.Date("2002-05-01")) %>%
+  ggplot(aes(x = date, y = weight, group = pid)) + geom_line()
+```
+

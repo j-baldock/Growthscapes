@@ -22,15 +22,17 @@ source("Functions.R")
 source("SimulationLoop.R")
 source("ScenarioDefs.R")   # defines `scenarios` (list of named parameter sets)
 
-load("data/wt.growth.array.RData")  # loads `wt.growth`
+load("data/wt.growth.array.pval.sthd.RData")  # loads `wt.growth`
 
 if (!dir.exists("results")) dir.create("results")
 
 # ── run_scenario(): run a single named scenario ────────────────────────────────
 # name      - must match a name in the `scenarios` list (e.g. "base")
 # overwrite - if FALSE (default), skip silently when results already exist
+# save_burnin - keep per-fish burn-in rows in ibm_long? Precedence: this argument
+#               (if not NULL) > `save_burnin` set in the scenario definition > FALSE.
 
-run_scenario <- function(name, overwrite = FALSE) {
+run_scenario <- function(name, overwrite = FALSE, save_burnin = NULL) {
   out_path <- file.path("results", paste0(name, ".rds"))
 
   if (file.exists(out_path) && !overwrite) {
@@ -45,6 +47,8 @@ run_scenario <- function(name, overwrite = FALSE) {
   }
 
   params     <- scenarios[[name]]
+  # Default to dropping burn-in records from ibm_long to reduce file size
+  params$save_burnin <- save_burnin %||% params$save_burnin %||% FALSE
   habitat_df <- build_habitat(params)
 
   message("Running scenario: '", name, "' ...")
@@ -58,6 +62,10 @@ run_scenario <- function(name, overwrite = FALSE) {
                          as.integer((elapsed_s %% 3600) %/% 60),
                          as.integer(elapsed_s %% 60))
 
+  # Attributes avoid changing the structure of `result` for downstream code
+  attr(result, "run_time_fmt") <- elapsed_fmt
+  attr(result, "run_time_secs") <- elapsed_s
+
   saveRDS(result, out_path)
   message("Saved: ", out_path, " (run time: ", elapsed_fmt, ")")
   invisible(result)
@@ -67,47 +75,102 @@ run_scenario <- function(name, overwrite = FALSE) {
 # Iterates over every entry in `scenarios`. Skips those that already have saved
 # results unless overwrite = TRUE.
 
-run_all_scenarios <- function(overwrite = FALSE) {
+run_all_scenarios <- function(overwrite = FALSE, save_burnin = NULL) {
   nms <- names(scenarios)
   message("Batch run: ", length(nms), " scenario(s): ",
           paste(nms, collapse = ", "))
   for (name in nms) {
-    run_scenario(name, overwrite = overwrite)
+    run_scenario(name, overwrite = overwrite, save_burnin = save_burnin)
   }
   message("Batch run complete.")
+}
+
+# ── get_run_times(): tabulate run times stored in saved results ────────────────
+# Reads every .rds in `dir` and returns scenario name + run time. Files saved
+# before run times were recorded give NA. Note: each file is fully loaded, so
+# this can be slow for large results.
+
+get_run_times <- function(dir = "results") {
+  files <- list.files(dir, pattern = "\\.rds$", full.names = TRUE)
+  rows <- lapply(files, function(f) {
+    x <- readRDS(f)
+    data.frame(
+      scenario      = tools::file_path_sans_ext(basename(f)),
+      run_time_fmt  = attr(x, "run_time_fmt")  %||% NA_character_,
+      run_time_secs = attr(x, "run_time_secs") %||% NA_real_,
+      stringsAsFactors = FALSE
+    )
+  })
+  out <- do.call(rbind, rows)
+  if (is.null(out)) {
+    return(data.frame(scenario = character(), run_time_fmt = character(),
+                      run_time_secs = numeric()))
+  }
+  out[order(-out$run_time_secs), ]
 }
 
 
 # ── Individual scenario calls ──────────────────────────────────────────────────
 # Uncomment a line below to run (or re-run) a single scenario:
 
-# run_scenario("base")
-run_scenario("temp_offset", overwrite = TRUE)
-run_scenario("temp_offset_diffP", overwrite = TRUE)   # re-run and overwrite
-run_scenario("temp_offset_fixedhab", overwrite = TRUE)   # re-run and overwrite
+### SENSITIVITY ANALYSES
+run_scenario("Sensitivity_ColdOnly_Plegacy_05p",    overwrite = TRUE)
+run_scenario("Sensitivity_ColdOnly_Pcorrected_05p", overwrite = TRUE)
+run_scenario("Sensitivity_ColdOnly_Pfixedp_05p",    overwrite = TRUE)
+run_scenario("Sensitivity_ColdWarm_Plegacy_05p",    overwrite = TRUE)
+run_scenario("Sensitivity_ColdWarm_Pcorrected_05p", overwrite = TRUE)
+run_scenario("Sensitivity_ColdWarm_Pfixedp_05p",    overwrite = TRUE)
 
-# fixed habitat: cold only (null)
-run_scenario("TempOffset_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdOnly_75percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdOnly_50percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdOnly_25percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdOnly_05percold", overwrite = TRUE)
-# beep()
+run_scenario("Sensitivity_ColdOnly_Pfixedp_06p",    overwrite = TRUE)
+run_scenario("Sensitivity_ColdOnly_Pfixedp_07p",    overwrite = TRUE)
+run_scenario("Sensitivity_ColdWarm_Pfixedp_06p",    overwrite = TRUE)
+run_scenario("Sensitivity_ColdWarm_Pfixedp_07p",    overwrite = TRUE)
 
-# fixed habitat: cold + warm (same pcmax)
-run_scenario("TempOffset_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_75percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_50percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_25percold", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_05percold", overwrite = TRUE)
-beep()
+run_scenario("AnticTau_ColdWarm_095percold_rep01",    overwrite = TRUE)
+run_scenario("AnticTau_ColdWarm_075percold_rep01",    overwrite = TRUE)
 
-# fixed habitat: cold + warm (same pcmax)
-run_scenario("TempOffset_ColdWarm_95percold_highPwarm", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_75percold_highPwarm", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_50percold_highPwarm", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_25percold_highPwarm", overwrite = TRUE)
-run_scenario("TempOffset_ColdWarm_05percold_highPwarm", overwrite = TRUE)
+
+### PILOT RUNS
+# Cold only
+run_scenario("Baseline_ColdOnly_100percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdOnly_095percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdOnly_075percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdOnly_050percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdOnly_025percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdOnly_010percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdOnly_005percold_rep01", overwrite = TRUE)
+# Cold + Warm
+run_scenario("Baseline_ColdWarm_095percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_075percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_050percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_025percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_010percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_005percold_rep01", overwrite = TRUE)
+# Cold + Warm, high P
+run_scenario("Baseline_ColdWarmHighP_095percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarmHighP_075percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarmHighP_050percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarmHighP_025percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarmHighP_010percold_rep01", overwrite = TRUE)
+run_scenario("Baseline_ColdWarmHighP_005percold_rep01", overwrite = TRUE)
+
+
+### REPLICATION
+# cold only
+# run_scenario("Baseline_ColdOnly_025percold_rep02", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_025percold_rep03", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_025percold_rep04", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_025percold_rep05", overwrite = TRUE)
+# cold + warm
+run_scenario("Baseline_ColdWarm_025percold_rep02", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_025percold_rep03", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_025percold_rep04", overwrite = TRUE)
+run_scenario("Baseline_ColdWarm_025percold_rep05", overwrite = TRUE)
+
+
+
+
+
 
 
 # Variable Harvest, 50% cold, harvest rates = 0.1-0.5

@@ -9,6 +9,7 @@ library(lubridate)
 library(ggpubr)
 library(egg)
 library(patchwork)
+library(DT)
 
 #| cache: false
 source("Habitat.R")
@@ -16,9 +17,14 @@ source("Habitat.R")
 
 base_params <- list(
 
+  # ── General ───────────────────────────────────────────
+  p_calc            = "fixed_p",
+  n_fish_per_strat  = 50,
+  
   # ── Timeline ──────────────────────────────────────────
   nyears_burnin     = 50,
   nyears_experiment = 50,
+  save_burnin       = FALSE,  # FALSE drops burn-in rows from ibm_long to reduce file size
   ramp_years        = 0,
   mindate           = as.Date("2001-05-01"),
 
@@ -62,7 +68,7 @@ base_params <- list(
   movecost_c   = 0.0, # previously 0.1. 0.0 is effective no cost
   movecost_b   = 0.3,
   sigma_bold   = 0.002,
-  tau          = 0.001,
+  tau          = 1e-4,
 
   # ── Survival ──────────────────────────────────────────
   s_min             = 0.96,
@@ -70,22 +76,25 @@ base_params <- list(
   s_k               = 0.8,
   T1_mort           = 30,
   T9_mort           = 25.8,
-  K9_starv          = 0.55,
-  K1_starv          = 0.45,
+  K1_starv          = 0.6,
+  K9_starv          = 0.7,
+  s_floor_starv     = 0.9,
   MaxDensity4Growth = 50,
 
   # Critical-period consumption-based survival (Elliott 1989)
   # Applies fncSurviveConsumption() to age-0 fry for their first crit_period_days.
   # Parameterised so that sustained pcmax_dd ≤ crit_pcmax_lo ≈ 1% 60-day survival;
   # sustained pcmax_dd ≥ crit_pcmax_hi ≈ 99% 60-day survival (negligible cost).
-  crit_pcmax_lo    = 0.30,
-  crit_pcmax_hi    = 0.40,
-  crit_period_days = 60L,
+  # crit_pcmax_lo    = 0.30,
+  # crit_pcmax_hi    = 0.40,
+  # crit_period_days = 60L,
   
   # ── Competition ───────────────────────────────────────
-  dominance_beta             = 1,
+  dominance_beta             = 0.5,
   age_structured_competition = TRUE,
-
+  anticipate_smaller         = TRUE,  # density_all: anticipate competition from smaller fish when choosing patch
+  age_class_cutoff           = "04-15",
+  
   # ── Reproduction ──────────────────────────────────────
   egg_wt       = 0.07,
   repro_cost   = 0.2,
@@ -94,7 +103,7 @@ base_params <- list(
   
   # ── Harvest ───────────────────────────────────────────
   harvest_rate     = 0,
-  harvest_window   = c(91L, 91L),
+  harvest_window   = c(152L, 273L),
 
   # ── Seeds ─────────────────────────────────────────────
   hab_seed = 123,
@@ -102,29 +111,93 @@ base_params <- list(
 )
 
 
+n_reps  <- 5
+A_total <- 2.0
+
+set.seed(6291)
+seed_table <- tibble(rep = seq_len(n_reps), sim_seed = sample.int(1e4, n_reps))
+
+pilot_cold <- c(0.05, 0.25, 0.50, 0.75, 0.95)
+
+scenario_table <- bind_rows(
+  tibble(type = "ColdWarm", prop_cold = pilot_cold),
+  tibble(type = "ColdOnly", prop_cold = c(pilot_cold, 1.00))
+) |>
+  mutate(
+    A_cold = prop_cold * A_total,
+    A_warm = if_else(type == "ColdWarm", A_total - A_cold, 0),
+    scenario = sprintf("Pilot_%s_%03dpercold", type, round(prop_cold * 100))
+  )
+
+run_table <- scenario_table |>
+  cross_join(seed_table) |>
+  mutate(run_id = sprintf("%s__rep%02d", scenario, rep))
+
+seed_table$sim_seed
+datatable(run_table)
+
+
 scenarios <- list(
 
+  # SENSITIVITY ANALYSES: short runs, no replication
+  ### Test sensitivities to legacy, corrected, and fixed-P configurations (for understanding how to reprenent food availability)
+  Sensitivity_ColdOnly_Plegacy_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "legacy",    nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdOnly_Pcorrected_05p   = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "corrected", nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdOnly_Pfixedp_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "fixed_p",   nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Plegacy_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "legacy",    nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pcorrected_05p   = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "corrected", nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pfixedp_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "fixed_p",   nyears_burnin = 15, nyears_experiment = 30)),
+  ### Test sensitivities to pcmax, looking specifically at importance of warm habitat 
+  Sensitivity_ColdOnly_Pfixedp_06p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "fixed_p", pcmax_cold = 0.6, nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdOnly_Pfixedp_07p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "fixed_p", pcmax_cold = 0.7, nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pfixedp_06p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "fixed_p", pcmax_cold = 0.6, pcmax_warm = 0.6, nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pfixedp_07p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "fixed_p", pcmax_cold = 0.7, pcmax_warm = 0.7, nyears_burnin = 15, nyears_experiment = 30)),
+  
+  
+  # PILOT RUNS
   ### Null (cold only)
-  TempOffset_ColdOnly_95percold             = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0)),
-  TempOffset_ColdOnly_75percold             = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0)),
-  TempOffset_ColdOnly_50percold             = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0)),
-  TempOffset_ColdOnly_25percold             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0)),
-  TempOffset_ColdOnly_05percold             = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0)),
+  Baseline_ColdOnly_100percold_rep01        = modifyList(base_params, list(A_cold = 2.0,  A_warm = 0)),
+  Baseline_ColdOnly_095percold_rep01        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0)),
+  Baseline_ColdOnly_075percold_rep01        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0)),
+  Baseline_ColdOnly_050percold_rep01        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0)),
+  Baseline_ColdOnly_025percold_rep01        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0)),
+  Baseline_ColdOnly_010percold_rep01        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 0)),
+  Baseline_ColdOnly_005percold_rep01        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0)),
   
   ### Cold + Warm, same Pcmax
-  TempOffset_ColdWarm_95percold             = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1)),
-  TempOffset_ColdWarm_75percold             = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5)),
-  TempOffset_ColdWarm_50percold             = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0)),
-  TempOffset_ColdWarm_25percold             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5)),
-  TempOffset_ColdWarm_05percold             = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9)),
+  Baseline_ColdWarm_095percold_rep01        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1)),
+  Baseline_ColdWarm_075percold_rep01        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5)),
+  Baseline_ColdWarm_050percold_rep01        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0)),
+  Baseline_ColdWarm_025percold_rep01        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5)),
+  Baseline_ColdWarm_010percold_rep01        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8)),
+  Baseline_ColdWarm_005percold_rep01        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9)),
   
   ### Cold + Warm, high Pcmax in warm
-  TempOffset_ColdWarm_95percold_highPwarm   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6)),
-  TempOffset_ColdWarm_75percold_highPwarm   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6)),
-  TempOffset_ColdWarm_50percold_highPwarm   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6)),
-  TempOffset_ColdWarm_25percold_highPwarm   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6)),
-  TempOffset_ColdWarm_05percold_highPwarm   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_095percold_rep01   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_075percold_rep01   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_050percold_rep01   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_025percold_rep01   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_010percold_rep01   = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_005percold_rep01   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6)),
   
+  
+  # PATCH-CHOICE RULE TEST: anticipate competition from smaller fish + low softmax tau
+  # (same seed/habitat as the matching Baseline_* runs; compare directly with those)
+  AnticTau_ColdWarm_095percold_rep01        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,                    tau = 1e-4, anticipate_smaller = TRUE)),
+  AnticTau_ColdWarm_075percold_rep01        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,                    tau = 1e-4, anticipate_smaller = TRUE)),
+  AnticTau_ColdWarmHighP_095percold_rep01   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6,  tau = 1e-4, anticipate_smaller = TRUE)),
+  AnticTau_ColdWarmHighP_075percold_rep01   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6,  tau = 1e-4, anticipate_smaller = TRUE)),
+  
+  
+  # REPLICATION OVER SEEDS
+  Baseline_ColdOnly_025percold_rep02             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 7956)),
+  Baseline_ColdOnly_025percold_rep03             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 7462)),
+  Baseline_ColdOnly_025percold_rep04             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 4423)),
+  Baseline_ColdOnly_025percold_rep05             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 4958)),
+  Baseline_ColdWarm_025percold_rep02             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 7956)),
+  Baseline_ColdWarm_025percold_rep03             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 7462)),
+  Baseline_ColdWarm_025percold_rep04             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 4423)),
+  Baseline_ColdWarm_025percold_rep05             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 4958)),
   
   
   # Harvested
@@ -328,10 +401,15 @@ p_temp_year <- habitat_df |>
   geom_line(aes(x = date, y = temp_warm), color = "red", linewidth = 1) +
   geom_line(aes(x = date, y = temp_cold), color = "blue", linewidth = 1) +
   scale_x_date(
-    date_breaks = "1 month",
-    date_labels = "%b",
+    breaks = seq(as.Date(paste0(ref_year, "-01-01")),
+                 as.Date(paste0(ref_year + 1, "-01-01")),
+                 by = "month"),
+    labels = \(x) substr(format(x, "%b"), 1, 1),
+    limits = c(as.Date(paste0(ref_year, "-01-01")),
+               as.Date(paste0(ref_year + 1, "-01-01"))),
     expand = expansion(0)
   ) +
+  guides(fill = guide_legend(order = 1)) +
   theme_bw() +
   theme(legend.position = "right", panel.grid = element_blank(), text = element_text(color = "black")) +
   xlab("Date") +
@@ -367,6 +445,7 @@ p_area_percent <- tibble(
     y = "Habitat area (unitless)",
     fill = "Habitat type"
   ) +
+  guides(fill = guide_legend(order = 2), color = guide_legend(order = 3)) +
   theme_bw() + theme(panel.grid = element_blank(), text = element_text(color = "black"))
 
 p_temp_year + p_area_percent +
@@ -374,12 +453,12 @@ p_temp_year + p_area_percent +
   theme(legend.position = "right")
 
 
-plot_habitat(build_habitat(scenarios[["TempOffset_ColdOnly_75percold"]]), exp_start_date = scenarios[["TempOffset_ColdOnly_75percold"]]$mindate + years(scenarios[["TempOffset_ColdOnly_75percold"]]$nyears_burnin))
+plot_habitat(build_habitat(scenarios[["Baseline_ColdOnly_075percold_rep01"]]), exp_start_date = scenarios[["Baseline_ColdOnly_075percold_rep01"]]$mindate + years(scenarios[["Baseline_ColdOnly_075percold_rep01"]]$nyears_burnin))
 
 
-plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_75percold"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_75percold"]]$mindate + years(scenarios[["TempOffset_ColdWarm_75percold"]]$nyears_burnin))
+plot_habitat(build_habitat(scenarios[["Baseline_ColdWarm_075percold_rep01"]]), exp_start_date = scenarios[["Baseline_ColdWarm_075percold_rep01"]]$mindate + years(scenarios[["Baseline_ColdWarm_075percold_rep01"]]$nyears_burnin))
 
 
-plot_habitat(build_habitat(scenarios[["TempOffset_ColdWarm_75percold_highPwarm"]]), exp_start_date = scenarios[["TempOffset_ColdWarm_75percold_highPwarm"]]$mindate + years(scenarios[["TempOffset_ColdWarm_75percold_highPwarm"]]$nyears_burnin))
+plot_habitat(build_habitat(scenarios[["Baseline_ColdWarmHighP_075percold_rep01"]]), exp_start_date = scenarios[["Baseline_ColdWarmHighP_075percold_rep01"]]$mindate + years(scenarios[["Baseline_ColdWarmHighP_075percold_rep01"]]$nyears_burnin))
 
 

@@ -16,7 +16,11 @@ quarto::quarto_render("PreCalGrowth.qmd", output_format = "html", cache_refresh 
 quarto::quarto_render("GrowthRegime.qmd", output_format = "html", cache_refresh = TRUE)
 
 quarto::quarto_render("ScenarioDefs.qmd", output_format = "html", cache_refresh = TRUE)
-quarto::quarto_render("SensitivityAnalysis.qmd", output_format = "html", cache_refresh = FALSE)
+
+quarto::quarto_render("SensitivityAnalysis.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("TestPValSpecs.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("TestHabitatPcmax.qmd", output_format = "html", cache_refresh = TRUE)
+
 
 quarto::quarto_render("ViewSimResults.qmd", output_format = "html", cache_refresh = TRUE)
 quarto::quarto_render("CompareOutcomes.qmd", output_format = "html", cache_refresh = TRUE)
@@ -24,4 +28,5 @@ quarto::quarto_render("WarmContribution.qmd", output_format = "html", cache_refr
 quarto::quarto_render("SurplusProduction.qmd", output_format = "html", cache_refresh = TRUE)
 
 
+quarto::quarto_render("TestPValSpecs.qmd", output_format = "html", cache_refresh = TRUE)
 

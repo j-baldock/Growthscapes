@@ -28,10 +28,15 @@ book:
       chapters:
         - PreCalGrowth.qmd
         - GrowthRegime.qmd
-    - part: "Define Experiments and Sensitivity Analysis"
+    - part: "Define Experiments"
       chapters:
         - ScenarioDefs.qmd
+    - part: "Sensitivity and Replication"
+      chapters:
         - SensitivityAnalysis.qmd
+        - TestPValSpecs.qmd
+        - TestHabitatPcmax.qmd
+        - SeedReplicates.qmd
     - part: "Results"
       chapters:
         - ViewSimResults.qmd

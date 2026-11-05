@@ -399,16 +399,26 @@ plot_mechanistic <- function(ibm_long, habitat_df, sim_params,
 
 ## `plot_population()`
 
-Produce standard population-level outcome plots from IBM output. Covers daily and annual abundance/biomass, age structure, weight-at-age, body-size distributions, survival, lambda, and cohort survivorship.
+Produce standard population-level outcome plots from the pre-aggregated IBM outputs (no per-fish `ibm_long` needed). Covers annual abundance/biomass, age structure, weight-at-age, density-growth, apparent survival, compensatory dynamics, and reproduction.
 
 **Arguments:**
 
-* `ibm_long` — long-format individual records from `run_simulation()`
-* `habitat_df` — habitat time series from `build_habitat()`
+* `ibm_summary` — monthly (1st of month) strategy × patch × age-class summary from `run_simulation()`
+* `spawn_log` — one row per spawning event from `run_simulation()`
+* `fish_registry` — from `run_simulation()`; used only to attach strategy to spawners
+* `habitat_df` — habitat time series from `build_habitat()` (maps `dayofsim` to calendar year)
 * `exp_start_date` — optional `Date`; draws a vertical dashed line separating burn-in from experiment
 
+**Notes on what changed relative to the `ibm_long` version:**
+
+* Patch-level summaries are pooled exactly: abundance and biomass are summed, mean weight is `biomass / n`, and SD is recombined from patch-level means and SDs.
+* Weight-at-age x-axis is integer age class (mean fractional age within a class is no longer available).
+* Stock-recruitment and size-based thinning use Oct 1 age-0 abundance/biomass as the recruitment index, in place of day-60 survivors. Spawner biomass is the pre-spawn weight of all logged spawners. The density-growth panel uses July 1 abundance in place of mean daily July abundance.
+* The mean offspring birth weight panel and the age-at-last-observation plot required `ibm_long` and were dropped.
+
 ```{r}
-plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
+plot_population <- function(ibm_summary, spawn_log, fish_registry,
+                            habitat_df, exp_start_date = NULL) {
 
   # ── Shared palette, labels, and derived objects ──────────────────────────────
   strategy_pal <- c(
@@ -427,52 +437,51 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     "Age-6" = "#f0b27a", "Age-7" = "#e67e22", "Age-8+" = "#922b21"
   )
 
-  ibm_long  <- ibm_long |> mutate(age_class = floor(age))
   vline_yr  <- if (!is.null(exp_start_date))
     geom_vline(xintercept = year(exp_start_date),  linetype = "dashed") else NULL
 
-  # October 1 annual census
-  census <- ibm_long |>
-    filter(month(date) == 10, day(date) == 1, survived == 1) |>
+  # Pool patch-level summaries over the grouping variables supplied in `...`.
+  # n and biomass are sums; mean weight is biomass / n; the pooled SD is rebuilt
+  # from the within-patch variances and the between-patch spread of means.
+  pool_wt <- function(df, ...) {
+    df |>
+      filter(n_alive > 0) |>
+      group_by(...) |>
+      summarise(
+        n         = sum(n_alive),
+        biomass_g = sum(biomass_g),
+        mean_wt   = biomass_g / n,
+        ss        = sum(pmax(n_alive - 1, 0) * coalesce(sd_weight, 0)^2 +
+                          n_alive * mean_weight^2),
+        .groups   = "drop"
+      ) |>
+      mutate(sd_wt = if_else(n > 1,
+                             sqrt(pmax((ss - n * mean_wt^2) / (n - 1), 0)),
+                             NA_real_)) |>
+      select(-ss)
+  }
+
+  # October 1 annual census (survivors on Oct 1, by strategy x patch x age class)
+  census <- ibm_summary |>
+    filter(month(date) == 10, mday(date) == 1) |>
     mutate(year = year(date))
 
-  census_summary <- census |>
-    group_by(year, strategy) |>
-    summarise(
-      n_total   = n(),
-      biomass_g = sum(weight),
-      mean_wt   = mean(weight),
-      .groups   = "drop"
-    ) |>
+  census_by_age <- pool_wt(census, year, strategy, age_class) |>
     mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
 
-  census_age <- census |>
+  census_summary <- pool_wt(census, year, strategy) |>
+    rename(n_total = n) |>
+    mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
+
+  census_age <- census_by_age |>
     mutate(
-      age_class_f  = factor(
-        case_when(age_class >= 8L ~ "Age-8+",
-                  TRUE            ~ paste0("Age-", age_class)),
+      age_class_f = factor(
+        if_else(age_class >= 8L, "Age-8+", paste0("Age-", age_class)),
         levels = c(paste0("Age-", 0:7), "Age-8+")
-      ),
-      strategy_lbl = recode(strategy, !!!strategy_labs)
+      )
     ) |>
     group_by(year, strategy, strategy_lbl, age_class_f) |>
-    summarise(n = n(), .groups = "drop")
-
-  cohort_census <- census |>
-    group_by(strategy, cohort, age_class) |>
-    summarise(n = n(), .groups = "drop") |>
-    arrange(strategy, cohort, age_class)
-
-  apparent_survival <- cohort_census |>
-    group_by(strategy, cohort) |>
-    mutate(surv_rate = lead(n) / n) |>
-    filter(!is.na(surv_rate), age_class <= 11) |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
-
-  # Total population size across all strategies (used in density–growth plot)
-  total_pop <- census_summary |>
-    group_by(year) |>
-    summarise(total_pop = sum(n_total), .groups = "drop")
+    summarise(n = sum(n), .groups = "drop")
 
   # ── 1. ANNUAL CENSUS ─────────────────────────────────────────────────────────
   p_ann_abund <- ggplot(
@@ -509,28 +518,63 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     theme_bw() +
     theme(panel.grid = element_blank(), strip.text = element_text(face = "bold"))
 
+  # Guard: the population may have crashed before the experimental period,
+  # leaving no Oct 1 survivors to analyse. Return only the annual census plots.
+  first_plot_year <- if (!is.null(exp_start_date)) year(exp_start_date) else -Inf
+  has_census <- census_summary |>
+    filter(strategy != "resident_warm", year >= first_plot_year, n_total > 0) |>
+    nrow() > 0
+  if (!has_census) {
+    last_alive <- ibm_summary |> filter(n_alive > 0) |> pull(date) |>
+      (\(d) suppressWarnings(max(d, na.rm = TRUE)))()
+    warning(
+      "plot_population(): no surviving fish at an Oct 1 census",
+      if (!is.null(exp_start_date)) " on or after the experiment start",
+      " (population crashed; last month with survivors: ",
+      if (is.finite(last_alive)) format(last_alive) else "none",
+      "). Returning annual census plots only.",
+      call. = FALSE
+    )
+    if (nrow(census_summary) > 0) {
+      print(p_ann_census)
+      print(p_ann_age_struct)
+    }
+    return(invisible(list(
+      ann_census     = p_ann_census,
+      ann_age_struct = p_ann_age_struct
+    )))
+  }
+
+  # Apparent survival from age X (year t) to age X+1 (year t+1). A missing
+  # next-year row within the census range means no survivors (rate = 0).
+  max_census_year <- max(census_by_age$year)
+  apparent_survival <- census_by_age |>
+    select(year, strategy, strategy_lbl, age_class, n) |>
+    left_join(
+      census_by_age |>
+        transmute(year = year - 1L, strategy, age_class = age_class - 1L,
+                  n_next = n),
+      by = c("year", "strategy", "age_class")
+    ) |>
+    filter(year < max_census_year, age_class <= 11) |>
+    mutate(surv_rate = replace_na(n_next, 0) / n)
+
+  # Total population size across all strategies (used in density–growth plot)
+  total_pop <- census_summary |>
+    group_by(year) |>
+    summarise(total_pop = sum(n_total), .groups = "drop")
+
+
 
   # ── 3. WEIGHT AT AGE ─────────────────────────────────────────────────────────
   # Restrict to experimental years only (drop burn-in cohorts) when exp_start_date
   # is provided; always drawn from the October 1 census snapshot.
-  census_exp <- if (!is.null(exp_start_date))
-    census |> filter(year >= year(exp_start_date))
-  else
-    census
-
-  waa <- census_exp |>
-    group_by(strategy, year, age_class) |>
-    summarise(
-      mean_wt = mean(weight),
-      sd_wt   = sd(weight, na.rm = TRUE),
-      age_mid = mean(age),
-      .groups = "drop"
-    ) |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs),
-           year_f       = factor(year))
+  waa <- census_by_age |>
+    filter(if (!is.null(exp_start_date)) year >= year(exp_start_date) else TRUE) |>
+    mutate(year_f = factor(year))
 
   p_waa <- ggplot(waa |> filter(strategy != "resident_warm"),
-                  aes(x = age_mid, y = mean_wt,
+                  aes(x = age_class, y = mean_wt,
                       group = year_f, color = year_f)) +
     geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt,
                     fill = year_f),
@@ -539,19 +583,13 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     scale_color_viridis_d(option = "turbo", name = "Year") +
     scale_fill_viridis_d(option = "turbo", guide = "none") +
     facet_wrap(~strategy_lbl) +
-    labs(x = "Age (years)", y = "Mean weight (g)",
+    labs(x = "Age class (years)", y = "Mean weight (g)",
          title = "Weight-at-age by year",
          subtitle = "Ribbons = ±1 SD; each line = one census year") +
     theme_bw() + theme(panel.grid = element_blank())
 
-  waa_annual <- census |>
-    filter(strategy != "resident_warm") |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs)) |>
-    group_by(year, strategy, strategy_lbl, age_class) |>
-    summarise(
-      mean_wt = mean(weight), sd_wt = sd(weight), n = n(), .groups = "drop"
-    ) |>
-    filter(n >= 3, age_class <= 7) |>
+  waa_annual <- census_by_age |>
+    filter(strategy != "resident_warm", n >= 3, age_class <= 7) |>
     left_join(census_summary |> select(year, strategy, n_total),
               by = c("year", "strategy"))
 
@@ -596,15 +634,10 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
 
 
   # ── 4. ANNUAL SURVIVAL ───────────────────────────────────────────────────────
-  # Each cohort contributes exactly one survival rate per age class per year
-  # (year = cohort + age_class). Facet by age class, colored by strategy.
   surv_time <- apparent_survival |>
-    filter(strategy != "resident_warm", age_class <= 11) |>
-    mutate(
-      year         = cohort + age_class,
-      age_class_f  = factor(paste0("Age-", age_class),
-                            levels = paste0("Age-", 0:11))
-    )
+    filter(strategy != "resident_warm") |>
+    mutate(age_class_f = factor(paste0("Age-", age_class),
+                                levels = paste0("Age-", 0:11)))
 
   p_ann_surv <- ggplot(surv_time,
                         aes(x = year, y = surv_rate,
@@ -625,14 +658,36 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
           strip.text = element_text(face = "bold"), legend.position = "top")
 
 
+  # ── Spawning events by year and strategy (from spawn_log) ───────────────────
+  spawn_events <- spawn_log |>
+    left_join(fish_registry |> select(pid, strategy),
+              by = c("parent_pid" = "pid")) |>
+    mutate(spawn_year = year(habitat_df$date[dayofsim]))
+
+  annual_spawn <- spawn_events |>
+    filter(strategy != "resident_warm") |>
+    group_by(spawn_year, strategy) |>
+    summarise(
+      n_spawners = n_distinct(parent_pid),
+      n_fry      = sum(n_offspring),
+      spawner_kg = sum(weight) / 1000,
+      .groups    = "drop"
+    ) |>
+    mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
+
+  age0_oct1 <- census_by_age |>
+    filter(age_class == 0) |>
+    select(year, strategy, n_age0 = n, bio_age0_kg = biomass_g) |>
+    mutate(bio_age0_kg = bio_age0_kg / 1000)
+
+
   # ── 5. COMPENSATORY DYNAMICS ─────────────────────────────────────────────────
   # Four-panel diagnostic (all years):
   #   Top-left:  population map (N[t] vs N[t+1])
-  #   Top-right: stock-recruitment (spawner biomass vs 60-day fry biomass)
-  #   Bot-left:  size-based thinning (% fry surviving to day 60 vs cohort size)
-  #   Bot-right: density-growth (mean July N vs age-0 weight at Aug 1)
+  #   Top-right: stock-recruitment (spawner biomass vs Oct 1 age-0 biomass)
+  #   Bot-left:  size-based thinning (% of fry alive on Oct 1 vs cohort size)
+  #   Bot-right: density-growth (July 1 N vs age-0 weight at Aug 1)
 
-  # Population map
   comp_map_df <- census_summary |>
     filter(strategy != "resident_warm") |>
     group_by(strategy, strategy_lbl) |>
@@ -653,92 +708,56 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     theme_bw() + theme(legend.position = "none")
 
   # Stock-recruitment
-  comp_sr_recruits <- ibm_long |>
-    filter(!is.na(parent_pid)) |>
-    mutate(birth_yr    = year(habitat_df$date[birth_dayofsim]),
-           day_of_life = dayofsim - birth_dayofsim) |>
-    filter(day_of_life == 60) |>
-    group_by(birth_yr, strategy) |>
-    summarise(bio_surv60_kg = sum(weight) / 1000, .groups = "drop")
-
-  comp_sr_spawners <- ibm_long |>
-    filter(survived == 1) |>
-    mutate(year = year(date), doy = yday(date)) |>
-    filter(doy >= 90, doy <= 150, weight >= 100) |>
-    group_by(year, strategy) |>
-    summarise(spawner_kg = sum(weight) / 1000, .groups = "drop")
-
-  comp_sr_df <- left_join(comp_sr_recruits, comp_sr_spawners,
-                           by = c("birth_yr" = "year", "strategy")) |>
-    filter(!is.na(spawner_kg), spawner_kg > 0, strategy != "resident_warm") |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
+  comp_sr_df <- annual_spawn |>
+    inner_join(age0_oct1, by = c("spawn_year" = "year", "strategy")) |>
+    filter(spawner_kg > 0)
 
   p_comp_sr <- ggplot(comp_sr_df,
-                      aes(x = spawner_kg, y = bio_surv60_kg, color = strategy_lbl)) +
+                      aes(x = spawner_kg, y = bio_age0_kg, color = strategy_lbl)) +
     geom_point(alpha = 0.5, size = 1.5) +
     geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
     scale_color_manual(values = setNames(strategy_pal, strategy_labs), name = NULL) +
-    labs(x = "Spawner biomass (kg, Apr–Jun)", y = "Fry biomass at 60 days (kg)",
+    labs(x = "Spawner biomass (kg, pre-spawn weight)",
+         y = "Age-0 biomass on Oct 1 (kg)",
          title = "Stock-recruitment",
-         subtitle = "60-day survivor biomass vs. spawner biomass") +
+         subtitle = "Oct 1 age-0 biomass vs. spawner biomass") +
     theme_bw() + theme(legend.position = "right")
 
   # Size-based thinning
-  comp_born <- ibm_long |>
-    filter(!is.na(parent_pid)) |>
-    mutate(birth_yr = year(habitat_df$date[birth_dayofsim])) |>
-    distinct(pid, birth_yr, strategy) |>
-    count(birth_yr, strategy, name = "n_born")
-
-  comp_surv60 <- ibm_long |>
-    filter(!is.na(parent_pid)) |>
-    mutate(birth_yr    = year(habitat_df$date[birth_dayofsim]),
-           day_of_life = dayofsim - birth_dayofsim) |>
-    group_by(pid, birth_yr, strategy) |>
-    summarise(days_alive = n(), .groups = "drop") |>
-    filter(days_alive >= 60) |>
-    count(birth_yr, strategy, name = "n_surv60")
-
-  comp_thin_df <- left_join(comp_born, comp_surv60, by = c("birth_yr", "strategy")) |>
-    mutate(surv_rate    = replace_na(n_surv60 / n_born, 0)) |>
-    filter(strategy != "resident_warm") |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
+  comp_thin_df <- annual_spawn |>
+    left_join(age0_oct1, by = c("spawn_year" = "year", "strategy")) |>
+    mutate(surv_rate = replace_na(n_age0, 0) / n_fry)
 
   p_comp_thin <- ggplot(comp_thin_df,
-                        aes(x = n_born, y = surv_rate, color = strategy_lbl)) +
+                        aes(x = n_fry, y = surv_rate, color = strategy_lbl)) +
     geom_point(alpha = 0.45, size = 1.5) +
     geom_smooth(method = "loess", se = FALSE, span = 0.7, linewidth = 0.9) +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
     scale_color_manual(values = setNames(strategy_pal, strategy_labs), name = NULL) +
-    labs(x = "Fry born", y = "% of fry surviving to day 60",
+    labs(x = "Fry born", y = "% of fry alive on Oct 1",
          title = "Size-based thinning",
          subtitle = "Declining rate = density-dependent compensation") +
     theme_bw() + theme(legend.position = "none")
 
-  # Density–growth (mean July N vs age-0 weight at Aug 1)
-  comp_july_n <- ibm_long |>
-    filter(survived == 1, month(date) == 7) |>
-    group_by(year = year(date), date) |>
-    summarise(n = n(), .groups = "drop") |>
-    group_by(year) |>
-    summarise(mean_july_n = mean(n), .groups = "drop")
+  # Density–growth (July 1 N vs age-0 weight on Aug 1)
+  comp_july_n <- ibm_summary |>
+    filter(month(date) == 7, mday(date) == 1) |>
+    group_by(year = year(date)) |>
+    summarise(july_n = sum(n_alive), .groups = "drop")
 
-  comp_aug1_wt <- ibm_long |>
-    filter(survived == 1, !is.na(ggd), yday(date) == 213) |>
-    mutate(year = year(date)) |>
-    filter(cohort == year) |>
-    group_by(year, strategy) |>
-    summarise(mean_wt = mean(weight), n = n(), .groups = "drop") |>
+  comp_aug1_wt <- ibm_summary |>
+    filter(month(date) == 8, mday(date) == 1, age_class == 0) |>
+    pool_wt(year = year(date), strategy) |>
     filter(n >= 5, strategy != "resident_warm") |>
     mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
 
   comp_dg_df <- left_join(comp_aug1_wt, comp_july_n, by = "year")
 
-  p_comp_dg <- ggplot(comp_dg_df, aes(x = mean_july_n, y = mean_wt, color = strategy_lbl)) +
+  p_comp_dg <- ggplot(comp_dg_df, aes(x = july_n, y = mean_wt, color = strategy_lbl)) +
     geom_point(alpha = 0.5, size = 1.5) +
     geom_smooth(se = FALSE, linewidth = 0.9) +
     scale_color_manual(values = setNames(strategy_pal, strategy_labs), name = NULL) +
-    labs(x = "Mean July N (all fish)", y = "Age-0 weight at Aug 1 (g)",
+    labs(x = "July 1 N (all fish)", y = "Age-0 weight at Aug 1 (g)",
          title = "Density\u2013growth relationship",
          subtitle = "Higher density = slower early growth = more time below w\u2080") +
     theme_bw() + theme(legend.position = "none")
@@ -749,55 +768,11 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     )
 
 
-  # ── 6. AGE AT LAST OBSERVATION ───────────────────────────────────────────────
-  # For fish that survived past age-1, age at last observation approximates
-  # realised lifespan (fish still alive at simulation end are right-censored,
-  # so this is a lower-bound diagnostic, not a true lifespan distribution).
-  age_last_df <- ibm_long |>
-    group_by(pid, strategy, cohort) |>
-    summarise(age_last = max(age), .groups = "drop") |>
-    filter(age_last >= 1, strategy != "resident_warm") |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
-
-  p_age_last <- ggplot(age_last_df, aes(x = age_last, fill = strategy_lbl)) +
-    geom_histogram(binwidth = 0.5, color = "white", linewidth = 0.2) +
-    facet_wrap(~strategy_lbl, ncol = 1, scales = "free_y") +
-    scale_fill_manual(values = setNames(strategy_pal, strategy_labs), guide = "none") +
-    labs(x = "Age at last observation (years)", y = "Count",
-         title = "Age at last observation (fish surviving past age-1)",
-         subtitle = "Lifespan diagnostic  \u2014  right-censored for fish alive at simulation end") +
-    theme_bw() +
-    theme(panel.grid.minor = element_blank(),
-          strip.text = element_text(face = "bold"))
-
-
-  # ── 7. REPRODUCTION ──────────────────────────────────────────────────────────
-  # Unique spawn events: one row per (parent_pid, birth_dayofsim).
-  spawn_events <- ibm_long |>
-    filter(!is.na(parent_pid)) |>
-    distinct(parent_pid, birth_dayofsim) |>
-    mutate(spawn_year = year(habitat_df$date[birth_dayofsim]))
-
-  # Annual spawner counts per strategy (strategy from each parent's ibm_long record)
-  annual_spawners_repro <- spawn_events |>
-    left_join(ibm_long |> distinct(pid, strategy),
-              by = c("parent_pid" = "pid")) |>
-    filter(strategy != "resident_warm") |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs)) |>
-    group_by(spawn_year, strategy, strategy_lbl) |>
-    summarise(n_spawners = n_distinct(parent_pid), .groups = "drop")
-
-  # Annual counts of distinct fry born per strategy
-  fry_per_year <- ibm_long |>
-    filter(!is.na(parent_pid), strategy != "resident_warm") |>
-    mutate(birth_yr = year(habitat_df$date[birth_dayofsim])) |>
-    distinct(pid, birth_yr, strategy) |>
-    count(birth_yr, strategy, name = "n_fry")
-
+  # ── 6. REPRODUCTION ──────────────────────────────────────────────────────────
   # Panel A: Proportion of individuals spawning per year
   # Denominator: Oct 1 census N (post-spawning; slightly conservative since
   # some spawners may have died before Oct 1).
-  prop_spawn_df <- annual_spawners_repro |>
+  prop_spawn_df <- annual_spawn |>
     left_join(census_summary |> select(year, strategy, n_total),
               by = c("spawn_year" = "year", "strategy")) |>
     filter(!is.na(n_total))
@@ -816,40 +791,8 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     theme_bw() +
     theme(panel.grid.minor = element_blank(), legend.position = "none")
 
-  # Panel B: Mean offspring birth weight over time
-  # Near-constant in the current model; retained as a placeholder for future
-  # model versions where spawner size affects fry size.
-  offspring_wt_df <- ibm_long |>
-    filter(!is.na(parent_pid), dayofsim == birth_dayofsim,
-           strategy != "resident_warm") |>
-    mutate(birth_yr = year(habitat_df$date[birth_dayofsim])) |>
-    group_by(birth_yr, strategy) |>
-    summarise(mean_wt = mean(weight), sd_wt = sd(weight), .groups = "drop") |>
-    mutate(strategy_lbl = recode(strategy, !!!strategy_labs))
-
-  p_repro_offspring_wt <- ggplot(offspring_wt_df,
-                                  aes(x = birth_yr, y = mean_wt,
-                                      color = strategy_lbl, group = strategy_lbl)) +
-    geom_ribbon(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt,
-                    fill = strategy_lbl),
-                alpha = 0.15, color = NA) +
-    geom_line(linewidth = 0.7) + geom_point(size = 1.5) +
-    vline_yr +
-    scale_color_manual(values = setNames(strategy_pal, strategy_labs), name = NULL) +
-    scale_fill_manual(values = setNames(strategy_pal, strategy_labs), guide = "none") +
-    scale_y_continuous(limits = c(0, NA)) +
-    labs(x = "Birth year", y = "Mean birth weight (g)",
-         title = "Mean offspring birth weight",
-         subtitle = "Ribbon = \u00b11 SD  |  near-constant in current model") +
-    theme_bw() +
-    theme(panel.grid.minor = element_blank(), legend.position = "none")
-
-  # Panel C: Reproductive success — fry/spawner and fry/capita (stacked vertically)
-  repro_success_df <- annual_spawners_repro |>
-    left_join(fry_per_year, by = c("spawn_year" = "birth_yr", "strategy")) |>
-    left_join(census_summary |> select(year, strategy, n_total),
-              by = c("spawn_year" = "year", "strategy")) |>
-    filter(!is.na(n_total)) |>
+  # Panel B: Reproductive success — fry/spawner and fry/capita (stacked vertically)
+  repro_success_df <- prop_spawn_df |>
     pivot_longer(c(n_spawners, n_total),
                  names_to = "denom_type", values_to = "denom") |>
     mutate(
@@ -874,7 +817,7 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     theme(panel.grid.minor = element_blank(), legend.position = "none",
           strip.text = element_text(face = "bold"))
 
-  p_reproduction <- ((p_repro_prop / p_repro_offspring_wt) | p_repro_success) +
+  p_reproduction <- (p_repro_prop | p_repro_success) +
     patchwork::plot_annotation(
       title = "Reproductive diagnostics",
       tag_levels = "A"
@@ -890,7 +833,6 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
   print(p_density_growth)
   print(p_ann_surv)
   print(p_comp_dynamics)
-  print(p_age_last)
   print(p_reproduction)
 
   invisible(list(
@@ -901,11 +843,9 @@ plot_population <- function(ibm_long, habitat_df, exp_start_date = NULL) {
     density_growth = p_density_growth,
     ann_surv       = p_ann_surv,
     comp_dynamics  = p_comp_dynamics,
-    age_last       = p_age_last,
-    reproduction        = p_reproduction,
-    repro_prop          = p_repro_prop,
-    repro_offspring_wt  = p_repro_offspring_wt,
-    repro_success       = p_repro_success
+    reproduction   = p_reproduction,
+    repro_prop     = p_repro_prop,
+    repro_success  = p_repro_success
   ))
 }
 ```

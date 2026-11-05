@@ -35,10 +35,10 @@ Load each result .rds object and bind directly into a list. Using a helper funct
 #| cache: false
 
 # Extract params from one file (small object)
-res            <- readRDS("results/TempOffset_ColdWarm_05percold_highPwarm.rds")
-sim_params     <- res$params
-exp_start_date <- sim_params$mindate + years(sim_params$nyears_burnin)
-rm(res)
+# res            <- readRDS("results/TempOffset_ColdWarm_05percold_highPwarm.rds")
+# sim_params     <- res$params
+exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
+# rm(res)
 
 # Helper: read one scenario, extract ibm_long, and free res before returning
 load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
@@ -46,23 +46,48 @@ load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
   list(df = res$ibm_long, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
 }
 
+# ibm_list_mech <- list(
+#   load_scen("results/TempOffset_ColdOnly_95percold.rds",             0.95, "Cold only",           0.5, NA_real_),
+#   load_scen("results/TempOffset_ColdWarm_95percold.rds",             0.95, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/TempOffset_ColdWarm_95percold_highPwarm.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/TempOffset_ColdOnly_75percold.rds",             0.75, "Cold only",           0.5, NA_real_),
+#   load_scen("results/TempOffset_ColdWarm_75percold.rds",             0.75, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/TempOffset_ColdWarm_75percold_highPwarm.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/TempOffset_ColdOnly_50percold.rds",             0.50, "Cold only",           0.5, NA_real_),
+#   load_scen("results/TempOffset_ColdWarm_50percold.rds",             0.50, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/TempOffset_ColdWarm_50percold_highPwarm.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/TempOffset_ColdOnly_25percold.rds",             0.25, "Cold only",           0.5, NA_real_),
+#   load_scen("results/TempOffset_ColdWarm_25percold.rds",             0.25, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/TempOffset_ColdWarm_25percold_highPwarm.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/TempOffset_ColdOnly_05percold.rds",             0.05, "Cold only",           0.5, NA_real_),
+#   load_scen("results/TempOffset_ColdWarm_05percold.rds",             0.05, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/TempOffset_ColdWarm_05percold_highPwarm.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+# )
+
 ibm_list_mech <- list(
-  load_scen("results/TempOffset_ColdOnly_95percold.rds",             0.95, "Cold only",           0.5, NA_real_),
-  load_scen("results/TempOffset_ColdWarm_95percold.rds",             0.95, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_95percold_highPwarm.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdOnly_75percold.rds",             0.75, "Cold only",           0.5, NA_real_),
-  load_scen("results/TempOffset_ColdWarm_75percold.rds",             0.75, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_75percold_highPwarm.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdOnly_50percold.rds",             0.50, "Cold only",           0.5, NA_real_),
-  load_scen("results/TempOffset_ColdWarm_50percold.rds",             0.50, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_50percold_highPwarm.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdOnly_25percold.rds",             0.25, "Cold only",           0.5, NA_real_),
-  load_scen("results/TempOffset_ColdWarm_25percold.rds",             0.25, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_25percold_highPwarm.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/TempOffset_ColdOnly_05percold.rds",             0.05, "Cold only",           0.5, NA_real_),
-  load_scen("results/TempOffset_ColdWarm_05percold.rds",             0.05, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/TempOffset_ColdWarm_05percold_highPwarm.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+  load_scen("results/Baseline_ColdOnly_100percold_rep01.rds",        1.00, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",        0.95, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",        0.75, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",        0.50, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds",        0.25, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_010percold_rep01.rds",        0.10, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_005percold_rep01.rds",        0.05, "Cold only",            0.5, NA_real_),
+
+  load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",        0.95, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",        0.75, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",        0.50, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds",        0.25, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_010percold_rep01.rds",        0.10, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_005percold_rep01.rds",        0.05, "Cold + Warm",          0.5, 0.5),
+  
+  load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_010percold_rep01.rds",   0.10, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
 )
+
 ```
 
 
@@ -72,13 +97,13 @@ Summarize within each scenario before combining to avoid loading all fifteen ful
 
 # ── Scenario metadata ─────────────────────────────────────────────────────────
 scen_meta <- tibble(
-  scen_key  = c("95", "75", "50", "25", "05"),
-  label     = c("95% cold", "75% cold", "50% cold", "25% cold", "5% cold"),
-  prop_cold = c(0.95, 0.75, 0.50, 0.25, 0.05)
+  scen_key  = c("100", "95", "75", "50", "25", "10", "05"),
+  label     = c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "10% cold", "5% cold"),
+  prop_cold = c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
 )
 
 scen_pal <- setNames(
-  hcl.colors(5, "Zissou 1"),
+  hcl.colors(7, "Zissou 1"),
   scen_meta$label
 )
 
@@ -102,9 +127,16 @@ pc_to_key <- function(pc) sprintf("%02d", round(pc * 100))
 #            age_class = floor(age))
 # }
 
+# Helper: TRUE if the population went extinct before the experimental period
+# (ibm_long is NULL, has no rows, or lacks a date column)
+ibm_is_empty <- function(ibm_long) {
+  is.null(ibm_long) || nrow(ibm_long) == 0 || !"date" %in% names(ibm_long)
+}
+
 # Helper: compute per-year biomass accrual by patch (experimental period only).
 # Summarises to n_years × 2 rows per scenario before combining.
 compute_patch_growth <- function(ibm_long, scen_key) {
+  if (ibm_is_empty(ibm_long)) return(tibble())
   ibm_long |>
     filter(date >= exp_start_date, !is.na(ggd)) |>
     mutate(daily_growth_g = weight * ggd, year = year(date)) |>
@@ -135,6 +167,41 @@ patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
     hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))
   )
 
+# ── Seasonal biomass accrual by patch (Cold + Warm and high P scenarios) ──────
+compute_patch_growth_seasonal <- function(ibm_long, scen_key) {
+  if (ibm_is_empty(ibm_long)) return(tibble())
+  ibm_long |>
+    filter(date >= exp_start_date, !is.na(ggd)) |>
+    mutate(
+      daily_growth_g = weight * ggd,
+      year   = year(date),
+      month  = month(date),
+      season = case_when(
+        month %in% c(12, 1, 2)  ~ "Winter",
+        month %in% c(3, 4, 5)   ~ "Spring",
+        month %in% c(6, 7, 8)   ~ "Summer",
+        month %in% c(9, 10, 11) ~ "Fall"
+      ),
+      season = factor(season, levels = c("Winter", "Spring", "Summer", "Fall"))
+    ) |>
+    group_by(year, season, patch) |>
+    summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+    mutate(scen_key = scen_key)
+}
+
+patch_growth_seasonal <- purrr::map_dfr(
+  ibm_list_mech,
+  function(scen) {
+    compute_patch_growth_seasonal(scen$df, pc_to_key(scen$pc)) |>
+      mutate(hab_type = scen$ht)
+  }
+) |>
+  left_join(scen_meta, by = "scen_key") |>
+  mutate(
+    label    = factor(label,    levels = scen_meta$label),
+    hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))
+  )
+
 # ── Annual population totals per scenario × hab_type × year ──────────────────
 # exp_pop_yr <- exp_oct1 |>
 #   group_by(hab_type, label, prop_cold, year) |>
@@ -142,8 +209,481 @@ patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
 ```
 
 
+## Signed net growth
+
+### Weekly with habitat use
+
+```{r fig.width=12, fig.height=11}
+#| cache: true
+
+patch_cols <- c("Cold patch" = "#6BAED6", "Warm patch" = "#FC8D59")
+ref_year   <- year(base_params$mindate) + 1L  # reference year for x-axis date labels
+
+cw_habs <- c("Cold + Warm", "Cold + Warm (high P)")
+
+week_abs <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht %in% c("Cold only", cw_habs))],
+  function(s) {
+    # Skip runs that went extinct before the experimental period
+    if (ibm_is_empty(s$df)) return(tibble())
+    s$df |>
+      filter(date >= exp_start_date, !is.na(ggd), floor(age) >= 1) |>
+      mutate(
+        daily_growth_g = weight * ggd,
+        year     = year(date),
+        cal_week = week(date)
+      ) |>
+      group_by(year, cal_week, patch) |>
+      summarise(mean_ggd = mean(ggd, na.rm = TRUE),
+                total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+      mutate(label    = scen_meta$label[scen_meta$prop_cold == s$pc],
+             hab_type = s$ht)
+  }
+) |>
+  mutate(
+    label   = factor(label,   levels = scen_meta$label)
+  ) |>
+  group_by(hab_type, label, cal_week, patch) |>
+  summarise(mean_ggd  = mean(mean_ggd, na.rm = TRUE), 
+            mean_biom = mean(total_g, na.rm = TRUE), .groups = "drop") |>
+  mutate(
+    patch_label = factor(if_else(patch == "cold", "Cold patch", "Warm patch"),
+                         levels = c("Cold patch", "Warm patch")),
+    week_date   = as.Date(paste0(ref_year, "-01-01")) + (cal_week - 1L) * 7L
+  )
+
+# Cold only runs have no warm patch: add explicit zero rows so the warm
+# patch appears (as 0) in the stacked bars and legend
+week_abs <- bind_rows(
+  week_abs,
+  week_abs |>
+    filter(hab_type == "Cold only") |>
+    mutate(patch = "warm", mean_ggd = 0, mean_biom = 0,
+           patch_label = factor("Warm patch", levels = levels(patch_label)))
+)
+
+# ggplot(filter(week_abs, hab_type == "Cold + Warm"), aes(x = week_date, y = mean_ggd, color = patch_label)) +
+#   geom_line() +
+#   # geom_col(position = "stack", width = 7) +
+#   geom_hline(yintercept = 0, linewidth = 0.3) +
+#   scale_color_manual(values = patch_cols, name = "Patch") +
+#   scale_x_date(
+#     breaks = seq(as.Date(paste0(ref_year, "-01-01")),
+#                  as.Date(paste0(ref_year, "-12-01")), by = "month"),
+#     labels = \(x) substr(format(x, "%b"), 1, 1),
+#     expand = expansion(0)
+#   ) +
+#   scale_y_continuous(labels = scales::label_comma()) +
+#   facet_wrap(~ label, nrow = 1, scales = "free_y") +
+#   labs(
+#     x        = "Calendar week",
+#     y        = "Mean weekly growth rate (g/g/d)",
+#     title    = "Weekly growth rate by patch and consumption type",
+#     subtitle = "Cold + Warm scenarios only  |  Mean over experimental years"
+#   ) +
+#   theme_bw(base_size = 12) +
+#   theme(
+#     panel.grid.minor = element_blank(),
+#     legend.position  = "right",
+#     axis.text        = element_text(color = "black")
+#   )
+
+# ── Weekly adult occupancy (proportion in warm patch) ─────────────────────────
+occ_week <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht %in% cw_habs)],
+  function(s) {
+    s$df |>
+      filter(date >= exp_start_date, survived == 1, floor(age) >= 1) |>
+      mutate(year = year(date), cal_week = week(date)) |>
+      group_by(year, cal_week) |>
+      summarise(prop_warm = mean(patch == "warm"), .groups = "drop") |>
+      group_by(cal_week) |>
+      summarise(mean_prop_warm = mean(prop_warm), .groups = "drop") |>
+      mutate(label    = scen_meta$label[scen_meta$prop_cold == s$pc],
+             hab_type = s$ht)
+  }
+) |>
+  mutate(label     = factor(label,   levels = scen_meta$label),
+         week_date = as.Date(paste0(ref_year, "-01-01")) + (cal_week - 1L) * 7L)
+
+# ── Stacked biomass + occupancy overlay ───────────────────────────────────────
+# facet_grid(species ~ ptype, scales = "free_y") + sec_axis conflicts because
+# sec_axis uses a single global transformation. One plot per species (combined
+# with patchwork) gives each its own correctly scaled secondary axis.
+make_week_occ_plot <- function(ht) {
+  wd    <- filter(week_abs, hab_type == ht)
+  od    <- filter(occ_week, hab_type == ht)
+  # Cold only runs have no occupancy data (no warm patch): omit line and right axis
+  has_occ <- nrow(od) > 0
+  fills <- c("Cold patch" = unname(hab_cols["Cold only"]),
+             "Warm patch" = unname(hab_cols[if (has_occ) ht else "Cold + Warm"]))
+  g_max <- max(wd$mean_biom, na.rm = TRUE)
+
+  ggplot(wd, aes(x = week_date, y = mean_biom, fill = patch_label)) +
+    geom_col(position = "stack", width = 7) +
+    geom_hline(yintercept = 0, linewidth = 0.3) +
+    (if (has_occ) geom_line(data = od,
+              aes(x = week_date, y = mean_prop_warm * g_max),
+              color = "black", linewidth = 0.7, inherit.aes = FALSE)) +
+    scale_fill_manual(values = fills, name = "Patch") +
+    scale_x_date(
+      breaks = seq(as.Date(paste0(ref_year, "-01-01")),
+                   as.Date(paste0(ref_year, "-12-01")), by = "month"),
+      labels = \(x) substr(format(x, "%b"), 1, 1),
+      expand = expansion(0)
+    ) +
+    scale_y_continuous(
+      labels   = scales::label_comma(),
+      sec.axis = if (has_occ) sec_axis(~ . / g_max,
+                          name   = "Prop. adults in warm patch",
+                          labels = scales::label_percent(accuracy = 1)) else waiver()
+    ) +
+    facet_wrap(~label, nrow = 1) +
+    labs(x = NULL, y = NULL, title = ht) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor   = element_blank(),
+          axis.title.y.right = element_blank(),
+          legend.position    = "right",
+          axis.text          = element_text(color = "black"))
+}
+
+# Shared y-axis titles: strip the titles from both plots, then flank the
+# stacked pair with narrow wrap_elements() textGrob strips on each side.
+y_left  <- wrap_elements(
+  grid::textGrob("Mean weekly biomass change (g)", rot = 90,
+                 gp = grid::gpar(fontsize = 12))
+)
+y_right <- wrap_elements(
+  grid::textGrob("Prop. adults in warm patch", rot = -90,
+                 gp = grid::gpar(fontsize = 12))
+)
+
+inner <- make_week_occ_plot("Cold only") /
+  make_week_occ_plot("Cold + Warm") /
+  make_week_occ_plot("Cold + Warm (high P)") &
+  theme(legend.position = "right")
+
+y_left + inner + y_right +
+  plot_layout(widths = c(0.04, 1, 0.04)) +
+  plot_annotation(
+    title    = "Weekly biomass change by patch with adult warm-patch occupancy",
+    subtitle = paste(
+      "Rows: Cold only (warm patch = 0), Cold + Warm, Cold + Warm (high P)  |  Bars = mean weekly biomass change (stacked cold + warm)",
+      "Line = proportion of adults in warm patch (right axis; not shown for Cold only)", sep = "\n"
+    )
+  )
+```
+
+
+### Annual and seasonal
+
+Mean (across experimental years) signed net biomass change (g) in each patch and season. Losses are retained (not clipped to zero), so seasonal and patch-specific gains and losses can be seen directly. *This is simply the seasonal summary of the data presented in the previous plot*
+
+```{r}
+#| fig-width: 9
+#| fig-height: 9
+
+net_annual <- patch_growth |>
+  filter(#hab_type %in% c("Cold + Warm", "Cold + Warm (high P)"), 
+         prop_cold != 1,
+         !year %in% c(2051, 2101)) |>
+  group_by(hab_type, prop_cold, patch) |>
+  summarise(net_g = mean(total_g), .groups = "drop") |>
+  mutate(
+    patch  = factor(patch, c("cold", "warm"), c("Cold patch", "Warm patch")),
+    prop_f = factor(prop_cold, sort(unique(prop_cold), decreasing = TRUE))
+  ) |>
+  mutate(patch = if_else(hab_type == "Cold + Warm (high P)" & patch == "Warm patch", "Warm patch (high P)", patch)) |>
+  mutate(patch = factor(patch, levels = c("Cold patch", "Warm patch", "Warm patch (high P)")))
+
+p_net_annual <- ggplot(net_annual, aes(x = prop_f, y = net_g/1000, fill = patch)) +
+  geom_col() +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_fill_manual(values = c("Cold patch" = "#6BAED6", "Warm patch" = "#FC8D59", "Warm patch (high P)" = "#B30000"), name = NULL) +
+  scale_x_discrete(labels = scales::label_percent(accuracy = 1)(
+    sort(unique(net_annual$prop_cold), decreasing = TRUE))) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  facet_wrap(~hab_type) +
+  labs(
+    x        = NULL,
+    y        = "Mean net production (kg)",
+    title    = "Annual"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(panel.grid  = element_blank(),
+        axis.text   = element_text(color = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+net_seasonal <- patch_growth_seasonal |>
+  filter(#hab_type %in% c("Cold + Warm", "Cold + Warm (high P)"), 
+         prop_cold != 1,
+         !year %in% c(2051, 2101)) |>
+  group_by(hab_type, prop_cold, season, patch) |>
+  summarise(net_g = mean(total_g), .groups = "drop") |>
+  mutate(
+    patch  = factor(patch, c("cold", "warm"), c("Cold patch", "Warm patch")),
+    prop_f = factor(prop_cold, sort(unique(prop_cold), decreasing = TRUE))
+  ) |>
+  mutate(patch = if_else(hab_type == "Cold + Warm (high P)" & patch == "Warm patch", "Warm patch (high P)", patch)) |>
+  mutate(patch = factor(patch, levels = c("Cold patch", "Warm patch", "Warm patch (high P)")))
+
+p_net_seasonal <- ggplot(net_seasonal, aes(x = prop_f, y = net_g/1000, fill = patch)) +
+  geom_col() +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_fill_manual(values = c("Cold patch" = "#6BAED6", "Warm patch" = "#FC8D59", "Warm patch (high P)" = "#B30000"), name = NULL) +
+  scale_x_discrete(labels = scales::label_percent(accuracy = 1)(
+    sort(unique(net_seasonal$prop_cold), decreasing = TRUE))) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  facet_grid(hab_type ~ season) +
+  labs(
+    x        = "Proportion cold habitat",
+    y        = "Mean net production (kg)",
+    title    = "Seasonal"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(panel.grid  = element_blank(),
+        axis.text   = element_text(color = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+# Annual (top, larger) over seasonal (bottom); shared legend
+p_net_annual / p_net_seasonal +
+  plot_layout(heights = c(0.4, 1), guides = "collect") +
+  plot_annotation(
+    title    = "Signed net production by patch",
+    subtitle = "Bars stack gains (above zero) and losses (below zero) by patch",
+    tag_levels = "A"
+  )
+```
+
+
+## Relative importance of warm habitat
+
+### Annual counterfactual
+
+The patch-level accounting above attributes growth to the patch where it was accrued. It cannot credit effects that warm habitat has on the cold patch (e.g., reduced cold-patch density). Here, the benefit of warm habitat is instead estimated by comparing each Cold + Warm scenario with the Cold only run at the same cold proportion, so that:
+
+$$\text{benefit} = \underbrace{N_{warm}}_{\text{direct}} + \underbrace{(N_{cold} - N_{cold,\,\text{cold only}})}_{\text{indirect}}$$
+
+where $N$ is net growth (g, signed). Years are paired between scenarios. *The Cold only run at 5% cold went extinct and is treated as zero production, so the indirect term at 5% cold is not a true difference.* Importance is expressed as a fraction of annual Cold + Warm net production, so seasonal fractions sum to the annual fraction.
+
+Here, we can see how the relative importance of warm habitat grows as cold habitat proportion shrinks. Deviations from the 1:1 line indicate conditions under which the relative importance of warm habitat is greater or less than area-proportional expectations.
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+
+cf_habs  <- c("Cold + Warm", "Cold + Warm (high P)")
+cf_seas  <- c("Winter", "Spring", "Summer", "Fall")
+cf_years <- unique(patch_growth$year)
+cf_comp_cols <- c("Warm patch net growth (direct)" = "#B30000",
+                  "Change in cold-patch growth vs Cold only (indirect)" = "#6BAED6")
+
+cf_x_scale <- scale_x_continuous(
+  breaks = scen_meta$prop_cold,
+  labels = scales::label_percent(accuracy = 1),
+  transform = "reverse"
+)
+cf_theme <- list(
+  theme_bw(base_size = 12),
+  theme(panel.grid = element_blank(),
+        axis.text   = element_text(color = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+)
+
+# ── Annual: cold-patch net growth in matched Cold only runs ───────────────────
+
+# get annual biomass accrual in cold-only scenario runs (add 0s for extinct scenario runs)
+cold_only_annual <- patch_growth |>
+  filter(hab_type == "Cold only", patch == "cold", prop_cold < 1) |>
+  select(prop_cold, year, C_co = total_g) |>
+  bind_rows(tibble(prop_cold = 0.05, year = cf_years, C_co = 0))
+
+# annual patch-specific growth by prop_cold, matched to cold-only scenarios
+cf_annual <- patch_growth |>
+  filter(hab_type %in% cf_habs) |>
+  select(hab_type, prop_cold, year, patch, total_g) |>
+  pivot_wider(names_from = patch, values_from = total_g, values_fill = 0) |>
+  left_join(cold_only_annual, by = c("prop_cold", "year")) |>
+  mutate(direct   = warm,                        # biomass accrued directly from the warm habitat
+         indirect = cold - C_co,                 # change in cold patch biomass due to presence of warm habitat
+         benefit  = direct + indirect,           # total benefit of the warm patch is the sum of direct gains in the warm patch plus the change in cold patch function
+         I_cf     = benefit / (warm + cold)) |>  # fraction of annual net biomass accrual (production) due to the warm habitat (direct and indirect effects)
+  filter(!year %in% c(2051, 2101)) # the start and end calendar years are incomplete given that the simulation begins/ends on May 1. 
+
+cf_annual |>
+  group_by(hab_type, prop_cold) |>
+  summarise(m = mean(I_cf), s = sd(I_cf), .groups = "drop") |>
+  ggplot(aes(x = prop_cold, y = m, color = hab_type, fill = hab_type, group = hab_type)) +
+  # geom_hline(yintercept = c(0,1), linewidth = 0.3, linetype = "dashed") +
+  geom_abline(intercept = 1, slope = 1, linewidth = 0.3, linetype = "dashed", color = "grey50") +
+  geom_errorbar(aes(ymin = m - s, ymax = m + s), width = 0.02,
+                position = position_dodge(width = 0.03)) +
+  geom_line(position = position_dodge(width = 0.03)) +
+  geom_point(size = 3, shape = 21, color = "black",
+             position = position_dodge(width = 0.03)) +
+  scale_color_manual(values = hab_cols, name = "Habitat scenario") +
+  scale_fill_manual(values = hab_cols, name = "Habitat scenario") +
+  scale_y_continuous(labels = scales::label_percent()) +
+  cf_x_scale +
+  labs(
+    x        = "Proportion cold habitat",
+    y        = "Fraction of annual net production\ndue to warm habitat",
+    title    = "Relative importance of warm habitat",
+    subtitle = "Error bars = \u00b11 SD across years  |  1:1 line is the area-proportional expectation"
+  ) +
+  cf_theme
+```
+
+We can decompose the relative importance of warm habitat into its direct and indirect components. The direct benefit is the actual amount of biomass accrued by fish growing in the warm patch. The indirect benefit is the proportion of annual positive growth attributable to the warm patch through indirect mechanisms; i.e., the change in cold patch production due to presence of warm habitat, driven by density-dependent increases in survival or growth rates of fish in the cold patch due fish moving to the now available warm patch.
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+
+cf_decomp <- cf_annual |>
+  group_by(hab_type, prop_cold) |>
+  summarise(across(c(direct, indirect, benefit), mean), .groups = "drop") |>
+  mutate(prop_f = factor(prop_cold, sort(unique(prop_cold), decreasing = TRUE)))
+
+cf_decomp |>
+  pivot_longer(c(direct, indirect), names_to = "component", values_to = "g") |>
+  # Direct bars are colored by habitat scenario; indirect bars share one color
+  mutate(component = case_when(
+    component == "indirect"            ~ "Change in cold-patch growth vs Cold only (indirect)",
+    hab_type == "Cold + Warm"          ~ "Warm patch net growth (direct), Cold + Warm",
+    hab_type == "Cold + Warm (high P)" ~ "Warm patch net growth (direct), Cold + Warm (high P)"
+  )) |>
+  ggplot(aes(x = prop_f, y = g/1000, fill = component)) +
+  geom_col() +
+  geom_point(data = cf_decomp, aes(y = benefit/1000, fill = NULL),
+             shape = 18, size = 3.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_fill_manual(
+    values = c("Warm patch net growth (direct), Cold + Warm"          = unname(hab_cols["Cold + Warm"]),
+               "Warm patch net growth (direct), Cold + Warm (high P)" = unname(hab_cols["Cold + Warm (high P)"]),
+               "Change in cold-patch growth vs Cold only (indirect)"  = unname(hab_cols["Cold only"])),
+    name = NULL) +
+  scale_x_discrete(labels = scales::label_percent(accuracy = 1)(
+    sort(unique(cf_decomp$prop_cold), decreasing = TRUE))) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  facet_wrap(~ hab_type) +
+  labs(
+    x        = "Proportion cold habitat",
+    y        = "Mean annual net production (kg)",
+    title    = "Warm-habitat benefit decomposed",
+    subtitle = "Diamond = total benefit (direct + indirect effects of warm habitat)"
+  ) +
+  cf_theme +
+  theme(legend.position = "bottom", legend.direction = "vertical")
+```
+
+
+### Seasonal counterfactual
+
+Seasonal benefit is computed the same way within each season, and expressed as a fraction of *annual* Cold + Warm net production.
+
+In the Winter, Spring, and Fall, the relative importance of warm habitat increases dramatically with declining cold habitat proportion; whereas in the summer, the addition of warm habitat is a net negative, becoming moreso as cold habitat proportion declines.
+```{r}
+#| fig-width: 11
+#| fig-height: 5
+
+# Seasonal net growth for Cold only runs (patch_growth_seasonal excludes them)
+patch_growth_seasonal_co <- purrr::map_dfr(
+  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold only")],
+  function(s) {
+    compute_patch_growth_seasonal(s$df, pc_to_key(s$pc)) |>
+      mutate(hab_type = s$ht)
+  }
+) |>
+  left_join(scen_meta, by = "scen_key")
+
+cold_only_seasonal <- patch_growth_seasonal_co |>
+  filter(patch == "cold", prop_cold < 1, !year %in% c(2051, 2101)) |>
+  select(prop_cold, year, season, C_co = total_g) |>
+  bind_rows(expand_grid(prop_cold = 0.05, year = cf_years,
+                        season = factor(cf_seas, cf_seas), C_co = 0))
+
+cf_seasonal <- patch_growth_seasonal |>
+  filter(hab_type %in% cf_habs, !year %in% c(2051, 2101)) |>
+  select(hab_type, prop_cold, year, season, patch, total_g) |>
+  pivot_wider(names_from = patch, values_from = total_g, values_fill = 0) |>
+  left_join(cold_only_seasonal, by = c("prop_cold", "year", "season")) |>
+  mutate(direct   = warm,
+         indirect = cold - C_co,
+         benefit  = direct + indirect) |>
+  group_by(hab_type, prop_cold, year) |>
+  mutate(annual_cw = sum(warm + cold)) |>
+  ungroup() |>
+  mutate(I_seas = benefit / annual_cw)
+
+cf_seasonal |>
+  group_by(hab_type, prop_cold, season) |>
+  summarise(m = mean(I_seas), s = sd(I_seas), .groups = "drop") |>
+  ggplot(aes(x = prop_cold, y = m, color = hab_type, fill = hab_type, group = hab_type)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, linetype = "dashed") +
+  geom_errorbar(aes(ymin = m - s, ymax = m + s), width = 0.05,
+                position = position_dodge(width = 0.03)) +
+  geom_line(position = position_dodge(width = 0.03)) +
+  geom_point(size = 3, shape = 21, color = "black",
+             position = position_dodge(width = 0.03)) +
+  scale_color_manual(values = hab_cols, name = "Habitat scenario") +
+  scale_fill_manual(values = hab_cols, name = "Habitat scenario") +
+  scale_y_continuous(labels = scales::label_percent()) +
+  cf_x_scale +
+  facet_wrap(~ season, nrow = 1) +
+  labs(
+    x        = "Proportion cold habitat",
+    y        = "Seasonal benefit as fraction of\nannual net production",
+    title    = "Seasonal relative importance of warm habitat",
+    subtitle = "Seasons sum to the annual fraction  |  Error bars = \u00b11 SD across years"
+  ) +
+  cf_theme
+```
+
+The seasonal decomposition plots show why that is, and how the influence of direct vs. indirect effects vary seasonally. In the Spring and Fall, adding warm habitat has almost entirely direct and positive effects on biomass production by providing fish with important supplemental foraging opportunity during a time when relatively cold temperatures and high densities limit growth in cold-only scenarios. In the summer however, adding warm habitat has indirect, negative effects on the importance of warm habitat as the cold habitat produces less biomass than in the cold-only scenario: summer is increasingly defined by slower growth rates and higher adult mortality (because increased abundances and individual body sizes increase total metabolic demand beyond what the cold patch can support). Direct effects are 0 in the summer because fish do not use the warm patch at this time. The role of warm habitat is mixed in the winter. Indirect effects are generally positive as warm habitat reduces cold patch densities and allows fish to reduce or avoid winter mass loss. When cold habitat proportions are high (95-75%), the direct effects are negative (fish are still losing mass in the warm patch due to strong density dependence), but these negative effects do not outweigh the positive indirect effects. But when cold habitat proportions are moderate-low (50-5%), the direct effects are positive as the warm habitat is large enough to fuel individual growth.
+```{r}
+#| fig-width: 9
+#| fig-height: 6
+
+cf_decomp_seas <- cf_seasonal |>
+  group_by(hab_type, prop_cold, season) |>
+  summarise(across(c(direct, indirect, benefit), mean), .groups = "drop") |>
+  mutate(prop_f = factor(prop_cold, sort(unique(prop_cold), decreasing = TRUE)))
+
+cf_decomp_seas |>
+  pivot_longer(c(direct, indirect), names_to = "component", values_to = "g") |>
+  # Direct bars are colored by habitat scenario; indirect bars share one color
+  mutate(component = case_when(
+    component == "indirect"            ~ "Change in cold-patch growth vs Cold only (indirect)",
+    hab_type == "Cold + Warm"          ~ "Warm patch net growth (direct), Cold + Warm",
+    hab_type == "Cold + Warm (high P)" ~ "Warm patch net growth (direct), Cold + Warm (high P)"
+  )) |>
+  ggplot(aes(x = prop_f, y = g/1000, fill = component)) +
+  geom_col() +
+  geom_point(data = cf_decomp_seas, aes(y = benefit/1000, fill = NULL),
+             shape = 18, size = 3, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_fill_manual(
+    values = c("Warm patch net growth (direct), Cold + Warm"          = unname(hab_cols["Cold + Warm"]),
+               "Warm patch net growth (direct), Cold + Warm (high P)" = unname(hab_cols["Cold + Warm (high P)"]),
+               "Change in cold-patch growth vs Cold only (indirect)"  = unname(hab_cols["Cold only"])),
+    name = NULL) +
+  scale_x_discrete(labels = scales::label_percent(accuracy = 1)(
+    sort(unique(cf_decomp_seas$prop_cold), decreasing = TRUE))) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  facet_grid(hab_type ~ season) +
+  labs(
+    x        = "Proportion cold habitat",
+    y        = "Mean seasonal net production (kg)",
+    title    = "Seasonal warm-habitat benefit decomposed",
+    subtitle = "Diamond = total seasonal benefit (Cold + Warm \u2212 Cold only)"
+  ) +
+  cf_theme +
+  theme(legend.position = "bottom", legend.direction = "vertical")
+```
+
 
 ## Changing relative importance
+
+*These plots only consider positive biomass contributions, negating the effect of either patch to annual or seasonal mass losses. They also fail to acknowledge the indirect effects that warm habitat might have on cold habitat production (via density dependence).* ***Caution should be taken when interpreting these results.***
 
 ### Mean contribution
 
@@ -172,19 +712,21 @@ warm_share_scen <- patch_growth |>
     .groups     = "drop"
   )
 
-ggplot(warm_share_scen, aes(x = prop_cold, y = mean_f_warm, color = hab_type, group = hab_type)) +
+ggplot(warm_share_scen, aes(x = prop_cold, y = mean_f_warm, color = hab_type, fill = hab_type, group = hab_type)) +
   # Area-proportional expectation: f_warm = 1 - prop_cold
   geom_abline(slope = 1, intercept = 1, linetype = "dashed",
               color = "grey50", linewidth = 0.4) +
   geom_errorbar(
     aes(ymin = pmax(0, mean_f_warm - sd_f_warm),
         ymax = pmin(1, mean_f_warm + sd_f_warm)),
-    width = 0.02, linewidth = 0.7
+    width = 0.02, linewidth = 0.7, 
+    position = position_dodge(width = 0.03, preserve = "single")
   ) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 4, shape = 16) +
+  geom_line(linewidth = 0.8, position = position_dodge(width = 0.03, preserve = "single")) +
+  geom_point(size = 4, shape = 21, color = "black", position = position_dodge(width = 0.03, preserve = "single")) +
   # scale_shape_manual(  values = hab_shape,  name = "Habitat") +
-  scale_color_manual(values = hab_cols, name = "Habitat") +
+  scale_color_manual(values = hab_cols, name = "Habitat scenario") +
+  scale_fill_manual(values = hab_cols, name = "Habitat scenario") +
   scale_x_continuous(
     breaks = scen_meta$prop_cold,
     labels = scales::label_percent(accuracy = 1),
@@ -200,7 +742,8 @@ ggplot(warm_share_scen, aes(x = prop_cold, y = mean_f_warm, color = hab_type, gr
     subtitle = "Dashed line = area-proportional expectation  |  Error bars = \u00b11 SD across years"
   ) +
   theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank(), legend.position = "right")
+  theme(panel.grid.minor = element_blank(), legend.position = "right", 
+        axis.text = element_text(color = "black"), axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 ```
 
 
@@ -212,40 +755,7 @@ Mean positive biomass accrual per season, broken down by patch (total, cold, war
 #| fig-width: 11
 #| fig-height: 9
 
-
-compute_patch_growth_seasonal <- function(ibm_long, scen_key) {
-  ibm_long |>
-    filter(date >= exp_start_date, !is.na(ggd)) |>
-    mutate(
-      daily_growth_g = weight * ggd,
-      year   = year(date),
-      month  = month(date),
-      season = case_when(
-        month %in% c(12, 1, 2)  ~ "Winter",
-        month %in% c(3, 4, 5)   ~ "Spring",
-        month %in% c(6, 7, 8)   ~ "Summer",
-        month %in% c(9, 10, 11) ~ "Fall"
-      ),
-      season = factor(season, levels = c("Winter", "Spring", "Summer", "Fall"))
-    ) |>
-    group_by(year, season, patch) |>
-    summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
-    mutate(scen_key = scen_key)
-}
-
-patch_growth_seasonal <- purrr::map_dfr(
-  ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht != "Cold only")],
-  function(scen) {
-    compute_patch_growth_seasonal(scen$df, pc_to_key(scen$pc)) |>
-      mutate(hab_type = scen$ht)
-  }
-) |>
-  left_join(scen_meta, by = "scen_key") |>
-  mutate(
-    label    = factor(label,    levels = scen_meta$label),
-    hab_type = factor(hab_type, levels = c("Cold + Warm", "Cold + Warm (high P)", "Cold only"))
-  )
-
+# compute_patch_growth_seasonal() and patch_growth_seasonal are defined in the setup chunk
 per_patch <- patch_growth_seasonal |>
   filter(hab_type %in% c("Cold + Warm", "Cold + Warm (high P)")) |>
   mutate(pos_g = pmax(total_g, 0)) |>
@@ -270,20 +780,22 @@ season_raw <- bind_rows(
     .groups = "drop"
   )
 
-ggplot(season_raw, aes(x = prop_cold, y = mean_pos_g, color = hab_type, group = hab_type)) +
+ggplot(season_raw, aes(x = prop_cold, y = mean_pos_g, color = hab_type, fill = hab_type, group = hab_type)) +
   geom_errorbar(
     aes(ymin = pmax(0, mean_pos_g - sd_pos_g),
         ymax = mean_pos_g + sd_pos_g),
-    width = 0.02, linewidth = 0.7
+    width = 0.05, linewidth = 0.7, 
+    position = position_dodge(width = 0.03, preserve = "single")
   ) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 3, shape = 16) +
+  geom_line(linewidth = 0.8, position = position_dodge(width = 0.03, preserve = "single")) +
+  geom_point(size = 3, shape = 21, color = "black", position = position_dodge(width = 0.03, preserve = "single")) +
   # scale_shape_manual(values = hab_shape,  name = "Habitat") +
-  scale_color_manual(values = hab_cols, name = "Habitat") +
+  scale_color_manual(values = hab_cols, name = "Habitat scenario") +  
+  scale_fill_manual(values = hab_cols, name = "Habitat scenario") +
   scale_x_continuous(
     breaks = scen_meta$prop_cold,
     labels = scales::label_percent(accuracy = 1),
-    limits = c(0, 1),
+    #limits = c(0, 1),
     transform = "reverse"
   ) +
   scale_y_continuous(labels = scales::label_comma()) +
@@ -295,7 +807,8 @@ ggplot(season_raw, aes(x = prop_cold, y = mean_pos_g, color = hab_type, group = 
     subtitle = "Error bars = \u00b11 SD across years"
   ) +
   theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank(), legend.position = "right")
+  theme(panel.grid.minor = element_blank(), legend.position = "right", 
+        axis.text = element_text(color = "black"), axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 ```
 
 Each season's positive biomass accrual as a proportion of total annual positive growth (both patches combined), broken down by patch. The denominator is always the combined annual total, so the cold and warm patch rows decompose the total row and together sum to 100%.
@@ -344,20 +857,22 @@ season_share_patch <- bind_rows(
   )
 
 # Faceted by season (columns) × patch (rows); prop_cold on x-axis
-ggplot(season_share_patch, aes(x = prop_cold, y = mean_f_season, color = hab_type, group = hab_type)) +
+ggplot(season_share_patch, aes(x = prop_cold, y = mean_f_season, color = hab_type, fill = hab_type, group = hab_type)) +
   geom_errorbar(
     aes(ymin = pmax(0, mean_f_season - sd_f_season),
         ymax = pmin(1, mean_f_season + sd_f_season)),
-    width = 0.02, linewidth = 0.7
+    width = 0.05, linewidth = 0.7, 
+    position = position_dodge(width = 0.03, preserve = "single")
   ) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 3, shape = 16) +
+  geom_line(linewidth = 0.8, position = position_dodge(width = 0.03, preserve = "single")) +
+  geom_point(size = 3, shape = 21, color = "black", position = position_dodge(width = 0.03, preserve = "single")) +
   # scale_shape_manual(values = hab_shape,  name = "Habitat") +
-  scale_color_manual(values = hab_cols, name = "Habitat") +
+  scale_color_manual(values = hab_cols, name = "Habitat scenario") +
+  scale_fill_manual(values = hab_cols, name = "Habitat scenario") +
   scale_x_continuous(
     breaks = scen_meta$prop_cold,
     labels = scales::label_percent(accuracy = 1),
-    limits = c(0, 1),
+    #limits = c(0, 1),
     transform = "reverse"
   ) +
   scale_y_continuous(labels = scales::label_percent(accuracy = 1)) +
@@ -369,7 +884,8 @@ ggplot(season_share_patch, aes(x = prop_cold, y = mean_f_season, color = hab_typ
     subtitle = "Error bars = \u00b11 SD across years  |  Cold + Warm rows decompose Total"
   ) +
   theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank(), legend.position = "right")
+  theme(panel.grid.minor = element_blank(), legend.position = "right", 
+        axis.text = element_text(color = "black"), axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 ```
 
 ```{r}

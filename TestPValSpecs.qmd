@@ -31,7 +31,11 @@ rm(res)
 # Helper: read one scenario, extract ibm_long and spawn_log, and free res before returning
 load_scen <- function(path, ptype, pc, ht, ac, aw, pcmax_cold, pcmax_warm, species) {
   res <- readRDS(path)
-  list(df = res$ibm_long, spawn_log = res$spawn_log, 
+  list(df = res$ibm_long, 
+       ibm_summary   = res$ibm_summary,
+       spawn_log     = res$spawn_log,
+       fish_registry = res$fish_registry,
+       habitat_df    = res$habitat_df,
        ptype = ptype, pc = pc, ht = ht, ac = ac, aw = aw, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm, species = species)
 }
 
@@ -215,67 +219,79 @@ bar_plot <- function(data, y_var, y_sd, y_lab, pct = FALSE) {
 ### Population summary
 
 Cold only: LEGACY
-```{r eval=FALSE}
+```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[1]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[1]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[1]]$spawn_log,
+  fish_registry  = ibm_list_mech[[1]]$fish_registry,
+  habitat_df     = ibm_list_mech[[1]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 Cold only: CORRECTED
-```{r eval=FALSE}
+```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[2]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[2]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[2]]$spawn_log,
+  fish_registry  = ibm_list_mech[[2]]$fish_registry,
+  habitat_df     = ibm_list_mech[[2]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 Cold only: FIXED P
-```{r eval=FALSE}
+```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[3]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[3]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[3]]$spawn_log,
+  fish_registry  = ibm_list_mech[[3]]$fish_registry,
+  habitat_df     = ibm_list_mech[[3]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 Cold + Warm: LEGACY
-```{r eval=FALSE}
+```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[4]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[4]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[4]]$spawn_log,
+  fish_registry  = ibm_list_mech[[4]]$fish_registry,
+  habitat_df     = ibm_list_mech[[4]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 Cold + Warm: CORRECTED
-```{r eval=FALSE}
+```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[5]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[5]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[5]]$spawn_log,
+  fish_registry  = ibm_list_mech[[5]]$fish_registry,
+  habitat_df     = ibm_list_mech[[5]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```
 
 Cold + Warm: FIXED P
-```{r eval=FALSE}
+```{r}
 #| fig-width: 10
 #| fig-height: 6
 plot_population(
-  ibm_long       = ibm_list_mech[[6]][[1]],
-  habitat_df     = habitat_df,
+  ibm_summary    = ibm_list_mech[[6]]$ibm_summary,
+  spawn_log      = ibm_list_mech[[6]]$spawn_log,
+  fish_registry  = ibm_list_mech[[6]]$fish_registry,
+  habitat_df     = ibm_list_mech[[6]]$habitat_df,
   exp_start_date = exp_start_date
 )
 ```

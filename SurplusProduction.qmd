@@ -363,7 +363,9 @@ sp_spawn_ts <- purrr::map_dfr(ibm_list_mech, \(scen) {
            harvest_rate      = scen$hr,
            harvest_rate_fact = factor(scen$hr, levels = hr_levels_mech, labels = hr_labels_mech))
 }) |>
-  filter(yr >= sp_first_year)
+  # The final simulated year ends on May 1, before the Oct 1 age-0 census, so drop it
+  filter(yr >= sp_first_year,
+         yr <= year(exp_start_date) + base_params$nyears_experiment - 1L)
 
 sp_spawn_summ <- sp_spawn_ts |>
   group_by(hab_type, prop_cold, prop_cold_fact, harvest_rate, harvest_rate_fact) |>
@@ -411,6 +413,25 @@ sp_spawn_summ |>
 
 
 Comparing the fry and Oct 1 age-0 panels shows how much the first-summer bottleneck removes. Fry numbers are two to three orders of magnitude larger than age-0 abundance on Oct 1. Age-0 abundance is nearly constant (about 80 fish in the runs loaded here) across harvest rates, and similar across habitat types, while fry production falls roughly tenfold. Fry-to-age-0 survival therefore rises with harvest rate, as the same bottleneck is filled from a smaller fry supply. Age-0 abundance would be expected to fall only once fry production drops below what is needed to fill it.
+
+Annual age-0 abundance on Oct 1 against annual fry production, pooled across harvest rates (one point per run-year). If the first-summer bottleneck caps recruitment, age-0 abundance should be flat in fry production and decline only where fry become too scarce to fill it. Triangles mark harvest rates above 0.70, which produce the lowest fry numbers.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 4
+
+ggplot(sp_spawn_ts, aes(x = fry, y = age0_oct1, color = hab_type)) +
+  geom_point(aes(shape = harvest_rate > 0.7), alpha = 0.35, size = 1.5) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 17), name = NULL,
+                     labels = c("E <= 0.70", "E > 0.70")) +
+  #scale_x_log10(labels = scales::label_comma()) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(x = "Annual fry production (N)", y = "Age-0 abundance, Oct 1 (N)") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top") +
+  facet_wrap(~ hab_type)
+```
 
 Fry production and spawning biomass fall steeply with harvest rate, while recruitment of biomass into the exploitable stock (R in the budget below) changes little. This is consistent with a juvenile bottleneck that a small spawning stock can saturate. Harvest also shifts spawners toward younger fish and, as harvest rate rises, toward fish that were never exposed to harvest. Each scenario is a single run, so non-monotonic steps between neighboring harvest rates may reflect run-to-run variation, not real structure.
 

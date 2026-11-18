@@ -169,6 +169,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   repro_cost                 <- params$repro_cost                 %||% 0.2       # energetic cost of reproduction in percentage of body mass
   sigma_fecund               <- params$sigma_fecund               %||% 0.085     # random variation in weight-fecundity relationship
   egg_surv                   <- params$egg_surv                   %||% 0.1    # egg-to-fry (hatching) survival probability ("pass-through" filter for fecundity)
+  female_fraction            <- params$female_fraction            %||% 1      # fraction of spawners that lay eggs (sex ratio correction; 1 = every spawner lays eggs, 0.5 = 1:1 sex ratio). Scales expected egg production only; sex has no other effect on growth, survival, competition or harvest.
   age_structured_competition <- params$age_structured_competition %||% TRUE   # if TRUE, fry (age-0) compete only with fry; age-1+ compete only with age-1+
   anticipate_smaller         <- params$anticipate_smaller         %||% FALSE  # density_all only: if TRUE, fish also anticipate competition from smaller fish (using their previous-day patch positions) when choosing a patch. Corrects the over-commitment to the warm patch caused by sensing only larger, already-placed fish. No effect when dominance_beta = Inf.
   age_class_cutoff           <- params$age_class_cutoff           %||% "04-15" # Biological year boundary (MM-DD): age-0 fish graduate to age-1+ on this date each year. Set just before spawning/emergence begins so the incoming cohort always enters as age-0. NOTE: revisit this date if spawn_date_mean or spawn_date_sd parameters change — the cutoff should fall before the earliest plausible emergence date in any simulated year.
@@ -178,6 +179,8 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
   sim_seed                   <- params$sim_seed                   %||% 7843
   harvest_rate               <- params$harvest_rate               %||% 0           # target seasonal exploitation rate E (proportion of eligible fish removed per harvest season; 0 = no harvest)
   harvest_window             <- params$harvest_window             %||% c(91L, 91L) # DOY range of the harvest season (default = April 1 single-pulse; e.g. c(152L, 273L) for June 1–Sept 30)
+  harvestable_size           <- params$harvestable_size           %||% 200         # minimum size (g) for fish to be eligible for harvest
+hatch_floor                <- params$hatch_floor                %||% TRUE        # if TRUE, fish that fall below their individual hatch weight die immediately (backstop); if FALSE, only the size-, condition-, temperature- and age-based survival terms act
   nyears_burnin              <- params$nyears_burnin              %||% 50L         # burn-in years; harvest is suppressed during this period
   save_burnin                <- params$save_burnin                %||% TRUE        # if FALSE, per-fish burn-in records are dropped from ibm_long (ibm_summary still covers burn-in, on the 1st of each month)
 
@@ -766,7 +769,7 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
 
       # (i) Window open: assess static eligibility and reset within-window counters
       if (doy_d == harvest_window[1]) {
-        harvest_eligible_pids      <- fish_pop$pid[fish_pop$peak_weight >= 200]
+        harvest_eligible_pids      <- fish_pop$pid[fish_pop$peak_weight >= harvestable_size]
         harvest_window_n_eligible  <- length(harvest_eligible_pids)
         harvest_window_n_harvested <- 0L
       }
@@ -842,8 +845,8 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
       spawner_idx <- which(spawns)
 
       # Fecundity: number of eggs as a function of weight, with log-scale noise
-      n_eggs      <- round(fncFecundBromage(fish_pop$weight[spawner_idx],
-                                            sigma = sigma_fecund, survival = egg_surv))
+      n_eggs      <- round(fncFecundGeneral(fish_pop$weight[spawner_idx],
+                                            sigma = sigma_fecund, survival = egg_surv * female_fraction))
 
       # Capture pre-cost weight for logging (spawn decision was made at this weight)
       weight_at_spawn  <- fish_pop$weight[spawner_idx]
@@ -952,8 +955,10 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
     # Calculate combined daily survival rate
     prb.srv   <- pmin(p_sg * p_temp * p_starv * p_age, s_max_vec)
 
-    # Minimum weight floor: fish that drop below their individual hatch weight die immediately (backstop)
-    prb.srv[fish_pop$weight < fish_pop$hatch_wt] <- 0
+    # Minimum weight floor: fish that drop below their individual hatch weight die immediately (backstop).
+    # Can be switched off with hatch_floor = FALSE (e.g., for very large synchronous fry cohorts, where
+    # every fish loses weight on day 1 and the whole cohort would die).
+    if (hatch_floor) prb.srv[fish_pop$weight < fish_pop$hatch_wt] <- 0
 
     survivors <- rbinom(nrow(growth_df), size = 1, prob = prb.srv)
     growth_df <- growth_df |>

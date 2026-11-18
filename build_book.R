@@ -21,6 +21,7 @@ quarto::quarto_render("SensitivityAnalysis.qmd", output_format = "html", cache_r
 quarto::quarto_render("TestPValSpecs.qmd", output_format = "html", cache_refresh = TRUE)
 quarto::quarto_render("TestHabitatPcmax.qmd", output_format = "html", cache_refresh = TRUE)
 quarto::quarto_render("SeedReplicates.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("WarmCapTest.qmd", output_format = "html", cache_refresh = TRUE)
 
 
 quarto::quarto_render("ViewSimResults.qmd", output_format = "html", cache_refresh = TRUE)

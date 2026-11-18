@@ -707,7 +707,7 @@ fncSurviveVari <- function(df, minprob = 0.96, b = 1, b_interact = 0.03, rescale
 
 
 
-fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, w0 = 5, k = 0.8){
+fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, w0 = 4, k = 0.8){
   # weight:  numeric vector of fish weights (g)
   # minprob: daily survival floor approached as weight → 0.
   #          Elliott (1993) estimates 6.4% daily mortality during the critical period → minprob ≈ 0.936.
@@ -881,6 +881,35 @@ fncFecund <- function (lengths, sigma = 0) {
 }
 
 
+
+
+fncFecundGeneral <- function (weights, sigma = 0, survival = 1) {
+  n <- length(weights)
+  noise <- rnorm(n, mean = 0, sd = sigma)
+  0.002*((10^((log10(weights) + 5.023) / 3.024)))^2.25 * 10^noise * survival
+}
+
+
+expand_grid(
+  weight_g = seq(300, 2000, by = 5),
+  sigma     = c(0.085)
+) |>
+  # Replicate each combo a few times to show scatter
+  slice(rep(1:n(), each = 5)) |>
+  rowwise() |>
+  mutate(eggs = fncFecundGeneral(weight_g, sigma = sigma)) |>
+  ungroup() |>
+  ggplot(aes(x = weight_g, y = eggs)) +
+  geom_point(alpha = 0.15, size = 0.8) +
+  geom_line(
+    data = tibble(weight_g = seq(300, 2000, by = 1),
+                  eggs  = fncFecundGeneral(weights = seq(300, 2000, by = 1), sigma = 0)),
+    color = "firebrick2", linewidth = 0.8
+  ) +
+  facet_wrap(~ paste0("sigma = ", sigma)) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Weight (g)") + ylab("Fecundity (number of eggs)") +
+  labs(title = "Weight-fecundity relationships with log-scale noise (red = deterministic mean)") + expand_limits(x = 0, y = 0)
 
 
 

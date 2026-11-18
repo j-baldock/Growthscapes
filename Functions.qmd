@@ -1813,7 +1813,7 @@ ggplot(df_gap, aes(x = weight, y = gap, color = as_factor(b_interact))) +
 Daily survival probability follows a logistic sigmoid in weight, rising from a floor (`minprob`) for the smallest fish to an asymptote (`maxprob`) for large fish. The inflection weight `w0` sets the size at which survival is halfway between the two extremes. Elliott (1993, Fisheries Research) estimates 6.4% daily mortality during the critical period for BNT (`minprob = 0.936`); `w0 = 7`g corresponds to approximately 60 days post-hatch in the cold habitat (based on age-0 daily weight trajectory plots in the Sensitivity Analysis). Mortality is therefore most intense and most sustained for fish below `w0`, which creates growth-mediated density dependence: high density → reduced food → slower growth → more time below `w0` → higher cumulative mortality.
 
 ```{r}
-fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, w0 = 5, k = 0.8){
+fncSurviveSize <- function(weight, minprob = 0.96, maxprob = 1, w0 = 4, k = 0.8){
   # weight:  numeric vector of fish weights (g)
   # minprob: daily survival floor approached as weight → 0.
   #          Elliott (1993) estimates 6.4% daily mortality during the critical period → minprob ≈ 0.936.
@@ -2384,10 +2384,45 @@ Show what this would look like in terms of fecundity by weight
 ```{r}
 #| purl: false
 
-tibble(weight_g = seq(300, 2000, by = 10)) %>%
+tibble(weight_g = seq(200, 2000, by = 10)) %>%
   mutate(eggs = 0.002*((10^((log10(weight_g) + 5.023) / 3.024)))^2.25) %>%
   ggplot(aes(x = weight_g, y = eggs)) +
-  geom_line()
+  geom_line() + expand_limits(x = 0, y = 0) +
+  theme_bw()
+```
+
+
+Write as a function. `survival` represents the proportion of eggs that survive to emergence, defaults to 1. 
+```{r}
+fncFecundGeneral <- function (weights, sigma = 0, survival = 1) {
+  n <- length(weights)
+  noise <- rnorm(n, mean = 0, sd = sigma)
+  0.002*((10^((log10(weights) + 5.023) / 3.024)))^2.25 * 10^noise * survival
+}
+```
+
+
+```{r}
+expand_grid(
+  weight_g = seq(300, 2000, by = 5),
+  sigma     = c(0.085)
+) |>
+  # Replicate each combo a few times to show scatter
+  slice(rep(1:n(), each = 5)) |>
+  rowwise() |>
+  mutate(eggs = fncFecundGeneral(weight_g, sigma = sigma)) |>
+  ungroup() |>
+  ggplot(aes(x = weight_g, y = eggs)) +
+  geom_point(alpha = 0.15, size = 0.8) +
+  geom_line(
+    data = tibble(weight_g = seq(300, 2000, by = 1),
+                  eggs  = fncFecundGeneral(weights = seq(300, 2000, by = 1), sigma = 0)),
+    color = "firebrick2", linewidth = 0.8
+  ) +
+  facet_wrap(~ paste0("sigma = ", sigma)) +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  xlab("Weight (g)") + ylab("Fecundity (number of eggs)") +
+  labs(title = "Weight-fecundity relationships with log-scale noise (red = deterministic mean)") + expand_limits(x = 0, y = 0)
 ```
 
 
@@ -2471,7 +2506,7 @@ ggplot(plot_df, aes(x = wt_g)) +
     x = "Weight (g)",
     y = "Fecundity (number of eggs)"
   ) +
-  theme_bw() + theme(panel.grid = element_blank())
+  theme_bw() + theme(panel.grid = element_blank()) + expand_limits(x = 0, y = 0)
 ```
 
 
@@ -2488,7 +2523,7 @@ ggplot(plot_df, aes(x = wt_g)) +
   ) +
   theme_bw() + theme(panel.grid = element_blank()) + 
   geom_line(data = tibble(weight_g = seq(300, 2000, by = 10)) %>% mutate(eggs = 0.002*((10^((log10(weight_g) + 5.023) / 3.024)))^2.25),
-            aes(x = weight_g, y = eggs), color = "red")
+            aes(x = weight_g, y = eggs), color = "red") + expand_limits(x = 0, y = 0)
 ```
 Importantly, the slope of the lines are basically the same (i.e., the relative reproductive benefit of large body size is the same for each method). While the intercepts (absolute egg production at a given size) differ, this shouldn't matter in the IBM as size-specific and density-dependent (starvation) mortality is stochastic/random and the effect of body size on reproductive success should therefore be maintained.
 
@@ -2554,9 +2589,13 @@ expand_grid(
   facet_wrap(~ paste0("sigma = ", sigma)) +
   theme_bw() + theme(panel.grid = element_blank()) +
   xlab("Weight (g)") + ylab("Fecundity (number of eggs)") +
-  labs(title = "Weight-fecundity relationships with log-scale noise (red = deterministic mean)")
+  labs(title = "Weight-fecundity relationships with log-scale noise (red = deterministic mean)") + expand_limits(x = 0, y = 0)
 ```
 
+
+#### Egg survival
+
+Use the "general" fecundity function (rather than Bromage). The general function has more support in the literature, and the fecundity component is based entirely on wild populations, whereas Bromage uses hatchery fish. 
 
 **Tune survival.** Tune the egg-to-fry survival parameter to better match empirical reproductive success data. E.g., see Baldock et al. (2023, Oikos). For redds that were not superimposed, we found no relationship between maternal parent size and reproductive success, but sample size and the range of fish size are extremely limited.
 ```{r}
@@ -2589,10 +2628,30 @@ Show the the weight-fecundity relation ship with varying values for `survival` c
 #| purl: false
 
 expand_grid(
-  weight_g  = seq(300, 2000, by = 5),
+  weight_g  = seq(200, 2000, by = 5),
   survival     = seq(0.1, 1, by = 0.1)
 ) |>
-  mutate(eggs = fncFecundBromage(weight_g, survival = survival)) %>%
+  mutate(eggs = fncFecundGeneral(weight_g, survival = survival)) %>%
+  ggplot() +
+  geom_rect(aes(xmin = -Inf, xmax = Inf, 
+                ymin = quantile(oikos_tib$cohort, probs = 0.025), 
+                ymax = quantile(oikos_tib$cohort, probs = 0.975)),
+            fill = "grey90", inherit.aes = FALSE) +
+  geom_rect(aes(xmin = -Inf, xmax = Inf, 
+                ymin = quantile(oikos_tib$cohort, probs = 0.25), 
+                ymax = quantile(oikos_tib$cohort, probs = 0.75)),
+            fill = "grey70", inherit.aes = FALSE) +
+  geom_abline(intercept = quantile(oikos_tib$cohort, probs = 0.5), slope = 0, linetype = "dashed") +
+  geom_line(aes(x = weight_g, y = eggs, group = survival, color = survival)) +
+  scale_color_viridis_c() +
+  theme_bw() + theme(panel.grid = element_blank()) + 
+  xlab("Weight (g)") + ylab("Fecundity (number of eggs)")
+
+expand_grid(
+  weight_g  = seq(200, 2000, by = 5),
+  survival     = seq(0.01, 0.1, by = 0.01)
+) |>
+  mutate(eggs = fncFecundGeneral(weight_g, survival = survival)) %>%
   ggplot() +
   geom_rect(aes(xmin = -Inf, xmax = Inf, 
                 ymin = quantile(oikos_tib$cohort, probs = 0.025), 
@@ -2609,7 +2668,7 @@ expand_grid(
   xlab("Weight (g)") + ylab("Fecundity (number of eggs)")
 ```
 
-The plot above suggests that egg-to-fry survival rates are extremely low (<0.1), but note different species (RBT vs. YCT). Also, this "survival" parameter encapsulates many different processes, including egg retention, fertilization rate, and direct mortality due to sedimentation, scour, disease, scour, low/high temperature, desiccation, and superimposition. Literature on egg-to-fry survival rates (or similar) is incredibly varied:
+The plot above suggests that egg-to-fry survival rates are extremely low (<0.1), but note different species (RBT vs. YCT). Also, this "survival" parameter encapsulates many different processes, including egg retention, fertilization rate, and direct mortality due to sedimentation, scour, disease, low/high temperature, desiccation, and superimposition. Literature on egg-to-fry survival rates (or similar) is incredibly varied:
 
 * Railsback et al. (2023) use a fixed value (0.8) to represent egg viability (fertilization success), and mortality due to scour, temperature, and desiccation are dealt with separately. 
 * Hedger et al. (2013, Ecological Modelling) apply a fixed, "density-independent swim-up probability of mortality" of 0.2; but actual recruitment is calculated as function of swim-up density and a density-dependent function (i.e., the population is thinned). 

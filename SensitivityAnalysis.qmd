@@ -386,6 +386,66 @@ plot_danger_duration <- function(cross_df, cols) {
     theme_sens()
 }
 
+# ── Helper: age-0 Oct 1 abundance vs total fry production (by cohort year) ───
+# Fry production = all fry born in a year (n_born); age-0 abundance = survivors
+# of that cohort on Oct 1 of the hatch year. Cohorts with no survivors get 0.
+# Birth years without an Oct 1 in the simulation (final, partial year) are dropped.
+# phase is assigned from birth year so burn-in vs experiment can be styled.
+age0_vs_fry <- function(sim, label) {
+  ibm <- sim$ibm_long
+  hdf <- sim$habitat_df
+
+  born <- ibm |>
+    filter(!is.na(parent_pid), !is.na(birth_dayofsim)) |>
+    mutate(birth_yr = year(hdf$date[birth_dayofsim])) |>
+    distinct(pid, birth_yr) |>
+    count(birth_yr, name = "n_born")
+
+  age0 <- ibm |>
+    filter(!is.na(date), survived == 1,
+           month(date) == 10, day(date) == 1, floor(age) == 0) |>
+    group_by(birth_yr = year(date)) |>
+    summarise(n_age0 = n_distinct(pid), .groups = "drop")
+
+  # Drop birth years with no Oct 1 in the simulation (the run ends in May)
+  oct1_years <- year(hdf$date[month(hdf$date) == 10 & day(hdf$date) == 1])
+
+  born |>
+    filter(birth_yr %in% oct1_years) |>
+    left_join(age0, by = "birth_yr") |>
+    mutate(n_age0 = replace_na(n_age0, 0),
+           phase  = factor(if_else(birth_yr < exp_start_yr, "burn-in", "experiment"),
+                           levels = c("burn-in", "experiment")),
+           label  = label)
+}
+
+# ── Helper: scatter of age-0 Oct 1 abundance vs fry production ────────────────
+# df: output of age0_vs_fry() (bound across scenarios); cols: colour vector.
+# Burn-in = open points, experiment = filled points.
+plot_age0_vs_fry <- function(df, cols) {
+  ggplot(df, aes(x = n_born, y = n_age0, color = label, shape = phase)) +
+    geom_point(size = 2, stroke = 0.9, alpha = 0.8) +
+    scale_color_manual(values = cols) +
+    scale_shape_manual(values = c("burn-in" = 1, "experiment" = 16)) +
+    scale_x_continuous(labels = scales::comma) +
+    labs(x = "Total fry production (fry born)",
+         y = "Age-0 abundance (Oct 1)",
+         color = NULL, shape = NULL,
+         title = "Age-0 recruitment vs fry production",
+         subtitle = "Open = burn-in; filled = experimental period") +
+    theme_sens()
+}
+
+# ── Helper: bar plot of mean ± SD fry production (experimental period) ────────
+# df: output of age0_vs_fry() (bound across scenarios); cols: colour vector.
+bar_fry_production <- function(df, cols) {
+  df |>
+    filter(phase == "experiment") |>
+    group_by(label) |>
+    summarise(mean = mean(n_born), sd = sd(n_born), .groups = "drop") |>
+    simple_bar("Fry born per year", "Total fry production (experimental period)", cols)
+}
+
 # ── Helper: age at first reproduction ────────────────────────────────────────
 # For each parent, find their first spawn event (min dayofsim), join to ibm_long
 # to get age at that moment, then summarise mean and SD across all spawners
@@ -858,7 +918,16 @@ p_repeat_bar <- simple_bar(
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
+```{r}
+#| label: fig-K-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each K_cold value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across K_cold values."
+#| fig-height: 5
 
+K_a0 <- bind_rows(Map(age0_vs_fry, K_sims, K_labels)) |>
+  mutate(label = factor(label, levels = K_labels))
+
+plot_age0_vs_fry(K_a0, K_cols) | bar_fry_production(K_a0, K_cols)
+```
 
 ---
 
@@ -1146,6 +1215,17 @@ p_repeat_bar <- simple_bar(
 )
 
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+```{r}
+#| label: fig-egg-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each egg_surv value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across egg_surv values."
+#| fig-height: 5
+
+egg_a0 <- bind_rows(Map(age0_vs_fry, egg_sims, egg_labels)) |>
+  mutate(label = factor(label, levels = egg_labels))
+
+plot_age0_vs_fry(egg_a0, egg_cols) | bar_fry_production(egg_a0, egg_cols)
 ```
 
 ---
@@ -1438,6 +1518,18 @@ p_repeat_bar <- simple_bar(
 
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
+
+```{r}
+#| label: fig-beta-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each dominance_beta value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across dominance_beta values."
+#| fig-height: 5
+
+beta_a0 <- bind_rows(Map(age0_vs_fry, beta_sims, beta_labels)) |>
+  mutate(label = factor(label, levels = beta_labels))
+
+plot_age0_vs_fry(beta_a0, beta_cols) | bar_fry_production(beta_a0, beta_cols)
+```
+
 
 ---
 
@@ -1736,6 +1828,17 @@ p_repeat_bar <- simple_bar(
 )
 
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+```{r}
+#| label: fig-s_min-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each s_min value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across s_min values."
+#| fig-height: 5
+
+s_min_a0 <- bind_rows(Map(age0_vs_fry, s_min_sims, s_min_labels)) |>
+  mutate(label = factor(label, levels = s_min_labels))
+
+plot_age0_vs_fry(s_min_a0, s_min_cols) | bar_fry_production(s_min_a0, s_min_cols)
 ```
 
 ---
@@ -2048,6 +2151,17 @@ p_repeat_bar <- simple_bar(
 ```
 
 
+```{r}
+#| label: fig-s_w0-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each s_w0 value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across s_w0 values."
+#| fig-height: 5
+
+w0_a0 <- bind_rows(Map(age0_vs_fry, w0_sims, w0_labels)) |>
+  mutate(label = factor(label, levels = w0_labels))
+
+plot_age0_vs_fry(w0_a0, w0_cols) | bar_fry_production(w0_a0, w0_cols)
+```
+
 ---
 
 ## `pcmax_cold` / `pcmax_warm`: consumption
@@ -2334,6 +2448,18 @@ p_repeat_bar <- simple_bar(
 )
 
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
+```
+
+
+```{r}
+#| label: fig-pcmax-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each pcmax value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across pcmax values."
+#| fig-height: 5
+
+pcmax_a0 <- bind_rows(Map(age0_vs_fry, pcmax_sims, pcmax_labels)) |>
+  mutate(label = factor(label, levels = pcmax_labels))
+
+plot_age0_vs_fry(pcmax_a0, pcmax_cols) | bar_fry_production(pcmax_a0, pcmax_cols)
 ```
 
 ---
@@ -2638,6 +2764,18 @@ p_repeat_bar <- simple_bar(
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
+```{r}
+#| label: fig-area-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each area value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across area values."
+#| fig-height: 5
+
+area_a0 <- bind_rows(Map(age0_vs_fry, area_sims, area_labels)) |>
+  mutate(label = factor(label, levels = area_labels))
+
+plot_age0_vs_fry(area_a0, area_cols) | bar_fry_production(area_a0, area_cols)
+```
+
+
 ---
 
 ## `K1_starv` / `K9_starv`: condition-based survival inflection
@@ -2935,6 +3073,19 @@ p_repeat_bar <- simple_bar(
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
+
+```{r}
+#| label: fig-starv-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each starv value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across starv values."
+#| fig-height: 5
+
+starv_a0 <- bind_rows(Map(age0_vs_fry, starv_sims, starv_labels)) |>
+  mutate(label = factor(label, levels = starv_labels))
+
+plot_age0_vs_fry(starv_a0, starv_cols) | bar_fry_production(starv_a0, starv_cols)
+```
+
+
 ---
 
 ## `s_floor_starv`: starvation survival floor
@@ -3229,6 +3380,18 @@ p_repeat_bar <- simple_bar(
 
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
+
+```{r}
+#| label: fig-floor-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each floor value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across floor values."
+#| fig-height: 5
+
+floor_a0 <- bind_rows(Map(age0_vs_fry, floor_sims, floor_labels)) |>
+  mutate(label = factor(label, levels = floor_labels))
+
+plot_age0_vs_fry(floor_a0, floor_cols) | bar_fry_production(floor_a0, floor_cols)
+```
+
 
 ---
 
@@ -3525,6 +3688,17 @@ p_repeat_bar <- simple_bar(
 (p_afr_bar | p_part_bar) / (p_repeat_bar | p_rec_bar)
 ```
 
+```{r}
+#| label: fig-smax-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production for each S_max_cold value. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period across S_max_cold values."
+#| fig-height: 5
+
+smax_a0 <- bind_rows(Map(age0_vs_fry, smax_sims, smax_labels)) |>
+  mutate(label = factor(label, levels = smax_labels))
+
+plot_age0_vs_fry(smax_a0, smax_cols) | bar_fry_production(smax_a0, smax_cols)
+```
+
 ---
 
 ---
@@ -3661,15 +3835,15 @@ All other parameters are held at their baseline values. The purpose is to assess
 #| cache: false
 
 p <- modifyList(baseline, list(K_cold = 400, K_warm = 400,
-                               egg_surv = 0.15,
+                               egg_surv = 0.05,
                                dominance_beta = 0.5,
                                s_min = 0.96,
-                               s_w0 = 5,
+                               s_w0 = 4,
                                pcmax_cold = 0.5, pcmax_warm = 0.5,
-                               A_cold = 1.0, A_warm = 0.0,
+                               A_cold = 0.1, A_warm = 0.0,
                                K1_starv = 0.60, K9_starv = 0.70,
                                s_floor_starv = 0.9,
-                               S_max_cold = 0.9994, S_max_warm = 0.9994))
+                               S_max_cold = 0.9992, S_max_warm = 0.9992))
 
 cache_file <- "cache/final_sims.rds"
 if (file.exists(cache_file)) {
@@ -3944,9 +4118,20 @@ p_repeat_bar <- simple_bar(
 ```
 
 
+```{r}
+#| label: fig-final-age0-fry
+#| fig-cap: "Scatterplot shows age-0 abundance on Oct 1 vs total fry production. Open points = burn-in; filled points = experimental period. Barplot shows total fry production during the experimental period."
+#| fig-height: 5
+
+final_a0 <- bind_rows(Map(age0_vs_fry, final_sims, final_labels)) |>
+  mutate(label = factor(label, levels = final_labels))
+
+plot_age0_vs_fry(final_a0, final_cols) | bar_fry_production(final_a0, final_cols)
+```
+
 ### Generic population plots
 
-```{r eval=FALSE}
+```{r}
 #| fig-width: 10
 #| fig-height: 6
 #| 

@@ -1,0 +1,395 @@
+---
+title: "Fry Injection: First-Summer Survival Curve"
+---
+
+```{r, include = FALSE}
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+```
+
+**Purpose:** Measure how many age-0 fish survive to Oct 1 as a function of the number of fry that start the summer ("fry injection"), and how that curve depends on the parameters that control the first-summer bottleneck. The goal is to find parameter values for which the cold-only, 75% cold system needs a target number of fry (e.g., about 5,000) to saturate the bottleneck, so that fewer fry means lower recruitment.
+
+**Approach.** The founder cohort of a simulation is `n_fish_per_strat` fry at `start_wt` that all start on `mindate` (May 1). Age-0 fish compete only with other age-0 fish (`age_structured_competition = TRUE`), so a one-year run with no adults is a direct measurement of the juvenile stock-recruitment function: fry in, age-0 on Oct 1 out.
+
+**Hatch-weight floor.** By default (`hatch_floor = TRUE`), `SimulationLoop` kills any fish whose weight falls below its hatch weight. With a large simultaneous cohort every fish loses weight on day 1 and the whole cohort dies (see [Where the injection design breaks down]). The injection grid therefore runs with `hatch_floor = FALSE`, which lets the design reach the fry numbers of the full model (up to 30,000). With the floor on or off the results are identical at 2,000 fry or fewer in a first test, so the floor does not set the cap.
+
+**Limitation.** All founders emerge on the same day, whereas in the full model fry are born over several weeks in batches of a few hundred. At the highest fry numbers the synchronous cohort is stunted, which may produce a decline in age-0 survivors (overcompensation) that the staggered full model would not show. Confirm saturation with full baseline runs (see [Baseline tuning grid]).
+
+## Setup
+
+Source the model code into its own environment so the objects and demo output in `Habitat.R` and `ScenarioDefs.R` do not leak into the session.
+
+```{r}
+#| include: false
+#| cache: false
+
+fe <- new.env(parent = globalenv())
+for (f in c("Habitat.R", "Functions.R", "SimulationLoop.R", "ScenarioDefs.R")) {
+  sys.source(f, envir = fe)
+}
+load("data/wt.growth.array.pval.sthd.RData", envir = fe)
+```
+
+`inj_run()` runs one injection: a 75% cold, cold-only habitat (`A_cold = 1.5`, `A_warm = 0`) for one year, with no harvest. Extra arguments override entries in `base_params`. It returns survivors on May 1 (after day 1), Jun 1, Aug 1 and Oct 1, and the mean weight on Oct 1.
+
+```{r}
+#| cache: false
+
+inj_run <- function(n_fry, sim_seed = 7843, ..., env = fe) {
+  p <- modifyList(env$base_params,
+                  list(A_cold = 1.5, A_warm = 0, harvest_rate = 0,
+                       nyears_burnin = 1, nyears_experiment = 0, ramp_years = 0,
+                       n_fish_per_strat = n_fry, sim_seed = sim_seed,
+                       save_burnin = FALSE, ...))
+  hab <- env$build_habitat(p)
+  t0  <- Sys.time()
+  res <- env$run_simulation(habitat_df = hab, params = p, wt_growth = env$wt.growth)
+  secs <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+
+  census <- p$mindate %m+% months(c(0, 1, 3, 5))   # May 1, Jun 1, Aug 1, Oct 1
+  sm <- res$ibm_summary |>
+    filter(date %in% census) |>
+    group_by(date) |>
+    summarise(n = sum(n_alive), mean_wt = weighted.mean(mean_weight, n_alive), .groups = "drop")
+  n_on <- \(d) if (d %in% sm$date) sm$n[sm$date == d] else 0L
+
+  tibble(n_fry = n_fry, sim_seed = sim_seed, secs = secs,
+         n_day1 = n_on(census[1]), n_jun1 = n_on(census[2]),
+         n_aug1 = n_on(census[3]), n_oct1 = n_on(census[4]),
+         wt_oct1 = if (census[4] %in% sm$date) sm$mean_wt[sm$date == census[4]] else NA_real_)
+}
+
+# Run a data frame of settings (one run per row). Columns n_fry and sim_seed are required;
+# any other columns are passed to inj_run() as parameter overrides. Runs are forked
+# across inj_cores workers (set to 1 to run sequentially).
+inj_cores <- max(1L, parallel::detectCores() - 2L)
+
+run_grid <- function(grid) {
+  one <- function(i) {
+    row <- grid[i, ]
+    args <- c(list(n_fry = row$n_fry, sim_seed = row$sim_seed),
+              as.list(select(row, -n_fry, -sim_seed)))
+    bind_cols(select(row, -n_fry, -sim_seed), do.call(inj_run, args))
+  }
+  bind_rows(parallel::mclapply(seq_len(nrow(grid)), one, mc.cores = inj_cores))
+}
+```
+
+## Where the injection design breaks down
+
+At the default parameters, 2,000 founders give about 85 age-0 fish on Oct 1, but 3,000 founders all die on day 1. At that density the p-value in the cold patch is so low that every fish loses weight on its first day, and the survival backstop in `SimulationLoop` (`prb.srv[weight < hatch_wt] <- 0`, now controlled by `hatch_floor`) kills any fish that falls below its hatch weight. The full model produces about 27,000 fry per year in the zero-harvest baseline, but there the fry arrive staggered over several weeks. This comparison runs the same fry numbers with the floor on and off.
+
+```{r}
+#| cache: false
+
+cliff_file <- "results/FryInjection_hatchfloor.rds"
+if (file.exists(cliff_file)) {
+  cliff <- readRDS(cliff_file)
+} else {
+  cliff <- run_grid(expand_grid(hatch_floor = c(TRUE, FALSE),
+                                n_fry = c(500, 2000, 3000, 5000, 10000, 20000, 30000),
+                                sim_seed = c(7843, 2291)))
+  saveRDS(cliff, cliff_file)
+}
+
+cliff |>
+  summarise(across(c(n_day1, n_oct1), mean), .by = c(hatch_floor, n_fry)) |>
+  mutate(surv_day1 = n_day1 / n_fry) |>
+  arrange(n_fry, desc(hatch_floor)) |>
+  knitr::kable(digits = c(0, 0, 0, 0, 3), caption = "Mean survivors after day 1 and on Oct 1, 2 seeds, with the hatch-weight floor on and off.")
+```
+
+## Injection grid
+
+Grid over the parameters most likely to control the shape of the first-summer curve:
+
+- `s_min`: daily survival floor for the smallest fish. This sets survival at low densities, so it mainly sets the initial slope of the curve.
+- `K_cold`: half-saturation density in the cold patch. This sets how many fry the patch supports before density-dependent growth limits survival.
+
+All runs use `hatch_floor = FALSE` so that fry numbers can span the range of the full model (100 to 30,000). Edit the vectors below to change the grid; delete `results/FryInjection_grid.rds` to rerun. The largest cohorts take a minute or more each, so the full grid takes a while even when forked across cores.
+
+```{r}
+#| cache: false
+
+inj_grid <- expand_grid(s_min  = c(0.96, 0.94, 0.93),
+                        K_cold = c(400, 800, 1200),
+                        n_fry  = c(100, 250, 500, 1000, 2000, 3000, 5000, 10000, 20000),
+                        sim_seed = c(7843, 2291)) |>
+  mutate(K_warm = K_cold, hatch_floor = FALSE)
+
+grid_file <- "results/FryInjection_grid.rds"
+if (file.exists(grid_file)) {
+  inj <- readRDS(grid_file)
+} else {
+  inj <- run_grid(inj_grid)
+  saveRDS(inj, grid_file)
+}
+```
+
+Age-0 abundance on Oct 1 against injected fry, by `s_min` and `K_cold`. Points are individual runs and lines are means across seeds.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 5
+
+ggplot(inj, aes(x = n_fry, y = n_oct1, color = factor(s_min))) +
+  geom_point(alpha = 0.8) +
+  # geom_smooth(se = FALSE) +
+  # scale_x_log10(labels = scales::label_comma()) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(x = "Fry injected on May 1 (log scale)", y = "Age-0 abundance, Oct 1") +
+  # scale_x_continuous(breaks = c(0, 1000, 2000)) +
+  labs(x = "Fry injected on May 1", y = "Age-0 abundance, Oct 1") +
+  facet_wrap(~ K_cold, labeller = label_both) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+```
+
+Fry-to-age-0 survival (Oct 1) against injected fry on a log scale. In a Beverton-Holt-type relationship survival is flat at low density (that level is $$s_0$$) and then declines in proportion to $$1/F$$ once the cap is reached.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 5
+
+ggplot(inj, aes(x = n_fry, y = n_oct1 / n_fry, color = factor(s_min))) +
+  geom_point(alpha = 0.4, size = 1.4) +
+  stat_summary(fun = mean, geom = "line", linewidth = 0.7) +
+  scale_color_viridis_d(name = "s_min", end = 0.85) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "Fry injected on May 1 (log scale)", y = "Fry-to-age-0 survival (log scale)") +
+  facet_wrap(~ K_cold, labeller = label_both) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+```
+
+### Summary of the fitted curves
+
+For each parameter set, fit a Beverton-Holt curve to Oct 1 age-0 abundance, $$R = s_0 F / (1 + s_0 F / R_{max})$$, where $$s_0$$ is survival at low density, $$R_{max}$$ is the cap and $$F$$ is fry. The saturation point $$F_{sat} = R_{max} / s_0$$ is the fry number at which the curve bends. The fit uses cohorts of 10,000 fry or fewer, because the Beverton-Holt form has no decline and cannot describe overcompensation at the highest fry numbers. Also report empirical values that do not depend on the fit: mean survival at 250 or fewer fry for $$s_0$$, and mean age-0 at 3,000 to 10,000 fry for the cap. If the curve is still rising at 10,000 fry, $$R_{max}$$ and $$F_{sat}$$ are not identified and the fitted value should be treated as a lower bound at best.
+
+```{r}
+fit_bh <- function(d) {
+  fit <- tryCatch(
+    nls(n_oct1 ~ s0 * n_fry / (1 + s0 * n_fry / Rmax), data = d,
+        start = list(s0 = 0.15, Rmax = max(d$n_oct1) * 1.5),
+        lower = c(1e-4, 1), upper = c(1, 1e5), algorithm = "port"),
+    error = function(e) NULL)
+  if (is.null(fit)) return(tibble(s0_fit = NA_real_, Rmax_fit = NA_real_))
+  tibble(s0_fit = coef(fit)[["s0"]], Rmax_fit = coef(fit)[["Rmax"]])
+}
+
+inj_fits <- inj |>
+  nest(.by = c(s_min, K_cold)) |>
+  mutate(fit = map(data, \(d) fit_bh(filter(d, n_fry <= 10000))),
+         emp = map(data, \(d) tibble(
+           s0_emp   = mean(d$n_oct1[d$n_fry <= 250] / d$n_fry[d$n_fry <= 250]),
+           Rmax_emp = mean(d$n_oct1[d$n_fry >= 3000 & d$n_fry <= 10000])))) |>
+  select(-data) |>
+  unnest(c(fit, emp)) |>
+  mutate(Fsat_fit = Rmax_fit / s0_fit,
+         Fsat_emp = Rmax_emp / s0_emp)
+
+inj_fits |>
+  knitr::kable(digits = c(2, 0, 3, 1, 3, 1, 0, 0),
+               caption = "Beverton-Holt fits (_fit) and empirical estimates (_emp) of low-density survival (s0), cap (Rmax) and saturation fry number (Fsat).")
+
+p1 <- inj_fits %>% 
+  ggplot(aes(x = s_min, y = Fsat_emp, color = factor(K_cold))) +
+  geom_point() + geom_line(linewidth = 0.5) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+
+p2 <- inj_fits %>% 
+  ggplot(aes(x = s_min, y = Rmax_emp, color = factor(K_cold))) +
+  geom_point() + geom_line(linewidth = 0.5) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+
+p3 <- inj_fits %>% 
+  ggplot(aes(x = s_min, y = s0_emp, color = factor(K_cold))) +
+  geom_point() + geom_line(linewidth = 0.5) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+
+(p1 + p2 + p3) + plot_layout(guides = "collect") & theme(legend.position = "top")
+```
+
+### Saturation ratio and steepness
+
+How saturated the bottleneck is at baseline is summarized by the ratio $$\rho = F_{base} / F_{sat}$$, where $$F_{base}$$ is the annual fry production of the unharvested population. For a Beverton-Holt curve, the recruitment at 20% of the unfished fry production, relative to unfished recruitment, is the usual steepness:
+
+$$h = \frac{0.2\,(1 + \rho)}{1 + 0.2\,\rho}$$
+
+$$\rho$$ near 1 gives $$h$$ near 0.3, so recruitment tracks spawners closely. Large $$\rho$$ gives $$h$$ near 1, so recruitment is almost insensitive to spawning stock until it has been cut by a large fraction. Because $$F_{sat}$$ may be hard to move with the juvenile parameters (see the fits above), the more direct lever for $$\rho$$ is fry production per spawner (`egg_surv`, or the fecundity function), which rescales $$F_{base}$$ without changing the injection curve. A target $$h$$ taken from the literature for the study species can be converted to $$\rho$$ and then to a target baseline fry production.
+
+```{r}
+steepness <- \(rho) 0.2 * (1 + rho) / (1 + 0.2 * rho)
+
+tibble(rho = c(1, 2, 4, 8, 16, 40)) |>
+  mutate(h = steepness(rho),
+         fry_at_Fsat_700 = rho * 700) |>
+  knitr::kable(digits = c(0, 2, 0),
+               col.names = c("rho = F_base / F_sat", "Steepness h", "F_base (fry/yr) if F_sat = 700"))
+```
+
+## Size-based survival (`s_w0`) and egg survival (`egg_surv`)
+
+These two parameters are examined separately from the `s_min` and `K_cold` grid, one parameter at a time around the default values (`s_min = 0.96`, `K_cold = 400`), to keep the number of runs manageable.
+
+- **`s_w0`** is the weight (g) at which size-based daily survival is halfway between `s_min` and its maximum. A larger value keeps fry in the vulnerable size range for longer. It acts inside the first summer, so it can be measured directly with the injection design.
+- **`egg_surv`** converts eggs to fry at spawning. The injection design places fry directly, so `egg_surv` has no effect on the fry-to-age-0 curve and does not need to be simulated here. It only changes how many fry the adults produce, that is $$F_{base}$$ in the saturation ratio $$\rho = F_{base} / F_{sat}$$. Its effect is calculated below from the injection fits.
+
+### `s_w0` injection
+
+```{r}
+#| cache: false
+
+sw0_grid <- expand_grid(s_w0   = c(2.5, 5, 7.5, 10),
+                        n_fry  = c(100, 250, 500, 1000, 2000, 3000, 5000, 10000),
+                        sim_seed = c(7843, 2291)) |>
+  mutate(hatch_floor = FALSE)
+
+sw0_file <- "results/FryInjection_sw0.rds"
+if (file.exists(sw0_file)) {
+  inj_sw0 <- readRDS(sw0_file)
+} else {
+  inj_sw0 <- run_grid(sw0_grid)
+  saveRDS(inj_sw0, sw0_file)
+}
+```
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4.5
+
+p_sw0_a <- ggplot(inj_sw0, aes(x = n_fry, y = n_oct1, color = factor(s_w0))) +
+  geom_point(alpha = 0.4, size = 1.4) +
+  stat_summary(fun = mean, geom = "line", linewidth = 0.7) +
+  scale_color_viridis_d(name = "s_w0 (g)", end = 0.85) +
+  scale_x_log10(labels = scales::label_comma()) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(x = "Fry injected on May 1 (log scale)", y = "Age-0 abundance, Oct 1") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+
+p_sw0_b <- ggplot(inj_sw0, aes(x = n_fry, y = n_oct1 / n_fry, color = factor(s_w0))) +
+  geom_point(alpha = 0.4, size = 1.4) +
+  stat_summary(fun = mean, geom = "line", linewidth = 0.7) +
+  scale_color_viridis_d(name = "s_w0 (g)", end = 0.85) +
+  scale_x_log10(labels = scales::label_comma()) +
+  scale_y_log10() +
+  labs(x = "Fry injected on May 1 (log scale)", y = "Fry-to-age-0 survival (log scale)") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+
+p_sw0_a + p_sw0_b + plot_layout(guides = "collect") & theme(legend.position = "top")
+```
+
+Beverton-Holt fits and empirical estimates for each `s_w0`, as in the main grid (fit to 10,000 fry or fewer; empirical cap from 3,000 to 10,000 fry).
+
+```{r}
+inj_sw0_fits <- inj_sw0 |>
+  nest(.by = s_w0) |>
+  mutate(fit = map(data, \(d) fit_bh(filter(d, n_fry <= 10000))),
+         emp = map(data, \(d) tibble(
+           s0_emp   = mean(d$n_oct1[d$n_fry <= 250] / d$n_fry[d$n_fry <= 250]),
+           Rmax_emp = mean(d$n_oct1[d$n_fry >= 3000 & d$n_fry <= 10000])))) |>
+  select(-data) |>
+  unnest(c(fit, emp)) |>
+  mutate(Fsat_fit = Rmax_fit / s0_fit,
+         Fsat_emp = Rmax_emp / s0_emp)
+
+inj_sw0_fits |>
+  knitr::kable(digits = c(1, 3, 1, 3, 1, 0, 0),
+               caption = "Fits (_fit) and empirical estimates (_emp) by s_w0 (s_min = 0.96, K_cold = 400).")
+```
+
+### Saturation ratio as a function of `egg_surv` and `s_w0`
+
+At baseline the population is saturated, so the adult stock is set by the age-0 cap and the fry production per adult by `egg_surv`. To first order,
+
+$$F_{base} = F_{ref} \times \frac{\text{egg\_surv}}{\text{egg\_surv}_{ref}} \times \frac{R_{max}(s\_w0)}{R_{max}(s\_w0_{ref})}$$
+
+where the reference is the default run (`egg_surv = 0.15`, `s_w0 = 5`, about 27,000 fry per year in the zero-harvest cold-only 75% cold baseline). The last term assumes that adult numbers scale with the age-0 cap. This only holds while the bottleneck stays saturated, so rows with $$\rho$$ below about 3 are flagged: there the adult stock would shrink and $$F_{base}$$ is overestimated. Treat the table as a guide for choosing candidate values, and confirm them with full baseline runs.
+
+```{r}
+F_ref         <- 27000   # annual fry, cold-only 75% cold, zero-harvest baseline (default parameters)
+egg_surv_ref  <- 0.15
+sw0_ref       <- 5
+Rmax_ref      <- inj_sw0_fits$Rmax_emp[inj_sw0_fits$s_w0 == sw0_ref]
+
+rho_tab <- expand_grid(egg_surv = c(0.15, 0.10, 0.05, 0.03, 0.02, 0.01),
+                       s_w0 = inj_sw0_fits$s_w0) |>
+  left_join(select(inj_sw0_fits, s_w0, Rmax_emp, Fsat_emp), by = "s_w0") |>
+  mutate(F_base  = F_ref * (egg_surv / egg_surv_ref) * (Rmax_emp / Rmax_ref),
+         rho     = F_base / Fsat_emp,
+         h       = steepness(rho),
+         ok      = rho >= 3)
+
+ggplot(rho_tab, aes(x = egg_surv, y = rho, color = factor(s_w0))) +
+  geom_hline(yintercept = 3, linetype = "dashed", color = "grey40") +
+  geom_line(linewidth = 0.7) +
+  geom_point(aes(shape = ok), size = 2) +
+  scale_color_viridis_d(name = "s_w0 (g)", end = 0.85) +
+  scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1), guide = "none") +
+  scale_x_continuous(breaks = unique(rho_tab$egg_surv)) +
+  scale_y_log10() +
+  labs(x = "egg_surv", y = "Saturation ratio rho = F_base / F_sat (log scale)") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+
+rho_tab |>
+  select(s_w0, egg_surv, F_base, Fsat_emp, rho, h) |>
+  knitr::kable(digits = c(1, 2, 0, 0, 1, 2),
+               caption = "Predicted saturation ratio and steepness. Dashed line and open points: rho < 3, where the first-order estimate of F_base is unreliable.")
+```
+
+## Baseline tuning grid
+
+The injection curve comes from a synchronous founder cohort with no adults, which may not match how the staggered fry of the full model respond. The saturation point should be confirmed with full zero-harvest runs, where the adults produce the fry. The target is a baseline whose annual fry production is close to the saturation point. Two diagnostics from each baseline run:
+
+1. mean annual fry production and mean age-0 abundance on Oct 1 (about 27,000 fry and 80 age-0 in the current cold-only 75% baseline);
+2. the elasticity of age-0 abundance to fry production across years, from the slope of $$\log(\text{age-0})$$ on $$\log(\text{fry})$$. It is near 0 when the bottleneck is saturated and near 1 when recruitment is proportional to fry. The year-to-year spread in fry has to be wide enough for this to be estimated.
+
+Candidate parameters come from the grid above. Fry production per spawner is also controlled by `egg_surv`, which does not change the injection curve but moves the baseline along it. The scenario definitions below keep the timeline short; copy the ones you want into the `scenarios` list in `ScenarioDefs.qmd` (then run `qmd_to_r_script("ScenarioDefs.qmd")`) and run them with `run_scenario()` in `BatchRunScenarios.R`. Pick `s_min`, `K_cold` and `egg_surv` values using the fits above.
+
+```{r}
+#| eval: false
+
+tune_grid <- expand_grid(s_min    = c(0.95, 0.94, 0.93),
+                         K_cold   = c(400, 800),
+                         egg_surv = c(0.15, 0.05)) |>
+  mutate(name = sprintf("Tune_ColdOnly_075percold_smin%03d_K%04d_egg%03d",
+                        round(s_min * 100), K_cold, round(egg_surv * 100)))
+
+tune_scenarios <- pmap(tune_grid, \(s_min, K_cold, egg_surv, name) {
+  modifyList(base_params,
+             list(A_cold = 1.5, A_warm = 0, harvest_rate = 0,
+                  s_min = s_min, K_cold = K_cold, K_warm = K_cold, egg_surv = egg_surv,
+                  nyears_burnin = 30, nyears_experiment = 20))
+}) |>
+  set_names(tune_grid$name)
+```
+
+After the runs finish, summarize each one. `res$spawn_log` gives annual fry and `res$ibm_summary` gives age-0 abundance on Oct 1:
+
+```{r}
+#| eval: false
+
+summarise_tuning <- function(path) {
+  res <- readRDS(path)
+  exp_start <- min(res$habitat_df$date) %m+% years(res$params$nyears_burnin)
+  fry <- res$spawn_log |>
+    mutate(date = res$habitat_df$date[dayofsim], yr = year(date)) |>
+    filter(date >= exp_start) |>
+    summarise(fry = sum(n_offspring), .by = yr)
+  age0 <- res$ibm_summary |>
+    filter(month(date) == 10, day(date) == 1, age_class == 0, date >= exp_start) |>
+    mutate(yr = year(date)) |>
+    summarise(age0 = sum(n_alive), .by = yr)
+  d <- inner_join(fry, age0, by = "yr") |> filter(fry > 0, age0 > 0)
+  tibble(fry_mean = mean(d$fry), age0_mean = mean(d$age0),
+         elasticity = unname(coef(lm(log(age0) ~ log(fry), data = d))[2]))
+}
+```

@@ -1,0 +1,281 @@
+---
+title: "Warm-patch temperature cap test"
+format: html
+---
+
+```{r}
+#| include: false
+#| cache: false
+library(tidyverse)
+library(lubridate)
+
+source("Habitat.R")
+source("Functions.R")
+source("SimulationLoop.R")
+source("ScenarioDefs.R")   # defines `scenarios` and `base_params`
+
+load("data/wt.growth.array.pval.sthd.RData")  # loads `wt.growth`
+```
+
+**Purpose:** Test whether the cold-habitat bottleneck on recruitment and abundance is partly an artifact of very high mid-summer warm-patch temperatures (~25 °C, where growth is negative at any p). We cap warm-patch temperature at 19, 21 and 23 °C in the cold+warm scenario and compare against the existing baseline cold-only and cold+warm (uncapped) runs.
+
+## Design
+
+All runs use 25% cold habitat and the seed and parameters of `Baseline_ColdWarm_025percold_rep01`. The capped runs differ only in the warm-patch temperature ceiling and are shorter (20-yr burn-in + 20-yr experiment) than the baselines.
+
+```{r}
+cold_prop_key <- "025"   # change to e.g. "050" to test another cold proportion
+warm_caps_C   <- c(19, 21, 23)
+
+short_len <- list(nyears_burnin = 20, nyears_experiment = 20)
+
+base_coldwarm <- paste0("Baseline_ColdWarm_", cold_prop_key, "percold_rep01")
+base_coldonly <- paste0("Baseline_ColdOnly_", cold_prop_key, "percold_rep01")
+stopifnot(all(c(base_coldwarm, base_coldonly) %in% names(scenarios)))
+
+run_defs <- tibble(
+  cap           = warm_caps_C,
+  run           = paste0("short_coldwarm_", cap, "C"),
+  base_scenario = base_coldwarm
+)
+```
+
+## Warm-patch temperature
+
+```{r}
+#| label: fig-temps
+#| fig-width: 8
+#| fig-height: 4
+
+hab_ref <- build_habitat(modifyList(scenarios[[base_coldwarm]], short_len))
+ref_year <- year(min(hab_ref$date)) + 1
+
+cap_series <- map_dfr(warm_caps_C, \(cap) {
+  hab_ref |>
+    filter(year(date) == ref_year) |>
+    transmute(date, series = paste0("Warm (cap ", cap, " °C)"),
+              temp = pmin(temp_warm, cap))
+})
+
+bind_rows(
+  hab_ref |> filter(year(date) == ref_year) |>
+    transmute(date, series = "Cold", temp = temp_cold),
+  hab_ref |> filter(year(date) == ref_year) |>
+    transmute(date, series = "Warm (baseline)", temp = temp_warm),
+  cap_series
+) |>
+  ggplot(aes(date, temp, color = series)) +
+  geom_line(linewidth = 1) +
+  labs(x = NULL, y = "Temperature (°C)", color = NULL) +
+  theme_bw() + theme(panel.grid = element_blank())
+```
+
+## Run simulations
+
+Results are cached to `results/` and skipped if the file exists. Delete the file or set `overwrite <- TRUE` to rerun. Burn-in rows are dropped from `ibm_long`.
+
+```{r}
+#| label: run-sims
+overwrite <- FALSE
+
+run_capped <- function(run, base_scenario, cap) {
+  out_path <- file.path("results", paste0("WarmCap_", run, ".rds"))
+  if (file.exists(out_path) && !overwrite) {
+    message("Skipping '", run, "' (results exist).")
+    return(invisible(NULL))
+  }
+
+  params <- modifyList(scenarios[[base_scenario]], short_len)
+  params$save_burnin <- FALSE
+
+  # Cap warm-patch temperature; the cold patch is untouched
+  habitat_df <- build_habitat(params) |>
+    mutate(temp_warm = pmin(temp_warm, cap))
+
+  message("Running '", run, "' ...")
+  t0  <- Sys.time()
+  res <- run_simulation(habitat_df = habitat_df, params = params, wt_growth = wt.growth)
+  attr(res, "run_time_secs") <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+  saveRDS(res, out_path)
+  invisible(NULL)
+}
+
+pwalk(run_defs, \(cap, run, base_scenario) run_capped(run, base_scenario, cap))
+```
+
+## Load results
+
+Each file is reduced to what we need before binding, so the full `ibm_long` objects aren't held in memory together. Oct 1 census rows give abundance, biomass, recruitment and weight-at-age. Summer age-0 rows (Jun-Aug) give patch use.
+
+```{r}
+#| label: load-results
+
+baseline_files <- tibble(
+  run  = c("baseline_coldonly", "baseline_coldwarm"),
+  path = file.path("results", paste0(c(base_coldonly, base_coldwarm), ".rds"))
+)
+capped_files <- run_defs |>
+  transmute(run, path = file.path("results", paste0("WarmCap_", run, ".rds")))
+
+all_files <- bind_rows(baseline_files, capped_files)
+
+reduce_run <- function(run, path) {
+  res <- readRDS(path)
+  ibm <- res$ibm_long
+
+  # Experiment start: 20 yr for capped runs, baseline burn-in length otherwise
+  nburn <- if (startsWith(run, "short")) short_len$nyears_burnin else base_params$nyears_burnin
+  exp_start <- base_params$mindate + years(nburn)
+
+  oct1 <- ibm |>
+    filter(date >= exp_start, month(date) == 10, day(date) == 1, survived == 1) |>
+    mutate(run = run, year = year(date), age_class = floor(age))
+
+  summer_age0 <- ibm |>
+    filter(date >= exp_start, month(date) %in% 6:8, survived == 1, floor(age) == 0) |>
+    count(year = year(date), patch) |>
+    mutate(run = run)
+
+  list(oct1 = oct1, summer_age0 = summer_age0)
+}
+
+reduced <- pmap(all_files, reduce_run)
+
+oct1        <- map_dfr(reduced, "oct1")
+summer_age0 <- map_dfr(reduced, "summer_age0")
+rm(reduced)
+
+run_levels <- c("baseline_coldonly", "baseline_coldwarm", run_defs$run)
+oct1        <- oct1        |> mutate(run = factor(run, levels = run_levels))
+summer_age0 <- summer_age0 |> mutate(run = factor(run, levels = run_levels))
+```
+
+## Population abundance and biomass
+
+Annual Oct 1 totals, summarized as the mean and SD across experimental years.
+
+```{r}
+pop_yr <- oct1 |>
+  group_by(run, year) |>
+  summarise(n = n(), biomass_kg = sum(weight) / 1000, .groups = "drop")
+
+pop_sum <- pop_yr |>
+  group_by(run) |>
+  summarise(
+    years  = n(),
+    mean_n = mean(n),          sd_n = sd(n),
+    mean_b = mean(biomass_kg), sd_b = sd(biomass_kg)
+  )
+
+pop_sum
+```
+
+```{r}
+#| label: fig-pop-ts
+#| fig-width: 8
+#| fig-height: 6
+
+pop_yr |>
+  mutate(year_in_exp = year - min(year) + 1, .by = run) |>
+  pivot_longer(c(n, biomass_kg), names_to = "metric", values_to = "value") |>
+  ggplot(aes(year_in_exp, value, color = run)) +
+  geom_line() +
+  facet_wrap(~metric, scales = "free_y", ncol = 1) +
+  labs(x = "Year of experimental period", y = NULL, color = NULL) + theme_bw()
+```
+
+Distribution of annual Oct 1 abundance and biomass across experimental years, by scenario.
+
+```{r}
+#| label: fig-pop-box
+#| fig-width: 8
+#| fig-height: 6
+
+pop_yr |>
+  pivot_longer(c(n, biomass_kg), names_to = "metric", values_to = "value") |>
+  mutate(metric = recode(metric, n = "Total abundance (N)", biomass_kg = "Total biomass (kg)")) |>
+  ggplot(aes(run, value)) +
+  geom_boxplot(fill = "grey", outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.4) +
+  facet_wrap(~metric, scales = "free_y", ncol = 1) +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + theme_bw()
+```
+
+## Recruitment (age-0 abundance on Oct 1)
+
+Years with no age-0 survivors are counted as zero (census years are taken from any fish present on Oct 1 in that run).
+
+```{r}
+age0_yr <- oct1 |>
+  distinct(run, year) |>
+  left_join(
+    oct1 |> filter(age_class == 0) |> count(run, year, name = "n_age0"),
+    by = c("run", "year")
+  ) |>
+  replace_na(list(n_age0 = 0))
+
+age0_yr |>
+  group_by(run) |>
+  summarise(mean_age0 = mean(n_age0), sd_age0 = sd(n_age0), cv = sd_age0 / mean_age0)
+```
+
+```{r}
+#| label: fig-age0
+#| fig-width: 7
+#| fig-height: 4
+
+ggplot(age0_yr, aes(run, n_age0)) +
+  geom_boxplot(outlier.shape = NA, fill = "grey") +
+  geom_jitter(width = 0.15, alpha = 0.4) +
+  labs(x = NULL, y = "Age-0 abundance on Oct 1") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + theme_bw()
+```
+
+## Mean weight-at-age
+
+```{r}
+#| label: fig-waa
+#| fig-width: 8
+#| fig-height: 5
+
+waa <- oct1 |>
+  group_by(run, age_class) |>
+  summarise(mean_wt = mean(weight), sd_wt = sd(weight), n = n(), .groups = "drop") |>
+  filter(n >= 5)
+
+ggplot(waa, aes(age_class, mean_wt, color = run)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Age class (years)", y = "Mean weight (g)", color = NULL) + theme_bw()
+```
+
+## Mechanism check: do age-0 fish use the warm patch in summer?
+
+If the hypothesis is right, capped runs (especially the lower caps) should show a nontrivial share of age-0 fish in the warm patch in Jun-Aug, and the uncapped baseline should show about none. Shares are fish-days summed over Jun-Aug of each year.
+
+```{r}
+#| label: fig-warm-use
+#| fig-width: 7
+#| fig-height: 4
+
+warm_share <- summer_age0 |>
+  group_by(run, year) |>
+  summarise(prop_warm = sum(n[patch == "warm"]) / sum(n), .groups = "drop")
+
+warm_share |>
+  group_by(run) |>
+  summarise(mean_prop_warm = mean(prop_warm), sd = sd(prop_warm))
+
+ggplot(warm_share, aes(run, prop_warm)) +
+  geom_boxplot(outlier.shape = NA, fill = "grey") +
+  geom_jitter(width = 0.15, alpha = 0.4) +
+  labs(x = NULL, y = "Proportion of summer age-0\nfish-days in warm patch") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + theme_bw()
+```
+
+## Interpretation notes
+
+- Compare each capped run to `baseline_coldwarm` for the effect of the cap, and to `baseline_coldonly` for whether warm habitat now helps relative to cold-only.
+- Capped runs have a 20-yr burn-in versus 50 yr for the baselines. Check the time series for trends, which would indicate the capped runs have not equilibrated.
+- With one seed per run, differences smaller than the interannual SD should not be over-interpreted. If a result is borderline, add replicates using the `sim_seed` values already in `ScenarioDefs.R`.

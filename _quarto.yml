@@ -37,6 +37,7 @@ book:
         - TestPValSpecs.qmd
         - TestHabitatPcmax.qmd
         - SeedReplicates.qmd
+        - WarmCapTest.qmd
     - part: "Results"
       chapters:
         - ViewSimResults.qmd

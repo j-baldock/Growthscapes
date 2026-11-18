@@ -12,6 +12,8 @@ library(ggridges)
 library(patchwork)
 library(scales)
 library(ggrepel)
+library(ggtext)
+
 
 source("Functions.R")
 source("PlotResults.R")
@@ -29,7 +31,7 @@ Load relevant .rds objects and bind directly into a list. Most outputs come from
 #| cache: false
 
 # get experiment start date from base parameters
-exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
+exp_start_date <- scenarios$Harvest50g_50_ColdOnly_75percold$mindate + years(scenarios$Harvest50g_50_ColdOnly_75percold$nyears_burnin)
 
 # Helper: read one scenario, pull what is needed from the summary objects, and free res.
 # ibm_long is never touched, so it is never copied. Extracted objects:
@@ -43,8 +45,9 @@ exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
 #   spawners   – annual spawner counts, size, age, new-entrant fraction and fry (see compute_spawners)
 # Requires results generated with the n_adult / biomass_adult_g columns in ibm_summary.
 
-# Annual biomass budget of the exploitable stock (peak_weight >= 200 g, matching
-# harvest eligibility), from ibm_long and harvest_log.
+# Annual biomass budget of the exploitable stock (peak_weight >= stock_size, which should be
+# the run's harvestable_size so the stock matches harvest eligibility), from ibm_long and
+# harvest_log.
 #
 # Budget year t runs from the census on day-of-year 151 of year t (the last day before
 # the harvest window opens on DOY 152, so the census is pre-harvest) to the same census
@@ -56,11 +59,11 @@ exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
 #   G_gross  – sum of weight x ggd over stock members (growth before spawning losses)
 #   L_spawn  – G_gross - G_net: weight lost by stock members other than through death or
 #              harvest (spawning); not in the simple SP = G + R - M decomposition
-#   R        – biomass of fish at the weight they first reach peak_weight >= 200 g
+#   R        – biomass of fish at the weight they first reach peak_weight >= stock_size
 # peak_weight is reconstructed as the running max of weight within ibm_long, so fish
 # already present on the first day lack pre-history; the first years are dropped downstream.
 # All biomass in kg.
-compute_budget <- function(ibm_long, harvest_log, habitat_df, census_doy = 151L) {
+compute_budget <- function(ibm_long, harvest_log, habitat_df, stock_size = 200, census_doy = 151L) {
   empty <- tibble(yr = integer(), B = numeric(), C = numeric(), G_net = numeric(),
                   G_gross = numeric(), L_spawn = numeric(), R = numeric(),
                   M = numeric(), B_next = numeric(), SP = numeric())
@@ -79,7 +82,7 @@ compute_budget <- function(ibm_long, harvest_log, habitat_df, census_doy = 151L)
             s_nx   = data.table::shift(survived, -1L),
             pid_nx = data.table::shift(pid,      -1L))]
   il[, nx_ok := !is.na(pid_nx) & pid_nx == pid & d_nx == dayofsim + 1L]
-  il[, stock := survived == 1L & peak >= 200]
+  il[, stock := survived == 1L & peak >= stock_size]
 
   # Harvested fish have no row on the harvest day; key their harvest weight to the day before
   hl <- data.table::as.data.table(harvest_log)[, .(pid, dayofsim = dayofsim - 1L, h_w = weight)]
@@ -97,8 +100,8 @@ compute_budget <- function(ibm_long, harvest_log, habitat_df, census_doy = 151L)
                              C       = sum(data.table::fifelse(event == "harvest", w_out, 0))),
               by = t_idx]
 
-  # Recruits: first alive day at peak >= 200 g (fish present on day 1 are initial stock)
-  rec <- unique(il[survived == 1L & peak >= 200 & dayofsim > first_day], by = "pid")
+  # Recruits: first alive day at peak >= stock_size (fish present on day 1 are initial stock)
+  rec <- unique(il[survived == 1L & peak >= stock_size & dayofsim > first_day], by = "pid")
   rec[, t_idx := findInterval(dayofsim - 1L, cens$dayofsim)]
   rec <- rec[t_idx >= 1L, .(R = sum(weight)), by = t_idx]
 
@@ -119,16 +122,17 @@ compute_budget <- function(ibm_long, harvest_log, habitat_df, census_doy = 151L)
 }
 
 # Annual spawner summary from spawn_log, one row per spawning year in the experimental period.
-# A spawner is a "new entrant" if it first reached peak_weight >= 200 g (reconstructed as the
-# running max of weight in ibm_long) after the most recent harvest-window opening (DOY 152),
-# i.e. it was never eligible for harvest before this spawning season. Fish already >= 200 g on
-# the first day of ibm_long have unknown crossing dates and count as not new.
+# A spawner is a "new entrant" if it first reached peak_weight >= eligible_size (the run's
+# harvestable_size; peak weight reconstructed as the running max of weight in ibm_long) after
+# the most recent harvest-window opening (DOY 152), i.e. it was never eligible for harvest
+# before this spawning season. Fish already >= eligible_size on the first day of ibm_long
+# have unknown crossing dates and count as not new.
 #   n_spawners, spawn_biom_kg – distinct parents and their summed weight at spawning
 #   mean_wt, mean_age         – per spawning event; age from fish_registry birth dates
 #   frac_new                  – fraction of distinct spawners that were new entrants
 #   fry                       – sum of n_offspring
 compute_spawners <- function(ibm_long, spawn_log, fish_registry, habitat_df, first_date,
-                             window_open_doy = 152L) {
+                             eligible_size = 200, window_open_doy = 152L) {
   empty <- tibble(yr = integer(), n_spawners = integer(), n_events = integer(),
                   mean_wt = numeric(), mean_age = numeric(), frac_new = numeric(),
                   spawn_biom_kg = numeric(), fry = numeric())
@@ -138,7 +142,7 @@ compute_spawners <- function(ibm_long, spawn_log, fish_registry, habitat_df, fir
   data.table::setorder(il, pid, dayofsim)
   il[, peak := cummax(weight), by = pid]
   first_day <- min(il$dayofsim)
-  cross <- il[peak >= 200, .(cross_day = min(dayofsim)), by = pid]
+  cross <- il[peak >= eligible_size, .(cross_day = min(dayofsim)), by = pid]
   cross[cross_day == first_day, cross_day := NA_integer_]
   rm(il)
 
@@ -208,88 +212,196 @@ load_scen <- function(path, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
     group_by(yr = year(date)) |>
     summarise(n_fry = sum(n_offspring), .groups = "drop")
 
+  # Size at which fish become harvestable in this run (falls back to 50 g if not recorded)
+  hsize <- res$params$harvestable_size %||% 50
+
   list(oct1_waa = oct1_waa, oct1_adult = oct1_adult,
        age0_nov1 = age0_nov1, fry_annual = fry_annual,
-       budget = compute_budget(res$ibm_long, res$harvest_log, res$habitat_df),
+       budget = compute_budget(res$ibm_long, res$harvest_log, res$habitat_df, stock_size = hsize),
        spawners = compute_spawners(res$ibm_long, res$spawn_log, res$fish_registry,
-                                   res$habitat_df, exp_start_date),
+                                   res$habitat_df, exp_start_date, eligible_size = hsize),
+       harvestable_size = hsize,
        harvest = res$harvest_log, spawn_log = res$spawn_log,
        ht = ht, pc = pc, ac = ac, aw = aw, hr = hr,
        pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
 }
 
+
 ibm_list_mech <- list(
+ 
+  # PrCold = 95%
+  load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",  "Cold only",  0.95,  1.9,  0.0,  0.00,  0.5,  NA_real_),
+  load_scen("results/Harvest_10_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.10,  0.5,  NA_real_),
+  load_scen("results/Harvest_20_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.20,  0.5,  NA_real_),
+  load_scen("results/Harvest_30_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.30,  0.5,  NA_real_),
+  load_scen("results/Harvest_40_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.40,  0.5,  NA_real_),
+  load_scen("results/Harvest_50_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.50,  0.5,  NA_real_),
+  load_scen("results/Harvest_60_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.60,  0.5,  NA_real_),
+  load_scen("results/Harvest_70_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.70,  0.5,  NA_real_),
+  load_scen("results/Harvest_80_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.80,  0.5,  NA_real_),
+  load_scen("results/Harvest_90_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.90,  0.5,  NA_real_),
+
+  load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.00,  0.5,  0.5),
+  load_scen("results/Harvest_10_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.10,  0.5,  0.5),
+  load_scen("results/Harvest_20_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.20,  0.5,  0.5),
+  load_scen("results/Harvest_30_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.30,  0.5,  0.5),
+  load_scen("results/Harvest_40_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.40,  0.5,  0.5),
+  load_scen("results/Harvest_50_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.50,  0.5,  0.5),
+  load_scen("results/Harvest_60_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.60,  0.5,  0.5),
+  load_scen("results/Harvest_70_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.70,  0.5,  0.5),
+  load_scen("results/Harvest_80_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.80,  0.5,  0.5),
+  load_scen("results/Harvest_90_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.90,  0.5,  0.5),
+
+  load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.00,  0.5,  0.6),
+  load_scen("results/Harvest_10_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.10,  0.5,  0.6),
+  load_scen("results/Harvest_20_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.20,  0.5,  0.6),
+  load_scen("results/Harvest_30_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.30,  0.5,  0.6),
+  load_scen("results/Harvest_40_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.40,  0.5,  0.6),
+  load_scen("results/Harvest_50_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.50,  0.5,  0.6),
+  load_scen("results/Harvest_60_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.60,  0.5,  0.6),
+  load_scen("results/Harvest_70_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.70,  0.5,  0.6),
+  load_scen("results/Harvest_80_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.80,  0.5,  0.6),
+  load_scen("results/Harvest_90_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.90,  0.5,  0.6),
+  
+  
   # PrCold = 75%
-  # load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",  "Cold only",  0.75,  1.5,  0.0,  0.00,  0.5,  NA_real_),
+  load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",  "Cold only",  0.75,  1.5,  0.0,  0.00,  0.5,  NA_real_),
   load_scen("results/Harvest_10_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.10,  0.5,  NA_real_),
   load_scen("results/Harvest_20_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.20,  0.5,  NA_real_),
   load_scen("results/Harvest_30_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.30,  0.5,  NA_real_),
   load_scen("results/Harvest_40_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.40,  0.5,  NA_real_),
   load_scen("results/Harvest_50_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.50,  0.5,  NA_real_),
-  load_scen("results/Harvest_55_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.55,  0.5,  NA_real_),
   load_scen("results/Harvest_60_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.60,  0.5,  NA_real_),
-  load_scen("results/Harvest_65_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.65,  0.5,  NA_real_),
   load_scen("results/Harvest_70_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.70,  0.5,  NA_real_),
-  load_scen("results/Harvest_75_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.75,  0.5,  NA_real_),
   load_scen("results/Harvest_80_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.80,  0.5,  NA_real_),
   load_scen("results/Harvest_90_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.90,  0.5,  NA_real_),
-  
-  # load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.00,  0.5,  0.5),
+
+  load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.00,  0.5,  0.5),
   load_scen("results/Harvest_10_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.10,  0.5,  0.5),
   load_scen("results/Harvest_20_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.20,  0.5,  0.5),
   load_scen("results/Harvest_30_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.30,  0.5,  0.5),
   load_scen("results/Harvest_40_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.40,  0.5,  0.5),
   load_scen("results/Harvest_50_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.50,  0.5,  0.5),
-  load_scen("results/Harvest_55_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.55,  0.5,  0.5),
   load_scen("results/Harvest_60_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.60,  0.5,  0.5),
-  load_scen("results/Harvest_65_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.65,  0.5,  0.5),
   load_scen("results/Harvest_70_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.70,  0.5,  0.5),
-  load_scen("results/Harvest_75_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.75,  0.5,  0.5),
   load_scen("results/Harvest_80_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.80,  0.5,  0.5),
   load_scen("results/Harvest_90_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.90,  0.5,  0.5),
-  
-  # load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.00,  0.5,  0.6),
+
+  load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.00,  0.5,  0.6),
   load_scen("results/Harvest_10_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.10,  0.5,  0.6),
   load_scen("results/Harvest_20_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.20,  0.5,  0.6),
   load_scen("results/Harvest_30_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.30,  0.5,  0.6),
   load_scen("results/Harvest_40_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.40,  0.5,  0.6),
   load_scen("results/Harvest_50_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.50,  0.5,  0.6),
-  load_scen("results/Harvest_55_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.55,  0.5,  0.6),
   load_scen("results/Harvest_60_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.60,  0.5,  0.6),
-  load_scen("results/Harvest_65_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.65,  0.5,  0.6),
   load_scen("results/Harvest_70_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.70,  0.5,  0.6),
-  load_scen("results/Harvest_75_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.75,  0.5,  0.6),
   load_scen("results/Harvest_80_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.80,  0.5,  0.6),
-  load_scen("results/Harvest_90_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.90,  0.5,  0.6)
+  load_scen("results/Harvest_90_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.90,  0.5,  0.6),
+  
+  
+  # PrCold = 50%
+  load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",  "Cold only",  0.50,  1.0,  0.0,  0.00,  0.5,  NA_real_),
+  load_scen("results/Harvest_10_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.10,  0.5,  NA_real_),
+  load_scen("results/Harvest_20_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.20,  0.5,  NA_real_),
+  load_scen("results/Harvest_30_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.30,  0.5,  NA_real_),
+  load_scen("results/Harvest_40_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.40,  0.5,  NA_real_),
+  load_scen("results/Harvest_50_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.50,  0.5,  NA_real_),
+  load_scen("results/Harvest_60_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.60,  0.5,  NA_real_),
+  load_scen("results/Harvest_70_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.70,  0.5,  NA_real_),
+  load_scen("results/Harvest_80_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.80,  0.5,  NA_real_),
+  load_scen("results/Harvest_90_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.90,  0.5,  NA_real_),
+
+  load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.00,  0.5,  0.5),
+  load_scen("results/Harvest_10_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.10,  0.5,  0.5),
+  load_scen("results/Harvest_20_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.20,  0.5,  0.5),
+  load_scen("results/Harvest_30_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.30,  0.5,  0.5),
+  load_scen("results/Harvest_40_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.40,  0.5,  0.5),
+  load_scen("results/Harvest_50_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.50,  0.5,  0.5),
+  load_scen("results/Harvest_60_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.60,  0.5,  0.5),
+  load_scen("results/Harvest_70_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.70,  0.5,  0.5),
+  load_scen("results/Harvest_80_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.80,  0.5,  0.5),
+  load_scen("results/Harvest_90_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.90,  0.5,  0.5),
+
+  load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.00,  0.5,  0.6),
+  load_scen("results/Harvest_10_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.10,  0.5,  0.6),
+  load_scen("results/Harvest_20_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.20,  0.5,  0.6),
+  load_scen("results/Harvest_30_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.30,  0.5,  0.6),
+  load_scen("results/Harvest_40_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.40,  0.5,  0.6),
+  load_scen("results/Harvest_50_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.50,  0.5,  0.6),
+  load_scen("results/Harvest_60_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.60,  0.5,  0.6),
+  load_scen("results/Harvest_70_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.70,  0.5,  0.6),
+  load_scen("results/Harvest_80_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.80,  0.5,  0.6),
+  load_scen("results/Harvest_90_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.90,  0.5,  0.6),
+  
   
   # PrCold = 25%
-  # load_scen("results/TempOffset_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.00,  0.5,  NA_real_),
-  # load_scen("results/Harvest_10_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.10,  0.5,  NA_real_),
-  # load_scen("results/Harvest_20_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.20,  0.5,  NA_real_),
-  # load_scen("results/Harvest_30_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.30,  0.5,  NA_real_),
-  # load_scen("results/Harvest_40_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.40,  0.5,  NA_real_),
-  # load_scen("results/Harvest_50_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.50,  0.5,  NA_real_),
-  # load_scen("results/Harvest_55_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.55,  0.5,  NA_real_),
-  # load_scen("results/Harvest_60_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.60,  0.5,  NA_real_),
-  # load_scen("results/Harvest_65_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.65,  0.5,  NA_real_),
-  # load_scen("results/Harvest_70_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.70,  0.5,  NA_real_),
-  # load_scen("results/Harvest_75_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.75,  0.5,  NA_real_),
-  # load_scen("results/Harvest_80_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.80,  0.5,  NA_real_),
-  # load_scen("results/Harvest_90_ColdOnly_25percold.rds",  "Cold only",  0.25,  0.5,  0.0,  0.90,  0.5,  NA_real_),
-  # 
-  # load_scen("results/TempOffset_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.00,  0.5,  0.5),
-  # load_scen("results/Harvest_10_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.10,  0.5,  0.5),
-  # load_scen("results/Harvest_20_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.20,  0.5,  0.5),
-  # load_scen("results/Harvest_30_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.30,  0.5,  0.5),
-  # load_scen("results/Harvest_40_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.40,  0.5,  0.5),
-  # load_scen("results/Harvest_50_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.50,  0.5,  0.5),
-  # load_scen("results/Harvest_55_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.55,  0.5,  0.5),
-  # load_scen("results/Harvest_60_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.60,  0.5,  0.5),
-  # load_scen("results/Harvest_65_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.65,  0.5,  0.5),
-  # load_scen("results/Harvest_70_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.70,  0.5,  0.5),
-  # load_scen("results/Harvest_75_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.75,  0.5,  0.5),
-  # load_scen("results/Harvest_80_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.80,  0.5,  0.5),
-  # load_scen("results/Harvest_90_ColdWarm_25percold.rds",  "Cold + Warm",  0.25,  0.5,  1.5,  0.90,  0.5,  0.5)
+  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds", "Cold only",  0.25,  0.5,  0.0,  0.00,  0.5,  NA_real_),
+  load_scen("results/Harvest_10_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.10,  0.5,  NA_real_),
+  load_scen("results/Harvest_20_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.20,  0.5,  NA_real_),
+  load_scen("results/Harvest_30_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.30,  0.5,  NA_real_),
+  load_scen("results/Harvest_40_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.40,  0.5,  NA_real_),
+  load_scen("results/Harvest_50_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.50,  0.5,  NA_real_),
+  load_scen("results/Harvest_60_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.60,  0.5,  NA_real_),
+  load_scen("results/Harvest_70_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.70,  0.5,  NA_real_),
+  load_scen("results/Harvest_80_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.80,  0.5,  NA_real_),
+  load_scen("results/Harvest_90_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.90,  0.5,  NA_real_),
+  
+  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds", "Cold + Warm",  0.25,  0.5,  1.5,  0.00,  0.5,  0.5),
+  load_scen("results/Harvest_10_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.10,  0.5,  0.5),
+  load_scen("results/Harvest_20_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.20,  0.5,  0.5),
+  load_scen("results/Harvest_30_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.30,  0.5,  0.5),
+  load_scen("results/Harvest_40_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.40,  0.5,  0.5),
+  load_scen("results/Harvest_50_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.50,  0.5,  0.5),
+  load_scen("results/Harvest_60_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.60,  0.5,  0.5),
+  load_scen("results/Harvest_70_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.70,  0.5,  0.5),
+  load_scen("results/Harvest_80_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.80,  0.5,  0.5),
+  load_scen("results/Harvest_90_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.90,  0.5,  0.5),
+  
+  load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds", "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.00,  0.5,  0.6),
+  load_scen("results/Harvest_10_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.10,  0.5,  0.6),
+  load_scen("results/Harvest_20_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.20,  0.5,  0.6),
+  load_scen("results/Harvest_30_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.30,  0.5,  0.6),
+  load_scen("results/Harvest_40_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.40,  0.5,  0.6),
+  load_scen("results/Harvest_50_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.50,  0.5,  0.6),
+  load_scen("results/Harvest_60_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.60,  0.5,  0.6),
+  load_scen("results/Harvest_70_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.70,  0.5,  0.6),
+  load_scen("results/Harvest_80_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.80,  0.5,  0.6),
+  load_scen("results/Harvest_90_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.90,  0.5,  0.6),
+  
+  
+  # PrCold = 5%
+  load_scen("results/Baseline_ColdOnly_005percold_rep01.rds", "Cold only",  0.05,  0.1,  0.0,  0.00,  0.5,  NA_real_),
+  load_scen("results/Harvest_10_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.10,  0.5,  NA_real_),
+  load_scen("results/Harvest_20_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.20,  0.5,  NA_real_),
+  load_scen("results/Harvest_30_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.30,  0.5,  NA_real_),
+  load_scen("results/Harvest_40_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.40,  0.5,  NA_real_),
+  load_scen("results/Harvest_50_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.50,  0.5,  NA_real_),
+  load_scen("results/Harvest_60_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.60,  0.5,  NA_real_),
+  load_scen("results/Harvest_70_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.70,  0.5,  NA_real_),
+  load_scen("results/Harvest_80_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.80,  0.5,  NA_real_),
+  load_scen("results/Harvest_90_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.90,  0.5,  NA_real_),
+  
+  load_scen("results/Baseline_ColdWarm_005percold_rep01.rds", "Cold + Warm",  0.05,  0.1,  1.9,  0.00,  0.5,  0.5),
+  load_scen("results/Harvest_10_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.10,  0.5,  0.5),
+  load_scen("results/Harvest_20_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.20,  0.5,  0.5),
+  load_scen("results/Harvest_30_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.30,  0.5,  0.5),
+  load_scen("results/Harvest_40_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.40,  0.5,  0.5),
+  load_scen("results/Harvest_50_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.50,  0.5,  0.5),
+  load_scen("results/Harvest_60_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.60,  0.5,  0.5),
+  load_scen("results/Harvest_70_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.70,  0.5,  0.5),
+  load_scen("results/Harvest_80_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.80,  0.5,  0.5),
+  load_scen("results/Harvest_90_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.90,  0.5,  0.5),
+  
+  load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds", "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.00,  0.5,  0.6),
+  load_scen("results/Harvest_10_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.10,  0.5,  0.6),
+  load_scen("results/Harvest_20_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.20,  0.5,  0.6),
+  load_scen("results/Harvest_30_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.30,  0.5,  0.6),
+  load_scen("results/Harvest_40_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.40,  0.5,  0.6),
+  load_scen("results/Harvest_50_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.50,  0.5,  0.6),
+  load_scen("results/Harvest_60_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.60,  0.5,  0.6),
+  load_scen("results/Harvest_70_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.70,  0.5,  0.6),
+  load_scen("results/Harvest_80_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.80,  0.5,  0.6),
+  load_scen("results/Harvest_90_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.90,  0.5,  0.6)
 )
 ```
 
@@ -315,9 +427,9 @@ pc_levels <- c(0.95, 0.75, 0.50, 0.25, 0.05)
 pc_levels_mech <- c(0.95, 0.75, 0.50, 0.25, 0.05)
 pc_labels_mech <- c("95% cold","75% cold","50% cold","25% cold","5% cold")
 
-hr_levels <- c(0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.9)
-hr_levels_mech <- c(0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.9)
-hr_labels_mech <- c("0%","10%","20%","30%","40%", "50%", "55%", "60%", "65%", "70%", "75%", "80%", "90%")
+hr_levels <- c(0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90)
+hr_levels_mech <- c(0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90)
+hr_labels_mech <- c("0%","10%","20%","30%","40%","50%","60%","70%","80%","90%")
 
 # Palette keys must match levels(age0_ts$harvest_rate)
 cols <- hcl.colors(13, "inferno", rev = TRUE)
@@ -375,7 +487,7 @@ sp_spawn_summ <- sp_spawn_ts |>
             .groups = "drop")
 
 sp_spawn_summ |>
-  filter(hab_type == "Cold only") |>
+  # filter(hab_type == "Cold only") |>
   transmute(`Prop. cold` = prop_cold_fact, E = harvest_rate,
             `Spawners/yr` = round(n_spawners_mean, 1),
             `Spawner biomass (kg)` = round(spawn_biom_kg_mean, 1),
@@ -408,7 +520,7 @@ sp_spawn_summ |>
   labs(x = "Harvest rate", y = NULL) +
   facet_wrap(~ metric, scales = "free_y", ncol = 3) +
   theme_bw(base_size = 11) +
-  theme(legend.position = "top", panel.grid.minor = element_blank())
+  theme(legend.position = "top", panel.grid = element_blank())
 ```
 
 
@@ -418,19 +530,19 @@ Annual age-0 abundance on Oct 1 against annual fry production, pooled across har
 
 ```{r}
 #| fig-width: 10
-#| fig-height: 4
+#| fig-height: 9
 
-ggplot(sp_spawn_ts, aes(x = fry, y = age0_oct1, color = hab_type)) +
-  geom_point(aes(shape = harvest_rate > 0.7), alpha = 0.35, size = 1.5) +
-  scale_color_manual(values = hab_cols, name = NULL) +
-  scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 17), name = NULL,
-                     labels = c("E <= 0.70", "E > 0.70")) +
+ggplot(sp_spawn_ts, aes(x = fry, y = age0_oct1, color = harvest_rate_fact)) +
+  geom_point(alpha = 1, size = 1.5) +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  # scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 17), name = NULL,
+  #                    labels = c("E <= 0.70", "E > 0.70")) +
   #scale_x_log10(labels = scales::label_comma()) +
   scale_y_continuous(limits = c(0, NA)) +
   labs(x = "Annual fry production (N)", y = "Age-0 abundance, Oct 1 (N)") +
   theme_bw(base_size = 11) +
-  theme(panel.grid.minor = element_blank(), legend.position = "top") +
-  facet_wrap(~ hab_type)
+  theme(panel.grid.minor = element_blank(), legend.position = "right") +
+  facet_grid(prop_cold_fact ~ hab_type)
 ```
 
 Fry production and spawning biomass fall steeply with harvest rate, while recruitment of biomass into the exploitable stock (R in the budget below) changes little. This is consistent with a juvenile bottleneck that a small spawning stock can saturate. Harvest also shifts spawners toward younger fish and, as harvest rate rises, toward fish that were never exposed to harvest. Each scenario is a single run, so non-monotonic steps between neighboring harvest rates may reflect run-to-run variation, not real structure.
@@ -458,7 +570,7 @@ exp_oct1_hr <- purrr::map_dfr(ibm_list_mech, function(scen) {
   )
 
 waa_hr <- exp_oct1_hr |>
-  filter(yr >= 2060) %>% # filter b/c in some sim. runs it takes a few years for mean weight to stabilize following the start of harvest
+  filter(yr >= year(exp_start_date) + 10) %>% # filter b/c in some sim. runs it takes a few years for mean weight to stabilize following the start of harvest
   # Per-year sums of squares, computed before summarise() so that n, mean_weight
   # and sd_weight still refer to the per-year values (not the pooled ones)
   mutate(ss_within = (n - 1) * replace_na(sd_weight, 0)^2,
@@ -491,7 +603,7 @@ p1 <- ggplot(waa_hr, aes(x = age_class, y = mean_wt,
     title = "Mean weight-at-age by harvest rate (Oct 1, experimental period)"
   ) +
   theme_bw(base_size = 12) +
-  theme(legend.position = "right", panel.grid.minor = element_blank()) +
+  theme(legend.position = "right", panel.grid = element_blank()) +
   facet_grid(prop_cold_fact~hab_type)
 
 
@@ -518,7 +630,7 @@ p2 <- ggplot(waa_hr_rd, aes(x = age_class, y = rel_diff,
     title = "Compensatory growth: weight-at-age relative to 0% harvest baseline"
   ) +
   theme_bw(base_size = 12) +
-  theme(panel.grid.minor = element_blank()) +
+  theme(panel.grid = element_blank()) +
   facet_grid(prop_cold_fact~hab_type)
 
 
@@ -534,7 +646,7 @@ p3 <- ggplot(waa_hr_rd, aes(x = hr, y = rel_diff, color = harvest_rate_fact, fil
     x = "Harvest rate", y = "Relative difference in mean weight"
   ) +
   theme_bw(base_size = 12) +
-  theme(legend.position = "none", panel.grid.minor = element_blank()) +
+  theme(legend.position = "none", panel.grid = element_blank()) +
   facet_grid(prop_cold_fact~hab_type)
 
 # (p1 / (p2 / p3 + plot_layout(axis_titles = "collect"))) + plot_layout(guides = "collect", heights = c(1.5, 2))
@@ -543,14 +655,14 @@ p3 <- ggplot(waa_hr_rd, aes(x = hr, y = rel_diff, color = harvest_rate_fact, fil
 
 ```{r}
 #| fig-width: 8
-#| fig-height: 6
+#| fig-height: 8
 
 p1
 ```
 
 ```{r eval=FALSE}
 #| fig-width: 8
-#| fig-height: 9
+#| fig-height: 11
 (p2 + p3) + plot_layout(guides = "collect", heights = c(1.5, 2))
 ```
 
@@ -598,8 +710,8 @@ age0_ts <- purrr::map_dfr(ibm_list_mech, get_annual_age0)
 # experimental years divided by the first 10. Stable harvest → ratio ≈ 1;
 # slow decline → ratio < 1; crashed population → ratio = 0.
 n_exp   <- nrow(all_exp_years)
-first10 <- all_exp_years$yr[1:10]
-last10  <- all_exp_years$yr[(n_exp - 9):n_exp]
+first10 <- all_exp_years$yr[1:20]
+last10  <- all_exp_years$yr[(n_exp - 19):n_exp]
 
 ratio_df <- age0_ts |>
   mutate(period = case_when(
@@ -623,7 +735,7 @@ ratio_df <- age0_ts |>
 Age-0 abundance time series, faceted by habitat type and proportion cold habitat:
 ```{r}
 #| fig-width: 9
-#| fig-height: 6
+#| fig-height: 9
 
 ggplot(age0_ts, aes(x = yr, y = n_age0, color = harvest_rate_fact)) +
   geom_line(alpha = 0.3) +
@@ -634,14 +746,14 @@ ggplot(age0_ts, aes(x = yr, y = n_age0, color = harvest_rate_fact)) +
                      limits = c(0, NA),
                      labels = scales::label_comma()) +
   theme_bw() +
-  theme(panel.grid.minor = element_blank()) +
+  theme(panel.grid = element_blank()) +
   facet_grid(prop_cold_fact ~ hab_type)
 ```
 
 Mean recruitment (all years), faceted by habitat type and proportion cold:
 ```{r}
 #| fig-width: 7
-#| fig-height: 5
+#| fig-height: 7
 
 ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_all, color = harvest_rate_fact)) +
   geom_errorbar(aes(ymin = pmax(0, mean_n_all - sd_n_all), ymax = mean_n_all + sd_n_all),
@@ -657,17 +769,39 @@ ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_all, color = harvest_rate_fact
   facet_grid(prop_cold_fact ~ hab_type)
 ```
 
+
+```{r}
+#| fig-width: 9
+#| fig-height: 3.5
+
+ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_all)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  geom_errorbar(aes(ymin = pmax(0, mean_n_all - sd_n_all), ymax = mean_n_all + sd_n_all, color = hab_type),
+                width = 0.05, linewidth = 0.6, position = position_dodge(width = 0.03)) +
+  geom_point(aes(fill = hab_type), shape = 21, size = 3, position = position_dodge(width = 0.03)) +
+  scale_fill_manual(values = hab_cols, name = "Habitat type") +
+  scale_color_manual(values = hab_cols, name = "Habitat type") +
+  scale_y_continuous(name = "Mean recruitment, all years") +
+  coord_cartesian(ylim = c(0, NA)) +
+  labs(x = "Harvest rate") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.position = "top",
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~ prop_cold_fact, nrow = 1)
+```
+
+
 Mean recruitment over final 10 years, faceted by habitat type and proportion cold:
 ```{r}
 #| fig-width: 7
-#| fig-height: 5
+#| fig-height: 7
 
 ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_end, color = harvest_rate_fact)) +
   geom_errorbar(aes(ymin = pmax(0, mean_n_end - sd_n_end), ymax = mean_n_end + sd_n_end),
                 width = 0.025, linewidth = 0.6) +
   geom_point(size = 3) +
   scale_color_manual(values = hr_pal, name = "Harvest rate") +
-  scale_y_continuous(name = "Mean recruitment, final 10 years",
+  scale_y_continuous(name = "Mean recruitment, final 20 years",
                      limits = c(0, NA)) +
   labs(x = "Harvest rate") +
   theme_bw() +
@@ -676,10 +810,31 @@ ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_end, color = harvest_rate_fact
   facet_grid(prop_cold_fact ~ hab_type)
 ```
 
+
+```{r}
+#| fig-width: 9
+#| fig-height: 3.5
+
+ggplot(ratio_df, aes(x = harvest_rate, y = mean_n_end)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  geom_errorbar(aes(ymin = pmax(0, mean_n_end - sd_n_end), ymax = mean_n_end + sd_n_end, color = hab_type),
+                width = 0.05, linewidth = 0.6, position = position_dodge(width = 0.03)) +
+  geom_point(aes(fill = hab_type), shape = 21, size = 3, position = position_dodge(width = 0.03)) +
+  scale_fill_manual(values = hab_cols, name = "Habitat type") +
+  scale_color_manual(values = hab_cols, name = "Habitat type") +
+  scale_y_continuous(name = "Mean recruitment, final 20 years") +
+  coord_cartesian(ylim = c(0, NA)) +
+  labs(x = "Harvest rate") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.position = "top",
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~ prop_cold_fact, nrow = 1)
+```
+
 End/start recruitment ratio, faceted by habitat type and proportion cold:
 ```{r}
 #| fig-width: 7
-#| fig-height: 5
+#| fig-height: 7
 
 ggplot(ratio_df, aes(x = harvest_rate, y = ratio, color = harvest_rate_fact)) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", linewidth = 0.6) +
@@ -740,7 +895,7 @@ get_annual_harvest <- function(scen) {
 
 get_harvest_traits <- function(scen) {
   scen$harvest %>%
-    filter(year > 2060) %>%
+    filter(year >= year(exp_start_date) + 10) %>%
     summarise(mean_wt = mean(weight), 
               sd_wt = sd(weight),
               mean_age = mean(age),
@@ -762,7 +917,7 @@ get_harvest_traits <- function(scen) {
 
 harvest_ts <- purrr::map_dfr(ibm_list_mech, get_annual_harvest) |>
   mutate(hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)"))) |>
-  filter(year > 2060)
+  filter(year >= year(exp_start_date) + 10)
 # harvest_ts <- purrr::map_dfr(ibm_list_mech[c(2:13, 15:26, 28:39, 41:52)], get_annual_harvest) |>
 #   bind_rows(
 #     purrr::map_dfr(ibm_list_mech[c(1, 14, 27, 40)], function(scen) {
@@ -835,30 +990,30 @@ harvest_summ <- harvest_ts %>%
 Show time series of harvested abundance, by habitat configuration and harvest rate
 ```{r}
 #| cache: false
-#| fig-width: 8
-#| fig-height: 8
+#| fig-width: 7
+#| fig-height: 7
 
-p1 <- ggplot(harvest_ts, aes(x = year, y = n_harvested, color = harvest_rate_fact)) +
+ggplot(harvest_ts, aes(x = year, y = n_harvested, color = harvest_rate_fact)) +
   geom_line(alpha = 0.3) +
   geom_smooth(linewidth = 0.8, se = FALSE) +
   scale_color_manual(values = hr_pal) +
   # coord_cartesian(ylim = c(0, 90)) +
   labs(x = "Year", y = "Harvested abundance (N)") +
   theme_bw() +
-  theme(panel.grid.minor = element_blank()) +
+  theme(panel.grid = element_blank()) +
   facet_grid(prop_cold_fact ~ hab_type)
 
-p2 <- ggplot(harvest_ts, aes(x = year, y = bm_harvested, color = harvest_rate_fact)) +
+ggplot(harvest_ts, aes(x = year, y = bm_harvested, color = harvest_rate_fact)) +
   geom_line(alpha = 0.3) +
   geom_smooth(linewidth = 0.8, se = FALSE) +
   scale_color_manual(values = hr_pal) +
   # coord_cartesian(ylim = c(0, 50)) +
   labs(x = "Year", y = "Harvested biomass (kg)") +
   theme_bw() +
-  theme(panel.grid.minor = element_blank()) +
+  theme(panel.grid = element_blank()) +
   facet_grid(prop_cold_fact ~ hab_type)
 
-(p1 / p2) + plot_layout(guides = "collect")
+# (p1 / p2) + plot_layout(guides = "collect")
 ```
 
 Time series of individual-level traits
@@ -872,12 +1027,12 @@ Time series of individual-level traits
 #| fig-width: 8
 #| fig-height: 8
 
-ggplot(harvest_ts, aes(x = year, y = mean_wt, color = harvest_rate_fact)) +
-  geom_errorbar(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt), width = 0.025, linewidth = 0.6) +
-  geom_point(size = 2) +
-  facet_grid(harvest_rate_fact ~ prop_cold_fact + hab_type) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  labs(x = "Year", y = "Mean individual weight of harvested fish") +
+ggplot(harvest_ts, aes(x = jitter(harvest_rate), y = mean_wt, color = prop_cold_fact)) +
+  geom_errorbar(aes(ymin = mean_wt - sd_wt, ymax = mean_wt + sd_wt), width = 0.025, linewidth = 0.6, alpha = 0.3) +
+  geom_point(size = 2, alpha = 0.3) +
+  facet_grid(prop_cold_fact ~ hab_type) +
+  # scale_color_manual(values = hr_pal, guide = "none") +
+  labs(x = "Harvest rate", y = "Mean individual weight of harvested fish") +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
@@ -890,12 +1045,12 @@ ggplot(harvest_ts, aes(x = year, y = mean_wt, color = harvest_rate_fact)) +
 #| fig-width: 8
 #| fig-height: 8
 
-ggplot(harvest_ts, aes(x = year, y = mean_age, color = harvest_rate_fact)) +
-  geom_errorbar(aes(ymin = mean_age - sd_age, ymax = mean_age + sd_age), width = 0.025, linewidth = 0.6) +
-  geom_point(size = 2) +
-  facet_grid(harvest_rate_fact ~ prop_cold_fact + hab_type) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  labs(x = "Year", y = "Mean individual age of harvested fish") +
+ggplot(harvest_ts, aes(x = jitter(harvest_rate), y = mean_age, color = prop_cold_fact)) +
+  geom_errorbar(aes(ymin = mean_age - sd_age, ymax = mean_age + sd_age), width = 0.025, linewidth = 0.6, alpha = 0.3) +
+  geom_point(size = 2, alpha = 0.3) +
+  facet_grid(prop_cold_fact ~ hab_type) +
+  # scale_color_manual(values = hr_pal, guide = "none") +
+  labs(x = "Harvest rate", y = "Mean individual age of harvested fish") +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
@@ -908,12 +1063,12 @@ ggplot(harvest_ts, aes(x = year, y = mean_age, color = harvest_rate_fact)) +
 #| fig-width: 8
 #| fig-height: 8
 
-ggplot(harvest_ts, aes(x = year, y = mean_cond, color = harvest_rate_fact)) +
-  geom_errorbar(aes(ymin = mean_cond - sd_cond, ymax = mean_cond + sd_cond), width = 0.025, linewidth = 0.6) +
-  geom_point(size = 2) +
-  facet_grid(harvest_rate_fact ~ prop_cold_fact + hab_type) +
-  scale_color_manual(values = hr_pal, guide = "none") +
-  labs(x = "Year", y = "Mean individual condition of harvested fish") +
+ggplot(harvest_ts, aes(x = jitter(harvest_rate), y = mean_cond, color = prop_cold_fact)) +
+  geom_errorbar(aes(ymin = mean_cond - sd_cond, ymax = mean_cond + sd_cond), width = 0.025, linewidth = 0.6, alpha = 0.3) +
+  geom_point(size = 2, alpha = 0.3) +
+  facet_grid(prop_cold_fact ~ hab_type) +
+  # scale_color_manual(values = hr_pal, guide = "none") +
+  labs(x = "Harvest rate", y = "Mean individual condition of harvested fish") +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
@@ -925,35 +1080,35 @@ ggplot(harvest_ts, aes(x = year, y = mean_cond, color = harvest_rate_fact)) +
 ```{r}
 #| cache: false
 #| fig-width: 10
-#| fig-height: 6
+#| fig-height: 10
 
 # mean harvested abundance
 p_abun <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_n, color = hab_type, group = hab_type)) +
   geom_errorbar(aes(ymin = mean_n - sd_n, ymax = mean_n + sd_n), width = 0.025, linewidth = 0.6, position = position_dodge(width = 0.03)) +
   geom_point(size = 3, position = position_dodge(width = 0.03)) +
   scale_color_manual(values = hab_cols) +
-  scale_y_continuous(name = "Mean annual harvested abundance") +
+  scale_y_continuous(name = "Mean harvested abundance") +
   coord_cartesian(xlim = c(0,1), ylim = c(0,NA)) +
   labs(x = "Harvest rate") +
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         axis.text.x      = element_text(angle = 45, hjust = 1),
         axis.title.x = element_blank()) +
-  facet_wrap(~prop_cold_fact)
+  facet_wrap(~prop_cold_fact, nrow = 1)
 
 # mean harvested biomass
 p_biom <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_bm, color = hab_type, group = hab_type)) +
   geom_errorbar(aes(ymin = mean_bm - sd_bm, ymax = mean_bm + sd_bm), width = 0.025, linewidth = 0.6, position = position_dodge(width = 0.03)) +
   geom_point(size = 3, position = position_dodge(width = 0.03)) +
   scale_color_manual(values = hab_cols) +
-  scale_y_continuous(name = "Mean annual harvested biomass (kg)") +
+  scale_y_continuous(name = "Mean harvested biomass (kg)") +
   coord_cartesian(xlim = c(0,1), ylim = c(0,NA)) +
   labs(x = "Harvest rate") +
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         axis.text.x      = element_text(angle = 45, hjust = 1),
         axis.title.x = element_blank()) +
-  facet_wrap(~prop_cold_fact)
+  facet_wrap(~prop_cold_fact, nrow = 1)
 
 # mean individual weight
 p_wt <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_wt, color = hab_type, group = hab_type)) +
@@ -966,7 +1121,7 @@ p_wt <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_wt, color = hab_type
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         axis.text.x      = element_text(angle = 45, hjust = 1)) +
-  facet_wrap(~prop_cold_fact)
+  facet_wrap(~prop_cold_fact, nrow = 1)
 
 # mean individual age
 p_age <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_age, color = hab_type, group = hab_type)) +
@@ -979,10 +1134,10 @@ p_age <- ggplot(harvest_summ, aes(x = harvest_rate, y = mean_age, color = hab_ty
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         axis.text.x      = element_text(angle = 45, hjust = 1)) +
-  facet_wrap(~prop_cold_fact)
+  facet_wrap(~prop_cold_fact, nrow = 1)
 
 
-(p_abun + p_biom) / (p_wt + p_age) + plot_layout(guides = "collect")
+p_abun / p_biom / p_wt / p_age + plot_layout(guides = "collect")
 
 ```
 
@@ -998,7 +1153,7 @@ where $$B_t$$ is the biomass of the exploitable stock at a fixed census date and
 
 Implementation (see `compute_budget()` in Setup):
 
-- **Stock**: fish with $$peak\_weight \geq 200$$ g, matching harvest eligibility. `ibm_long` has no `peak_weight` column, so it is reconstructed as the running maximum of each fish's weight within `ibm_long`.
+- **Stock**: fish with $$peak\_weight \geq$$ the run's `harvestable_size` (200 g in the original runs, 50 g in the `Harvest50g` runs), matching harvest eligibility. `ibm_long` has no `peak_weight` column, so it is reconstructed as the running maximum of each fish's weight within `ibm_long`.
 - **Census**: day of year 151, the last day before the harvest window opens (DOY 152), every year. `ibm_long` is recorded after that day's harvest, so a census on DOY 152 would already be missing the first day's catch; DOY 151 keeps the budget closed.
 - **Catch**: sum of `harvest_log$weight` between consecutive censuses (the June 1 - Sept 30 window falls entirely within each budget year).
 - **Dropped years**: the first 15 experimental years after harvest starts, while age structure adjusts.
@@ -1012,8 +1167,11 @@ sp_all_years  <- tibble(yr = seq(year(exp_start_date),
 
 # Annual budget per scenario. Years without a budget row (post-collapse) are zero-filled,
 # so collapsed stocks contribute B = SP = 0 rather than being dropped
+# Baseline (E = 0) runs are longer, and their budget covers only the last 50 years (e.g. 2051-2099),
+# so budget years are shifted to start at the experiment start year, matching the harvest runs
 sp_bud_ts <- purrr::map_dfr(ibm_list_mech, \(scen) {
   scen$budget |>
+    mutate(yr = yr - (min(yr) - year(exp_start_date))) |>
     right_join(sp_all_years, by = "yr") |>
     mutate(across(-yr, \(x) replace_na(x, 0)),
            hab_type          = factor(scen$ht, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")),
@@ -1044,48 +1202,68 @@ sp_bud_summ <- sp_bud_ts |>
 
 ### Production curves
 
-Mean surplus production against mean exploitable biomass across harvest rates, one point per harvest rate. Error bars are $$\pm 1$$ SD across the retained years of a single simulation run; they describe interannual variability, not replicate (seed) uncertainty. Open rings mark the maximum of mean surplus production (MSY) for each curve.
+Mean surplus production against mean exploitable biomass across harvest rates, one point per harvest rate. Point color shows harvest rate, and point shape and line type show habitat scenario. Error bars are $$\pm 1$$ SD across the retained years of a single simulation run; they describe interannual variability, not replicate (seed) uncertainty. Open rings mark the maximum of mean surplus production (MSY) for each curve.
 
 ```{r}
-#| fig-width: 7
-#| fig-height: 6
+#| fig-width: 9
+#| fig-height: 5
 
-# Empirical reference points. B_ref is the largest mean stock across the harvest rates run
-# (no E = 0 run is included here), so "collapse" is relative to that, not to unfished B0.
+# Unfished equilibrium biomass B0: mean exploitable biomass in the zero-harvest baseline runs over
+# the retained years. Equilibrium diagnostics are in the baseline check below.
+sp_b0 <- sp_bud_ts |>
+  filter(yr >= sp_first_year, harvest_rate == 0) |>
+  group_by(hab_type, prop_cold, prop_cold_fact) |>
+  summarise(B0           = mean(B_t),
+            B0_cv        = sd(B_t) / mean(B_t),
+            n_yr         = n(),
+            trend_pct_decade = 1000 * coef(lm(B_t ~ yr))[["yr"]] / mean(B_t),
+            trend_p      = summary(lm(B_t ~ yr))$coefficients[2, 4],
+            dB_pct       = 100 * mean(dB) / mean(B_t),
+            .groups = "drop")
+
+# Empirical reference points, absolute and relative to B0. "Collapse" is B below
+# crash_thresh * B0.
 crash_thresh <- 0.05
 
 sp_bench <- sp_bud_summ |>
-  group_by(hab_type, prop_cold, prop_cold_fact) |>
+  left_join(select(sp_b0, hab_type, prop_cold, B0), by = c("hab_type", "prop_cold")) |>
+  group_by(hab_type, prop_cold, prop_cold_fact, B0) |>
   summarise(
-    MSY       = max(SP_mean),
-    E_MSY     = harvest_rate[which.max(SP_mean)],
-    B_MSY     = B_t_mean[which.max(SP_mean)],
-    C_at_MSY  = C_mean[which.max(SP_mean)],
-    B_ref     = max(B_t_mean),
-    E_crash   = if (any(B_t_mean < crash_thresh * B_ref)) {
-                  min(harvest_rate[B_t_mean < crash_thresh * B_ref])
+    MSY       = max(SP_mean[harvest_rate > 0]),
+    E_MSY     = harvest_rate[harvest_rate > 0][which.max(SP_mean[harvest_rate > 0])],
+    B_MSY     = B_t_mean[harvest_rate > 0][which.max(SP_mean[harvest_rate > 0])],
+    C_at_MSY  = C_mean[harvest_rate > 0][which.max(SP_mean[harvest_rate > 0])],
+    E_crash   = if (any(B_t_mean < crash_thresh * B0)) {
+                  min(harvest_rate[B_t_mean < crash_thresh * B0])
                 } else NA_real_,
     .groups = "drop"
-  )
+  ) |>
+  mutate(MSY_B0   = MSY / B0,
+         BMSY_B0  = B_MSY / B0)
 
-ggplot(sp_bud_summ, aes(x = B_t_mean, y = SP_mean, color = hab_type)) +
+hab_shapes <- c("Cold only" = 16, "Cold + Warm" = 17, "Cold + Warm (high P)" = 15)
+hab_ltys   <- c("Cold only" = "solid", "Cold + Warm" = "dashed", "Cold + Warm (high P)" = "dotted")
+
+ggplot(sp_bud_summ |> filter(harvest_rate > 0), aes(x = B_t_mean, y = SP_mean)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
-  geom_path(aes(group = hab_type), linewidth = 0.6) +
-  geom_linerange(aes(ymin = pmax(0, SP_mean - SP_sd), ymax = SP_mean + SP_sd),
+  geom_path(aes(group = hab_type, linetype = hab_type), color = "grey50", linewidth = 0.5) +
+  geom_linerange(aes(ymin = pmax(0, SP_mean - SP_sd), ymax = SP_mean + SP_sd, color = harvest_rate_fact),
                  alpha = 0.4, linewidth = 0.4) +
-  geom_linerange(aes(xmin = pmax(0, B_t_mean - B_t_sd), xmax = B_t_mean + B_t_sd),
+  geom_linerange(aes(xmin = pmax(0, B_t_mean - B_t_sd), xmax = B_t_mean + B_t_sd, color = harvest_rate_fact),
                  orientation = "y", alpha = 0.4, linewidth = 0.4) +
-  geom_point(size = 2, shape = 16) +
-  geom_point(data = sp_bench, aes(x = B_MSY, y = MSY, color = hab_type),
-             inherit.aes = FALSE, shape = 1, size = 5, stroke = 1) +
-  scale_color_manual(values = hab_cols, name = NULL) +
+  geom_point(aes(color = harvest_rate_fact, shape = hab_type), size = 2.5) +
+  geom_point(data = sp_bench, aes(x = B_MSY, y = MSY),
+             inherit.aes = FALSE, shape = 1, size = 5, stroke = 0.8, color = "black") +
+  scale_color_manual(values = hr_pal, name = "Harvest rate") +
+  scale_shape_manual(values = hab_shapes, name = NULL) +
+  scale_linetype_manual(values = hab_ltys, name = NULL) +
   scale_x_continuous(limits = c(0, NA)) +
   scale_y_continuous(limits = c(0, NA)) +
   labs(x = "Mean exploitable biomass at census (kg)",
        y = "Mean surplus production (kg/yr)") +
   theme_bw(base_size = 11) +
-  theme(panel.grid.minor = element_blank(), legend.position = "top") +
-  facet_wrap(~ prop_cold_fact, scales = "free")
+  theme(panel.grid = element_blank(), legend.position = "right") +
+  facet_wrap(~ prop_cold_fact)
 ```
 
 Surplus production and catch against harvest rate. Catch exceeds surplus production at harvest rates where the stock is still declining (mean $$\Delta B < 0$$ over the retained years), so the gap indicates how far the stock is from equilibrium.
@@ -1110,22 +1288,110 @@ sp_bud_summ |>
   scale_x_continuous(breaks = hr_levels_mech, labels = hr_labels_mech, name = "Harvest rate") +
   scale_y_continuous(limits = c(0, NA), name = "Biomass (kg/yr)") +
   theme_bw(base_size = 11) +
-  theme(panel.grid.minor = element_blank(),
+  theme(panel.grid = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top") +
-  facet_wrap(~ prop_cold_fact, scales = "free_y")
+  facet_wrap(~ prop_cold_fact)
 ```
 
-Empirical reference points. MSY is the maximum mean surplus production across the harvest rates run, $$E_{MSY}$$ the harvest rate that gives it and $$B_{MSY}$$ the mean biomass there. $$E_{crash}$$ is the lowest harvest rate at which mean biomass falls below 5% of the largest mean biomass across the harvest rates run (`NA` = no collapse by E = 0.9). The 5% threshold is arbitrary, and the harvest-rate grid is coarse (steps of 0.10, or 0.05 between 0.50 and 0.80), so $$E_{MSY}$$ and $$E_{crash}$$ are only resolved to that grid.
+
+### Empirical reference points
+
+MSY is the maximum mean surplus production across the nonzero harvest rates run, $$E_{MSY}$$ the harvest rate that gives it and $$B_{MSY}$$ the mean biomass there. $$B_0$$ is the unfished equilibrium biomass: mean exploitable biomass in the zero-harvest baseline run of the same scenario over the retained years. Relative metrics divide by it: $$B_{MSY}/B_0$$ is the depletion level at which production peaks, and $$MSY/B_0$$ is the maximum fraction of unfished biomass that can be removed per year at equilibrium. $$E_{crash}$$ is the lowest harvest rate at which mean biomass falls below 5% of $$B_0$$ (`NA` = no collapse by E = 0.9). The 5% threshold is arbitrary, and the harvest-rate grid is coarse (steps of 0.10), so $$E_{MSY}$$, $$E_{crash}$$ and the ratios are only resolved to that grid.
+
+Baseline runs are longer than the harvest runs and their biomass budget covers only the last 50 years, so budget years are shifted to begin at the experiment start year (see `sp_bud_ts`). $$B_0$$ is a single run per scenario, so its interannual CV carries into every ratio. Equilibrium check for the baselines: the trend in $$B_t$$ (% of $$B_0$$ per decade, with the p-value of a linear regression on year) and mean $$\Delta B$$ (% of $$B_0$$ per year) should be near zero.
+
+```{r}
+sp_b0 |>
+  transmute(`Habitat` = hab_type, `Prop. cold` = prop_cold_fact,
+            `B0 (kg)` = round(B0, 1), `CV of B_t` = round(B0_cv, 3), `Years` = n_yr,
+            `Trend (% B0/decade)` = round(trend_pct_decade, 2), `Trend p` = signif(trend_p, 2),
+            `Mean dB (% B0/yr)` = round(dB_pct, 2)) |>
+  knitr::kable()
+```
 
 ```{r}
 sp_bench |>
   transmute(`Habitat` = hab_type, `Prop. cold` = prop_cold_fact,
             `MSY (kg/yr)` = round(MSY, 1), `E_MSY` = E_MSY,
-            `B_MSY (kg)` = round(B_MSY, 1), `B_ref (kg)` = round(B_ref, 1),
+            `B_MSY (kg)` = round(B_MSY, 1), `B0 (kg)` = round(B0, 1),
+            `MSY/B0` = round(MSY_B0, 3), `B_MSY/B0` = round(BMSY_B0, 2),
             `E_crash` = E_crash) |>
   knitr::kable()
 ```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 4
+
+p1 <- sp_bench |>
+  ggplot(aes(x = prop_cold, y = MSY)) +
+  geom_line(aes(color = hab_type), position = position_dodge(width = 0.03)) +
+  geom_point(aes(fill = hab_type), shape = 21, size = 3, position = position_dodge(width = 0.03)) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  scale_fill_manual(values = hab_cols, name = NULL) +
+  coord_cartesian(xlim = c(0,1), ylim = c(0,NA)) +
+  scale_x_continuous(trans = "reverse") +
+  labs(x = " ",  y = "MSY") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1), axis.text = element_text(color = "black"),
+        legend.position = "right")
+
+p2 <- sp_bench |>
+  ggplot(aes(x = prop_cold, y = E_MSY)) +
+  geom_line(aes(color = hab_type), position = position_dodge(width = 0.03)) +
+  geom_point(aes(fill = hab_type), shape = 21, size = 3, position = position_dodge(width = 0.03)) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  scale_fill_manual(values = hab_cols, name = NULL) +
+  coord_cartesian(xlim = c(0,1), ylim = c(0,NA)) +
+  scale_x_continuous(trans = "reverse") +
+  labs(x = " ",  y = "E<sub>MSY</sub>") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(), axis.title.y = element_markdown(),
+        axis.text.x = element_text(angle = 45, hjust = 1), axis.text = element_text(color = "black"),
+        legend.position = "right")
+
+p3 <- sp_bench |>
+  ggplot(aes(x = prop_cold, y = B_MSY)) +
+  geom_line(aes(color = hab_type), position = position_dodge(width = 0.03)) +
+  geom_point(aes(fill = hab_type), shape = 21, size = 3, position = position_dodge(width = 0.03)) +
+  scale_color_manual(values = hab_cols, name = NULL) +
+  scale_fill_manual(values = hab_cols, name = NULL) +
+  coord_cartesian(xlim = c(0,1), ylim = c(0,NA)) +
+  scale_x_continuous(trans = "reverse") +
+  labs(x = "Proportion Cold",  y = "B<sub>MSY</sub>") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(), axis.title.y = element_markdown(),
+        axis.text.x = element_text(angle = 45, hjust = 1), axis.text = element_text(color = "black"),
+        legend.position = "right")
+
+p1 + p3 + p2 + plot_layout(guides = "collect") & theme(legend.position = "top")
+```
+
+Reference points relative to unfished biomass: maximum sustainable removal as a fraction of $$B_0$$ ($$MSY/B_0$$, per year) and the relative biomass at which it occurs ($$B_{MSY}/B_0$$).
+
+```{r}
+#| fig-width: 8
+#| fig-height: 4
+
+rel_panel <- function(y, ylab) {
+  ggplot(sp_bench, aes(x = prop_cold, y = {{ y }}, color = hab_type)) +
+    geom_line(position = position_dodge(width = 0.03)) +
+    geom_point(size = 3, position = position_dodge(width = 0.03)) +
+    scale_color_manual(values = hab_cols, name = NULL) +
+    coord_cartesian(xlim = c(0, 1), ylim = c(0, NA)) +
+    scale_x_continuous(trans = "reverse") +
+    labs(x = "Proportion cold habitat", y = ylab) +
+    theme_bw(base_size = 11) +
+    theme(panel.grid = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1), axis.text = element_text(color = "black"))
+}
+
+rel_panel(MSY_B0, "MSY / B0 (per yr)") + rel_panel(BMSY_B0, "B_MSY / B0") +
+  plot_layout(guides = "collect")
+```
+
 
 ### Sources of surplus production
 
@@ -1134,14 +1400,14 @@ Because every fish is recorded daily, surplus production can be split into its s
 $$SP_t = G_t + R_t - M_t - L_t$$
 
 - $$G_t$$ (growth): weight gained by stock members, daily weight $$\times$$ `ggd`, summed.
-- $$R_t$$ (recruitment): biomass of fish first reaching 200 g peak weight, at the weight they cross.
+- $$R_t$$ (recruitment): biomass of fish first reaching the harvestable size (peak weight), at the weight they cross.
 - $$M_t$$ (natural mortality): biomass of stock fish that die naturally, at their weight at death.
 - $$L_t$$ (mass loss): weight lost by stock members other than through death or harvest. The simple $$G + R - M$$ identity does not hold without this term because spawning and seasonal mass losses removes weight that `ggd` does not capture.
 
 The check printed above confirms that this decomposition reproduces $$B_{t+1} - B_t + C_t$$ to numerical precision.
 
 ```{r}
-#| fig-width: 6
+#| fig-width: 8
 #| fig-height: 8
 
 sp_comp_lab <- c(G = "Growth (G)", R = "Recruitment (R)",
@@ -1170,7 +1436,7 @@ Surplus production by habitat scenario relative to the cold-only scenario at the
 
 ```{r}
 #| fig-width: 7
-#| fig-height: 8
+#| fig-height: 6
 
 sp_bud_summ |>
   mutate(neg_M = -M_mean, neg_L = -L_spawn_mean) |>
@@ -1190,7 +1456,7 @@ sp_bud_summ |>
   scale_fill_brewer(palette = "Set2", name = NULL) +
   labs(x = "Harvest rate", y = "Change in surplus production vs. cold only (kg/yr)") +
   theme_bw(base_size = 11) +
-  theme(panel.grid.minor = element_blank(),
+  theme(panel.grid = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top") +
   facet_grid(hab_type ~ prop_cold_fact)
@@ -1633,7 +1899,7 @@ panels <- purrr::map(sr_by_lag, \(x) {
 #### Compare representative SR relationships
 
 ```{r}
-#| fig-width: 6
+#| fig-width: 9
 #| fig-height: 5
 
 lag2curves <- bind_rows(
@@ -2079,7 +2345,7 @@ panels_v2 <- purrr::map(sr_v2, \(x) {
 #### Compare representative SR relationships
 
 ```{r}
-#| fig-width: 6
+#| fig-width: 9
 #| fig-height: 5
 
 lag2curves_v2 <- bind_rows(

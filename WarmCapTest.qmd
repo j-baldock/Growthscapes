@@ -1,5 +1,5 @@
 ---
-title: "Warm-patch temperature cap test"
+title: "Warm-patch temperature test"
 format: html
 ---
 
@@ -17,15 +17,17 @@ source("ScenarioDefs.R")   # defines `scenarios` and `base_params`
 load("data/wt.growth.array.pval.sthd.RData")  # loads `wt.growth`
 ```
 
+## Cap test
+
 **Purpose:** Test whether the cold-habitat bottleneck on recruitment and abundance is partly an artifact of very high mid-summer warm-patch temperatures (~25 °C, where growth is negative at any p). We cap warm-patch temperature at 19, 21 and 23 °C in the cold+warm scenario and compare against the existing baseline cold-only and cold+warm (uncapped) runs.
 
-## Design
+### Design
 
 All runs use 25% cold habitat and the seed and parameters of `Baseline_ColdWarm_025percold_rep01`. The capped runs differ only in the warm-patch temperature ceiling and are shorter (20-yr burn-in + 20-yr experiment) than the baselines.
 
 ```{r}
 cold_prop_key <- "025"   # change to e.g. "050" to test another cold proportion
-warm_caps_C   <- c(19, 21, 23)
+warm_caps_C   <- c(19, 21, 22, 23)
 
 short_len <- list(nyears_burnin = 20, nyears_experiment = 20)
 
@@ -40,7 +42,7 @@ run_defs <- tibble(
 )
 ```
 
-## Warm-patch temperature
+### Warm-patch temperature
 
 ```{r}
 #| label: fig-temps
@@ -70,7 +72,7 @@ bind_rows(
   theme_bw() + theme(panel.grid = element_blank())
 ```
 
-## Run simulations
+### Run simulations
 
 Results are cached to `results/` and skipped if the file exists. Delete the file or set `overwrite <- TRUE` to rerun. Burn-in rows are dropped from `ibm_long`.
 
@@ -103,7 +105,7 @@ run_capped <- function(run, base_scenario, cap) {
 pwalk(run_defs, \(cap, run, base_scenario) run_capped(run, base_scenario, cap))
 ```
 
-## Load results
+### Load results
 
 Each file is reduced to what we need before binding, so the full `ibm_long` objects aren't held in memory together. Oct 1 census rows give abundance, biomass, recruitment and weight-at-age. Summer age-0 rows (Jun-Aug) give patch use.
 
@@ -150,7 +152,7 @@ oct1        <- oct1        |> mutate(run = factor(run, levels = run_levels))
 summer_age0 <- summer_age0 |> mutate(run = factor(run, levels = run_levels))
 ```
 
-## Population abundance and biomass
+### Population abundance and biomass
 
 Annual Oct 1 totals, summarized as the mean and SD across experimental years.
 
@@ -199,10 +201,10 @@ pop_yr |>
   geom_jitter(width = 0.15, alpha = 0.4) +
   facet_wrap(~metric, scales = "free_y", ncol = 1) +
   labs(x = NULL, y = NULL) +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + theme_bw()
+  theme_bw() + theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
-## Recruitment (age-0 abundance on Oct 1)
+### Recruitment (age-0 abundance on Oct 1)
 
 Years with no age-0 survivors are counted as zero (census years are taken from any fish present on Oct 1 in that run).
 
@@ -229,10 +231,10 @@ ggplot(age0_yr, aes(run, n_age0)) +
   geom_boxplot(outlier.shape = NA, fill = "grey") +
   geom_jitter(width = 0.15, alpha = 0.4) +
   labs(x = NULL, y = "Age-0 abundance on Oct 1") +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + theme_bw()
+  theme_bw() + theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
-## Mean weight-at-age
+### Mean weight-at-age
 
 ```{r}
 #| label: fig-waa
@@ -250,7 +252,7 @@ ggplot(waa, aes(age_class, mean_wt, color = run)) +
   labs(x = "Age class (years)", y = "Mean weight (g)", color = NULL) + theme_bw()
 ```
 
-## Mechanism check: do age-0 fish use the warm patch in summer?
+### Mechanism check: do age-0 fish use the warm patch in summer?
 
 If the hypothesis is right, capped runs (especially the lower caps) should show a nontrivial share of age-0 fish in the warm patch in Jun-Aug, and the uncapped baseline should show about none. Shares are fish-days summed over Jun-Aug of each year.
 
@@ -271,11 +273,264 @@ ggplot(warm_share, aes(run, prop_warm)) +
   geom_boxplot(outlier.shape = NA, fill = "grey") +
   geom_jitter(width = 0.15, alpha = 0.4) +
   labs(x = NULL, y = "Proportion of summer age-0\nfish-days in warm patch") +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + theme_bw()
+  theme_bw() + theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
-## Interpretation notes
+### Interpretation notes
 
 - Compare each capped run to `baseline_coldwarm` for the effect of the cap, and to `baseline_coldonly` for whether warm habitat now helps relative to cold-only.
 - Capped runs have a 20-yr burn-in versus 50 yr for the baselines. Check the time series for trends, which would indicate the capped runs have not equilibrated.
 - With one seed per run, differences smaller than the interannual SD should not be over-interpreted. If a result is borderline, add replicates using the `sim_seed` values already in `ScenarioDefs.R`.
+
+
+## Full experiment
+
+
+```{r}
+# Extract params from one file (small object)
+# res            <- readRDS("results/Baseline_ColdOnly_050percold_rep01.rds")
+# sim_params     <- res$params
+exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
+# rm(res)
+
+# Helper: read one scenario, extract ibm_long and spawn_log, and free res before returning
+load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
+  res <- readRDS(path)
+  list(ibm_summary = res$ibm_summary, spawn_log = res$spawn_log,
+       pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+}
+
+ibm_list_mech <- list(
+  load_scen("results/Baseline_ColdOnly_100percold_rep01.rds",        1.00, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",        0.95, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",        0.75, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",        0.50, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds",        0.25, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_010percold_rep01.rds",        0.10, "Cold only",            0.5, NA_real_),
+  load_scen("results/Baseline_ColdOnly_005percold_rep01.rds",        0.05, "Cold only",            0.5, NA_real_),
+
+  load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",        0.95, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",        0.75, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",        0.50, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds",        0.25, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_010percold_rep01.rds",        0.10, "Cold + Warm",          0.5, 0.5),
+  load_scen("results/Baseline_ColdWarm_005percold_rep01.rds",        0.05, "Cold + Warm",          0.5, 0.5),
+  
+  load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_010percold_rep01.rds",   0.10, "Cold + Warm (high P)", 0.5, 0.6),
+  load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+)
+
+# Warm-patch max temperature variants (22 and 23 C); files are <base>_<NN>percold_rep01_<max>max.rds
+cap_defs <- tidyr::expand_grid(
+  warm_max = c(22, 23),
+  tibble::tribble(
+    ~base,                      ~ht,                      ~pcmax_warm,
+    "Baseline_ColdWarm",        "Cold + Warm",            0.5,
+    "Baseline_ColdWarmHighP",   "Cold + Warm (high P)",   0.6
+  ),
+  pc = c(0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+) |>
+  mutate(path = file.path("results", sprintf("%s_%03dpercold_rep01_%dmax.rds",
+                                             base, round(pc * 100), warm_max)))
+
+ibm_list_cap <- pmap(cap_defs, \(warm_max, base, ht, pcmax_warm, pc, path) {
+  c(load_scen(path, pc, ht, 0.5, pcmax_warm), list(warm_max = warm_max))
+})
+
+```
+
+
+
+
+```{r}
+scen_meta <- tibble(
+  scen_key  = c("100", "95", "75", "50", "25", "10", "05"),
+  label     = c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "10% cold", "5% cold"),
+  prop_cold = c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+)
+
+# factor levels
+pc_levels <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+pc_levels_mech <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+pc_labels_mech <- c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "10% cold", "5% cold")
+
+scen_pal <- setNames(
+  hcl.colors(7, "Zissou 1"),
+  scen_meta$label
+)
+
+# Habitat color palette
+hab_cols  <- c("Cold only" = "#6BAED6",  "Cold + Warm" = "#FC8D59",   "Cold + Warm (high P)" = "#B30000")
+
+# Helper: derive scen_key string from numeric prop_cold
+pc_to_key <- function(pc) sprintf("%02d", round(pc * 100))
+
+# Helper: extract Oct 1 experimental-period rows from one ibm_long
+extract_oct1_exp <- function(ibm_summary, scen_key) {
+  # if (ibm_is_empty(ibm_summary)) return(tibble())
+  ibm_summary |>
+    filter(date >= exp_start_date,
+           month(date) == 10, day(date) == 1) |>
+    mutate(scen_key  = scen_key,
+           year      = year(date)) |>
+    group_by(scen_key, year) |>
+    summarize(n_alive = sum(n_alive),
+              biomass_kg = sum(biomass_g)/1000) |>
+    ungroup()
+}
+
+# ── Oct 1 census: experimental period, all hab types, all scenarios ───────────
+warm_max_levels <- c(25, 23, 22)
+warm_max_labels <- paste0(warm_max_levels, " °C max")
+
+# Baseline (25 C) runs plus capped runs; warm_max is NA for cold-only
+exp_oct1_raw <- purrr::map_dfr(c(ibm_list_mech, ibm_list_cap), function(scen) {
+  extract_oct1_exp(scen$ibm_summary, pc_to_key(scen$pc)) |>
+    mutate(hab_type = scen$ht, warm_max = scen$warm_max %||% 25)
+})
+
+exp_oct1 <- bind_rows(
+  exp_oct1_raw |> filter(hab_type != "Cold only"),
+  # Cold-only has no warm patch, so reuse it in every warm-max panel
+  exp_oct1_raw |> filter(hab_type == "Cold only") |>
+    select(-warm_max) |>
+    tidyr::crossing(warm_max = warm_max_levels)
+) |>
+  left_join(scen_meta, by = "scen_key") |>
+  mutate(
+    label    = factor(label,    levels = scen_meta$label),
+    hab_type = factor(hab_type, levels = c("Cold only", "Cold + Warm", "Cold + Warm (high P)")),
+    warm_max = factor(warm_max, levels = warm_max_levels, labels = warm_max_labels)
+  )
+```
+
+
+### Abundance and biomass
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+#| 
+pop_sum <- exp_oct1 |>
+  group_by(warm_max, hab_type, label, prop_cold) |>
+  summarise(
+    mean_n  = mean(n_alive),
+    sd_n    = sd(n_alive),
+    mean_b  = mean(biomass_kg),
+    sd_b    = sd(biomass_kg),
+    .groups = "drop"
+  )
+
+# function to create x-axis
+cold_x <- function(xlab = NULL) {
+  list(
+    scale_x_continuous(
+      breaks = scen_meta$prop_cold,
+      labels = scales::label_percent(accuracy = 1),
+      limits = c(0, 1),
+      transform = "reverse"
+    ),
+    labs(x = xlab)
+  )
+}
+
+# plotting function
+ab_plot <- function(data, y_var, y_err, y_lab, title_str, y_limits) {
+  p <- ggplot(data, aes(x = prop_cold, y = .data[[y_var]], color = hab_type)) +
+    geom_hline(yintercept = 0, linetype = "dotted") +
+    geom_errorbar(aes(ymin = pmax(0, .data[[y_var]] - .data[[y_err]]), ymax = .data[[y_var]] + .data[[y_err]]), width = 0.05, linewidth = 0.6, position = position_dodge(width = 0.03)) +
+    geom_line(aes(linetype = hab_type, group = hab_type), linetype = "solid", linewidth = 0.8, position = position_dodge(width = 0.03)) +
+    geom_point(aes(shape = hab_type, fill = hab_type), size = 3, shape = 21, color = "black", position = position_dodge(width = 0.03)) +
+    scale_color_manual(values = hab_cols, name = "Scenario") +
+    scale_fill_manual(values = hab_cols, name = "Scenario") +
+    # hab_scales +
+    labs(y = y_lab, title = title_str) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid = element_blank(), axis.text = element_text(color = "black")) + 
+    scale_y_continuous(limits = y_limits) +
+    facet_wrap(~warm_max, nrow = 1)
+  p
+}
+
+ylimits <- c(0, max(pop_sum$mean_n + pop_sum$sd_n))
+p_mean_n    <- ab_plot(pop_sum,   "mean_n", "sd_n", y_lab = "Mean abundance (N)", title_str = NULL,          y_limits = ylimits) + cold_x()
+
+ylimits <- c(0, max(pop_sum$mean_b + pop_sum$sd_b))
+p_mean_b    <- ab_plot(pop_sum,   "mean_b", "sd_b", y_lab = "Mean biomass (kg)",  title_str = NULL, y_limits = ylimits) + cold_x() +
+  theme(strip.text = element_blank(), strip.background = element_blank())
+
+
+((p_mean_n + theme(axis.text.x = element_blank()))) / 
+  ((p_mean_b)) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right", plot.title = element_text(size = 15), plot.subtitle = element_text(face = "italic")) &
+  plot_annotation(title = "Mean annual population size under alternative habitat scenarios, cold habitat proportions,\nand warm patch maximum temperature (derived from Oct. 1 census)") 
+```
+
+
+### Weight-at-age
+
+
+```{r}
+#| fig-width: 9
+#| fig-height: 7
+
+# Pool patch-level summaries (patch x age class x year) into one mean and SD
+# per age class, using the pooled-variance identity on group means and SDs.
+extract_waa <- function(ibm_summary, pc) {
+  ibm_summary |>
+    filter(date >= exp_start_date, month(date) == 10, day(date) == 1, n_alive > 0) |>
+    mutate(sd_weight = coalesce(sd_weight, 0),
+           ssq = (n_alive - 1) * sd_weight^2 + n_alive * mean_weight^2) |>
+    summarise(n = sum(n_alive), wsum = sum(n_alive * mean_weight), ssq = sum(ssq),
+              .by = age_class) |>
+    mutate(mean_wt = wsum / n,
+           sd_wt   = sqrt(pmax(0, (ssq - n * mean_wt^2) / (n - 1))),
+           prop_cold = pc) |>
+    select(age_class, prop_cold, n, mean_wt, sd_wt)
+}
+
+waa_raw <- purrr::map_dfr(c(ibm_list_mech, ibm_list_cap), function(scen) {
+  extract_waa(scen$ibm_summary, scen$pc) |>
+    mutate(hab_type = scen$ht, warm_max = scen$warm_max %||% 25)
+})
+
+waa_scen <- bind_rows(
+  waa_raw |> filter(hab_type != "Cold only"),
+  waa_raw |> filter(hab_type == "Cold only") |>
+    select(-warm_max) |>
+    tidyr::crossing(warm_max = warm_max_levels)
+) |>
+  left_join(scen_meta |> select(label, prop_cold), by = "prop_cold") |>
+  mutate(
+    label    = factor(label, levels = scen_meta$label),
+    hab_type = factor(hab_type, levels = levels(exp_oct1$hab_type)),
+    warm_max = factor(warm_max, levels = warm_max_levels, labels = warm_max_labels)
+  ) |>
+  filter(n >= 5)
+
+age_breaks_scen <- sort(unique(waa_scen$age_class))
+
+ggplot(waa_scen, aes(x = age_class, y = mean_wt, color = label, fill = label)) +
+  geom_ribbon(aes(ymin = pmax(0, mean_wt - sd_wt), ymax = mean_wt + sd_wt),
+              alpha = 0.15, color = NA) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2, shape = 16) +
+  scale_color_manual(values = scen_pal, name = "Cold habitat") +
+  scale_fill_manual(values = scen_pal, name = "Cold habitat") +
+  scale_x_continuous(breaks = age_breaks_scen) +
+  labs(
+    x = "Age class (years)", y = "Mean weight (g)",
+    title = "Mean weight-at-age by scenario (Oct 1, experimental period)",
+    subtitle = "Ribbon = \u00b11 SD; pooled across patches and experimental years"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "right", panel.grid = element_blank()) +
+  facet_grid(hab_type ~ warm_max)
+```
+
+

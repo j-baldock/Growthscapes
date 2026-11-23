@@ -118,10 +118,16 @@ Run the IBM simulation loop over the full `habitat_df` time series. Returns a na
 
 | Element | Description |
 |---|---|
-| `ibm_long` | Long-format tibble (one row per fish × day) |
-| `ibm_summary` | Summary on the 1st of each month (all years, incl. burn-in) by strategy × patch × age class (`floor(age)`): `n_start`, `n_alive` and `biomass_g` (survivors only), `n_adult` and `biomass_adult_g` (survivors with `peak_weight` > 200 g), plus mean weight, temp, ggd and condition |
-| `fish_registry` | One row per fish (founders + all offspring) |
-| `spawn_log` | One row per spawning event |
+| `ibm_long` | Long-format tibble (one row per fish × day); `NULL` unless `save_ibm_long = TRUE` |
+| `ibm_summary` | Summary on the 1st of each month (all years, incl. burn-in) by strategy × patch × age class (`floor(age)`) × birth cohort: `n_start`, `n_alive` and `biomass_g` (survivors only), `n_adult` and `biomass_adult_g` (survivors with `peak_weight` > 200 g), plus mean weight, temp, ggd and condition (`mean_condition` is over all fish present; `mean_cond_alive` / `sd_cond_alive` are survivors only) |
+| `extinct` | `TRUE` if no fish were recorded on or after the start of the experimental period (replaces the empty-`ibm_long` test) |
+| `extinction_date` | Date of the last recorded day if the population died out (`NA` if it persisted to the end of the run) |
+| `census` | Per-fish survivors on each `census_mmdd` date (default Oct 1), experimental period only |
+| `daily_patch` | Experimental period only; one row per date × patch × `cohort_grp` × `age_group` (0 = age 0, 1 = age 1+). `cohort_grp` is the birth cohort for fish in their first two calendar years, `NA` (pooled) for older fish. Columns: `n_fish` (all fish recorded that day), `n_alive` (survivors), `temp` (mean temp), `n_ggd_all` / `sum_ggd_all` / `sum_growth_g` (fish with non-missing growth: count, sum of ggd, sum of weight × ggd), `n_ggd_alive` / `sum_ggd_alive` (same, survivors only) |
+| `surv_by_dsh` | Experimental period only; age-0 survivors by day since hatch (0–364): `n` and summed daily survival components `sum_p_sg`, `sum_p_temp`, `sum_p_starv`, `sum_p_age` (divide by `n` for means) |
+| `stock_daily` | One row per simulated day for the exploitable stock (fish with `peak_weight` ≥ `stock_size`): `B` = stock biomass (g) alive at end of day; `G_net`, `G_gross`, `M`, `C`, `R` = flows (g) for the transition from this day to the next (net growth, gross growth, natural mortality, harvest, recruitment) |
+| `fish_registry` | One row per fish (founders + all offspring); includes `cross_day`, the first day `peak_weight` ≥ `stock_size` (`NA` if never) |
+| `spawn_log` | One row per spawning event (includes mean and SD of offspring birth weight) |
 | `harvest_log` | One row per harvested fish: pid, weight, age, patch, condition at time of harvest |
 | `harvest_summary` | One row per harvest year: n_eligible, n_harvested, d (daily rate), E (target), Ê (realised) |
 | `switches` | Vector of patch-switch counts indexed by pid |
@@ -183,6 +189,9 @@ run_simulation <- function(habitat_df, params = list(), wt_growth) {
 hatch_floor                <- params$hatch_floor                %||% TRUE        # if TRUE, fish that fall below their individual hatch weight die immediately (backstop); if FALSE, only the size-, condition-, temperature- and age-based survival terms act
   nyears_burnin              <- params$nyears_burnin              %||% 50L         # burn-in years; harvest is suppressed during this period
   save_burnin                <- params$save_burnin                %||% TRUE        # if FALSE, per-fish burn-in records are dropped from ibm_long (ibm_summary still covers burn-in, on the 1st of each month)
+  save_ibm_long              <- params$save_ibm_long              %||% TRUE        # if FALSE, the per-fish daily ibm_long is not stored (ibm_long = NULL); the summary outputs below are always produced
+  census_mmdd                <- params$census_mmdd                %||% "10-01"     # MM-DD date(s) on which a per-fish census of survivors is stored (experimental period only)
+  stock_size                 <- params$stock_size                 %||% harvestable_size  # peak_weight (g) defining the exploitable stock for stock_daily and fish_registry$cross_day
 
   # Back-calculate the daily exploitation rate d from the target seasonal rate E and window length N:
   #   E = 1 - (1 - d)^N  →  d = 1 - (1 - E)^(1/N)
@@ -272,6 +281,17 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
   ibm_records      <- vector("list", n_days)
   ibm_summary_list <- vector("list", n_days)
   switches    <- integer(n_fish)  # count patch switches per fish (indexed by pid)
+
+  # In-loop result accumulators (replace post-hoc summaries of ibm_long)
+  census_list      <- list()                   # per-fish survivors on census dates
+  daily_patch_list <- vector("list", n_days)   # date x patch x cohort_grp x age_group sums
+  cohort_base      <- year(habitat_df$date[1]) # founder cohort; offsets integer cohort codes
+  surv_acc         <- matrix(0, nrow = 365L, ncol = 5L,
+                             dimnames = list(NULL, c("n", "sum_p_sg", "sum_p_temp", "sum_p_starv", "sum_p_age")))
+  cross_day        <- rep(NA_integer_, n_fish)  # first day peak_weight >= stock_size (indexed by pid)
+  stock_B <- stock_G_net <- stock_G_gross <- stock_M <- stock_C <- stock_R <- numeric(n_days)
+  stock_prev_pid <- integer(0); stock_prev_wt <- numeric(0); stock_prev_ggd <- numeric(0)
+  last_day_recorded <- 0L
   next_pid    <- n_fish + 1L      # next available pid (grows as offspring are born)
 
   # Eligible PIDs for distributed harvest: assessed once at the start of each harvest window
@@ -302,6 +322,8 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
     parent_pid          = integer(),  # pid of the spawning parent
     dayofsim            = integer(),  # simulation day of spawning
     n_offspring         = integer(),  # number of offspring produced
+    off_wt_mean         = numeric(),  # mean birth weight of the offspring (g)
+    off_wt_sd           = numeric(),  # SD of offspring birth weight (g); NA if fewer than 2 offspring
     weight              = numeric(),  # pre-spawn body weight (g)
     condition           = numeric(),  # pre-spawn relative condition (weight / peak_weight)
     offspring_pid_start = integer(),  # first pid assigned to offspring
@@ -753,6 +775,10 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
     # Day-of-year needed for harvest timing and spawning probability
     doy_d <- yday(habitat_df$date[d])
 
+    # Fish harvested today (pid and weight); read by the stock budget in step 7b
+    harvested_today_pid <- integer(0)
+    harvested_today_wt  <- numeric(0)
+
     # ── 5a. HARVEST ──────────────────────────────────────────────────────────
     # Distributed harvest over a seasonal window (harvest_window[1]:harvest_window[2] DOY).
     # A single-day pulse is a special case where harvest_window[1] == harvest_window[2].
@@ -797,6 +823,9 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
               patch       = fish_pop$patch[harvest_idx],
               condition   = fish_pop$weight[harvest_idx] / fish_pop$peak_weight[harvest_idx]
             )
+
+            harvested_today_pid <- harvested_pids
+            harvested_today_wt  <- fish_pop$weight[harvest_idx]
 
             fish_pop  <- fish_pop[-harvest_idx, ]
             growth_df <- growth_df[-harvest_idx, ]  # keep growth_df row-aligned with fish_pop
@@ -905,6 +934,8 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
           parent_pid          = parent$pid,
           dayofsim            = d,
           n_offspring         = n_off,
+          off_wt_mean         = if (n_off > 0) mean(off_wt) else NA_real_,
+          off_wt_sd           = if (n_off > 1) sd(off_wt)   else NA_real_,
           weight              = parent$weight,
           condition           = parent$weight / parent$peak_weight,
           offspring_pid_start = next_pid,
@@ -977,6 +1008,7 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
         strategy  = fish_pop$strategy,
         patch     = fish_pop$patch,
         age_class = as.integer(floor(fish_pop$age_days / 365)),
+        cohort    = fish_pop$cohort,
         weight    = fish_pop$weight,
         temp      = growth_df$WT.actual,
         ggd       = growth_df$growth,
@@ -984,7 +1016,7 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
         condition = condition,
         peak_weight = fish_pop$peak_weight
       ) |>
-        group_by(strategy, patch, age_class) |>
+        group_by(strategy, patch, age_class, cohort) |>
         summarise(
           dayofsim       = d,
           date           = habitat_df$date[d],
@@ -998,6 +1030,8 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
           mean_temp      = mean(temp,      na.rm = TRUE),
           mean_ggd       = mean(ggd,       na.rm = TRUE),
           mean_condition = mean(condition, na.rm = TRUE),
+          mean_cond_alive = mean(condition[survived == 1], na.rm = TRUE),
+          sd_cond_alive   = sd(condition[survived == 1],   na.rm = TRUE),
           .groups        = "drop"
         )
     }
@@ -1005,7 +1039,7 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
     # Per-fish records: join columns embedded directly so no post-loop left_join
     # against fish_registry or habitat_df is needed. Burn-in days are skipped
     # (left NULL, which bind_rows() ignores) when save_burnin = FALSE.
-    if (save_burnin || habitat_df$date[d] >= exp_start_date) ibm_records[[d]] <- data.frame(
+    if (save_ibm_long && (save_burnin || habitat_df$date[d] >= exp_start_date)) ibm_records[[d]] <- data.frame(
       pid            = fish_pop$pid,
       dayofsim       = d,
       date           = habitat_df$date[d],
@@ -1023,6 +1057,89 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
       birth_dayofsim = d - fish_pop$age_days
     )
 
+    # ── 7b. In-loop result accumulators (no ibm_long needed) ───────────────────
+    last_day_recorded <- d
+    alive  <- growth_df$survive == 1
+    in_exp <- current_date >= exp_start_date
+
+    # (i) Per-fish census of survivors on selected dates (experimental period)
+    if (in_exp && format(current_date, "%m-%d") %in% census_mmdd) {
+      census_list[[length(census_list) + 1L]] <- data.frame(
+        pid         = fish_pop$pid[alive],
+        dayofsim    = d,
+        date        = current_date,
+        strategy    = fish_pop$strategy[alive],
+        patch       = fish_pop$patch[alive],
+        weight      = fish_pop$weight[alive],
+        age         = fish_pop$age_days[alive] / 365,
+        age_class   = as.integer(fish_pop$age_days[alive] %/% 365L),
+        condition   = condition[alive],
+        peak_weight = fish_pop$peak_weight[alive],
+        cohort      = fish_pop$cohort[alive]
+      )
+    }
+
+    if (in_exp) {
+      # (ii) Daily sums by patch x cohort_grp x age_group. Integer key encodes the groups:
+      #      key = (cohort_code * 2 + age_group) * 2 + is_warm; cohort_code 0 = pooled older fish.
+      age_grp  <- pmin(fish_pop$age_days %/% 365L, 1L)
+      coh_code <- ifelse(current_year - fish_pop$cohort <= 1L, fish_pop$cohort - cohort_base + 1L, 0L)
+      key      <- (coh_code * 2L + age_grp) * 2L + (fish_pop$patch == "warm")
+      g_ok     <- !is.na(growth_df$growth)
+      g_val    <- ifelse(g_ok, growth_df$growth, 0)
+      rs <- rowsum(cbind(n_fish        = 1,
+                         n_alive       = alive,
+                         temp_sum      = growth_df$WT.actual,
+                         n_ggd_all     = g_ok,
+                         sum_ggd_all   = g_val,
+                         sum_growth_g  = g_val * fish_pop$weight,
+                         n_ggd_alive   = g_ok & alive,
+                         sum_ggd_alive = g_val * alive),
+                   key)
+      daily_patch_list[[d]] <- cbind(dayofsim = d, key = as.integer(rownames(rs)), rs)
+
+      # (iii) Age-0 survival components by day since hatch (= age_days) for survivors
+      sel <- alive & fish_pop$age_days < 365L
+      if (any(sel)) {
+        rs2 <- rowsum(cbind(1, p_sg[sel], p_temp[sel], p_starv[sel], p_age[sel]),
+                      fish_pop$age_days[sel] + 1L)
+        ri  <- as.integer(rownames(rs2))
+        surv_acc[ri, ] <- surv_acc[ri, ] + rs2
+      }
+    }
+
+    # (iv) Exploitable-stock budget (all days). Flows for the transition d-1 -> d are
+    #      keyed to the start day d-1, from yesterday's stock members:
+    #        stay    - present today and survived: growth = weight change
+    #        die     - present today but died: weight at death leaves the stock (M)
+    #        harvest - absent today and in today's harvest: harvest weight leaves (C)
+    if (d > 1L && length(stock_prev_pid) > 0L) {
+      m_row       <- match(stock_prev_pid, fish_pop$pid)
+      present     <- !is.na(m_row)
+      h_row       <- match(stock_prev_pid, harvested_today_pid)
+      harvested_f <- !present & !is.na(h_row)
+      valid       <- present | harvested_f
+      w_out       <- ifelse(present, fish_pop$weight[m_row], harvested_today_wt[h_row])
+      died        <- present & growth_df$survive[m_row] == 0
+      stock_G_net[d - 1L]   <- sum((w_out - stock_prev_wt)[valid])
+      stock_G_gross[d - 1L] <- sum((stock_prev_wt * stock_prev_ggd)[valid], na.rm = TRUE)
+      stock_M[d - 1L]       <- sum(w_out[died])
+      stock_C[d - 1L]       <- sum(w_out[harvested_f])
+    }
+    stock_ok   <- alive & fish_pop$peak_weight >= stock_size
+    stock_B[d] <- sum(fish_pop$weight[stock_ok])
+
+    # First day each fish reaches stock size (cross_day); recruits are those still alive that day
+    if (length(cross_day) < next_pid - 1L) length(cross_day) <- next_pid - 1L
+    newly <- fish_pop$peak_weight >= stock_size & is.na(cross_day[fish_pop$pid])
+    if (any(newly)) {
+      cross_day[fish_pop$pid[newly]] <- d
+      if (d > 1L) stock_R[d - 1L] <- stock_R[d - 1L] + sum(fish_pop$weight[newly & alive])
+    }
+    stock_prev_pid <- fish_pop$pid[stock_ok]
+    stock_prev_wt  <- fish_pop$weight[stock_ok]
+    stock_prev_ggd <- growth_df$growth[stock_ok]
+
     # Remove non-survivors — only living fish carry forward to next iteration
     fish_pop <- fish_pop[growth_df$survive == 1, ]
 
@@ -1039,7 +1156,51 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
   # ── Collate ibm_long (experimental period only if save_burnin = FALSE) ────────
   # No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored
   # directly in each ibm_records[[d]] during step 7.
-  ibm_long <- bind_rows(ibm_records)
+  ibm_long <- if (save_ibm_long) bind_rows(ibm_records) else NULL
+
+  # ── Collate in-loop accumulators ──────────────────────────────────────────────
+  fish_registry$cross_day <- cross_day[fish_registry$pid]
+
+  census <- bind_rows(census_list)
+
+  daily_patch <- do.call(rbind, daily_patch_list)
+  daily_patch <- if (is.null(daily_patch)) {
+    tibble(dayofsim = integer(), date = as.Date(character()), patch = character(),
+           cohort_grp = integer(), age_group = integer(), n_fish = numeric(), n_alive = numeric(),
+           temp = numeric(), n_ggd_all = numeric(), sum_ggd_all = numeric(), sum_growth_g = numeric(),
+           n_ggd_alive = numeric(), sum_ggd_alive = numeric())
+  } else {
+    as_tibble(daily_patch) |>
+      mutate(
+        date       = habitat_df$date[dayofsim],
+        patch      = if_else(key %% 2L == 1L, "warm", "cold"),
+        age_group  = as.integer((key %/% 2L) %% 2L),
+        cohort_grp = if_else(key %/% 4L == 0L, NA_integer_, as.integer(key %/% 4L + cohort_base - 1L)),
+        temp       = temp_sum / n_fish
+      ) |>
+      select(dayofsim, date, patch, cohort_grp, age_group, n_fish, n_alive, temp,
+             n_ggd_all, sum_ggd_all, sum_growth_g, n_ggd_alive, sum_ggd_alive)
+  }
+
+  surv_by_dsh <- as_tibble(surv_acc) |>
+    mutate(dsh = 0:364, .before = 1)
+
+  stock_days  <- seq_len(last_day_recorded)
+  stock_daily <- tibble(
+    dayofsim = stock_days,
+    date     = habitat_df$date[stock_days],
+    doy      = yday(habitat_df$date[stock_days]),
+    B        = stock_B[stock_days],
+    G_net    = stock_G_net[stock_days],
+    G_gross  = stock_G_gross[stock_days],
+    M        = stock_M[stock_days],
+    C        = stock_C[stock_days],
+    R        = stock_R[stock_days]
+  )
+
+  # Extinct = nothing recorded on or after the start of the experimental period
+  extinct <- last_day_recorded == 0L || habitat_df$date[last_day_recorded] < exp_start_date
+  extinction_date <- if (nrow(fish_pop) == 0 && last_day_recorded > 0L) habitat_df$date[last_day_recorded] else as.Date(NA)
 
   # ── Monthly summary (1st of each month, pre-computed in the loop) ─────────────
   ibm_summary <- bind_rows(ibm_summary_list)
@@ -1047,6 +1208,12 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
   list(
     ibm_long         = ibm_long,
     ibm_summary      = ibm_summary,
+    extinct          = extinct,
+    extinction_date  = extinction_date,
+    census           = census,
+    daily_patch      = daily_patch,
+    surv_by_dsh      = surv_by_dsh,
+    stock_daily      = stock_daily,
     fish_registry    = fish_registry,
     spawn_log        = spawn_log,
     harvest_log      = harvest_log,

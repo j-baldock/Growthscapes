@@ -20,17 +20,19 @@ base_params <- list(
   # ── General ───────────────────────────────────────────
   p_calc            = "fixed_p",
   n_fish_per_strat  = 1000,
+  save_burnin       = FALSE,   # FALSE drops burn-in rows from ibm_long to reduce file size
+  save_ibm_long     = FALSE,   # FALSE drops ibm_long entirely to reduce file size
+  census_mmdd       = "10-01",
   
   # ── Timeline ──────────────────────────────────────────
   nyears_burnin     = 50,
   nyears_experiment = 50,
-  save_burnin       = FALSE,  # FALSE drops burn-in rows from ibm_long to reduce file size
   ramp_years        = 0,
   mindate           = as.Date("2001-05-01"),
 
   # ── Temperature — warm patch ───────────────────────────
-  base_temp_warm  = 15,
-  amplitude_warm  = 9.5,
+  base_temp_warm  = 14.25, # 23C summer max. Originally 15, which gave ~24-25C summer max
+  amplitude_warm  = 8.75,  # 23C summer max. Originally 9.5, which gave ~24-25C summer max
   peak_doy_warm   = 196,
   temp_min_warm   = 0.5,
   temp_noise_warm = 0,
@@ -64,7 +66,7 @@ base_params <- list(
   wt_sd             = 0.05,
 
   # ── Movement cost ──────────────────────────────────────
-  movecost_c   = 0.0, # previously 0.1. 0.0 is effective no cost
+  movecost_c   = 0.0, # previously 0.1. 0.0 is effectively no cost
   movecost_b   = 0.3,
   sigma_bold   = 0.002,
   tau          = 1e-4,
@@ -181,6 +183,40 @@ scenarios <- list(
   Baseline_ColdWarmHighP_025percold_rep01   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6)),
   Baseline_ColdWarmHighP_010percold_rep01   = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8,  pcmax_warm = 0.6)),
   Baseline_ColdWarmHighP_005percold_rep01   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6)),
+  
+  
+  # PILOT RUNS --- ~22C max warm temps
+  ### Cold + Warm, same Pcmax
+  Baseline_ColdWarm_095percold_rep01_22max        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_075percold_rep01_22max        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_050percold_rep01_22max        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_025percold_rep01_22max        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_010percold_rep01_22max        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_005percold_rep01_22max        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  ### Cold + Warm, high Pcmax in warm
+  Baseline_ColdWarmHighP_095percold_rep01_22max   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_075percold_rep01_22max   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_050percold_rep01_22max   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_025percold_rep01_22max   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_010percold_rep01_22max   = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_005percold_rep01_22max   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  
+  
+  # PILOT RUNS --- ~23C max warm temps
+  ### Cold + Warm, same Pcmax
+  Baseline_ColdWarm_095percold_rep01_23max        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_075percold_rep01_23max        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_050percold_rep01_23max        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_025percold_rep01_23max        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_010percold_rep01_23max        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_005percold_rep01_23max        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  ### Cold + Warm, high Pcmax in warm
+  Baseline_ColdWarmHighP_095percold_rep01_23max   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_075percold_rep01_23max   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_050percold_rep01_23max   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_025percold_rep01_23max   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_010percold_rep01_23max   = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_005percold_rep01_23max   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
   
   
   # PATCH-CHOICE RULE TEST: anticipate competition from smaller fish + low softmax tau
@@ -433,6 +469,52 @@ scenarios <- list(
   Harvest50g_80_ColdWarm_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.80 ,  harvestable_size = 50,  nyears_burnin = 20)),
   Harvest50g_90_ColdWarm_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.90 ,  harvestable_size = 50,  nyears_burnin = 20))
 )
+
+
+# ── Design inputs ────────────────────────────────────────
+exp_n_reps  <- 1
+exp_A_total <- 2.0
+exp_prop_cold    <- c(0.05, 0.25, 0.50, 0.75, 0.95, 1.00) #seq(from = 0.1, to = 1.0, by = 0.1)
+exp_harvest_rate <- 0 #seq(from = 0, to = 0.95, by = 0.05)
+
+# Habitat scenarios and their pcmax values
+habitat_defs <- tribble(
+  ~habitat,         ~pcmax_cold, ~pcmax_warm,
+  "ColdOnly",       0.5,         0.5,
+  "ColdWarm",       0.5,         0.5,
+  "ColdWarmHighP",  0.5,         0.7
+)
+
+set.seed(6291)
+exp_seed_table <- tibble(rep = seq_len(exp_n_reps), sim_seed = sample.int(1e4, exp_n_reps))
+
+# ── Design table: one row per run ────────────────────────
+exp_design <- habitat_defs |>
+  cross_join(tibble(prop_cold = exp_prop_cold)) |>
+  cross_join(tibble(harvest_rate = exp_harvest_rate)) |>
+  cross_join(exp_seed_table) |>
+  # 100% cold with a warm patch is identical to ColdOnly
+  filter(!(habitat != "ColdOnly" & prop_cold == 1)) |>
+  mutate(
+    A_cold = round(prop_cold * exp_A_total, 6),
+    A_warm = if_else(habitat == "ColdOnly", 0, round(exp_A_total - A_cold, 6)),
+    scenario = sprintf("Exp_%s_H%02d_%03dpercold_rep%02d",
+                       habitat, round(harvest_rate * 100), round(prop_cold * 100), rep)
+  )
+
+# ── Build parameter lists ────────────────────────────────
+exp_scenarios <- exp_design |>
+  pmap(\(scenario, A_cold, A_warm, pcmax_cold, pcmax_warm, harvest_rate, sim_seed, ...) {
+    modifyList(base_params, list(
+      A_cold = A_cold, A_warm = A_warm,
+      pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm,
+      harvest_rate = harvest_rate, sim_seed = sim_seed
+    ))
+  }) |>
+  setNames(exp_design$scenario)
+
+length(exp_scenarios)
+datatable(exp_design)
 
 
 # ── Timeline ────────────────────────────────────────────────────────────────

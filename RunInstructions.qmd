@@ -1,0 +1,65 @@
+---
+title: "Run Instructions"
+---
+
+**Purpose:** Guide to running the individual-based model simulations.
+
+
+## Load packages
+
+The following R packages are required: `tidyverse`, `lubridate`. Use the `library()` function to load the packages into the workspace.
+
+
+## Download files and data
+
+**All source files and input data can be downloaded directly from the** `source_files/` **folder in the main directory.**
+
+
+### Source files
+
+The following R scripts are required to run the individual-based model simulation. Ensure these files are up to date by running `qmd_to_r_script()` in the console after any changes to their .qmd counterparts.
+
+- `Habitat.R`: defines `build_habitat()`, a function that simulates habitat conditions (temperature and food availability) for a simple, spatially-implicit habitat network consisting of two patches. Returns a habitat_df time series covering the full burn-in and experiment periods.
+- `Functions.R`: This script generates the helper functions called in the IBM simulation loop.
+- `SimulationLoop.R`: defines `run_simulation()`, the IBM simulation loop wrapper. Returns results objects in both raw and summarized forms, depending on the parameter configuration. 
+
+
+### Input data
+
+Various input data are required to run the simulations.
+
+- `wt.growth.RData`: this file contains the growth rate look-up array (growth rate in grams/gram/day by body mass, temperature, and p-value).
+- `exp_design.rds`: experimental design table with key input parameters and scenarion names, written by `ScenarioDefs.qmd`. 
+- `exp_scenarios`: a list of lists. Each named list element contains the input parameters that define the experimental scenarios as specified in `exp_design.rds`. Written by `ScenarioDefs.qmd`
+
+
+## Run scenarios
+
+**Download** `BatchRunScenarios.R` **from the home directory.**
+
+`BatchRunScenarios.R` runs IBM simulations for one or all ("full experiment") scenarios, saving results as .rds files in the `results/` folder. *All of the above files are required to run the simulations and will be sourced or loaded by this script directly.* Note: this script will create a `results/` folder in the home directory if one does not already exist.
+
+This script then defines two key functions, both may be required depending on how the runs are structured on your local or virtual machine.
+
+- `run_scenario()` runs a single named scenario. Note that the appropriate scenario list (e.g., `exp_scenarios`) needs to be called by the `scenario_list` parameter. 
+- `run_all_scenarios()` runs all scenarios (one at a time) in the provided scenario list.
+
+
+## Process results
+
+**Download** `ProcessScenarios.R` **from the home directory.**
+
+`ProcessScenarios.R` combines the results of every experimental run (one .rds per entry in `exp_scenarios`) into a single .rds per key simulation output, tagged with the experimental-design metadata from `exp_design`, and stored in the `results/combined/` folder. Note: this script will create a `combined/` folder in the `results/` directory if one does not already exist. Downstream .qmd files read these combined files instead of the individual run results.
+
+Outputs (results/combined/... .rds), one row-block per scenario: census, daily_patch, ibm_summary, spawn_log, surv_by_dsh, extinct, fish_registry (parent fish only), stock_daily, habitat_df, harvest_log (harvest_log is only written if at least one run has harvest.)
+
+The script operates in two stages, so run time is linear in the number of scenarios and memory is bounded:
+
+1. Per scenario: read the run, write one small intermediate .rds per output to results/combined/tmp/*output*/*scenario*.rds, and free the run.
+2. Per output: read that output's intermediates, bind them, save a single combined .rds, and delete the intermediates. Peak memory is the size of the largest single combined output (for 16 simulation runs the largest combined output was ~25 MB, so these files and peak memory should be manageable even for 100s to 1000s of runs).
+
+
+## Share results
+
+Share the combined results via email or other file sharing service. There should be a total of 10 .rds files (or 9 if no harvest experiments were run). Please ensure the files are properly formatted and include all necessary metadata for analysis.
+

@@ -1503,6 +1503,6 @@ plot_patchvalue <- function(ibm_long, habitat_df, exp_start_date = NULL) {
 ```{r eval=FALSE}
 #| eval: false
 #| purl: false
-file.remove("PlotResults.R")
-quarto::qmd_to_r_script("PlotResults.qmd")
+file.remove("source_files/PlotResults.R")
+quarto::qmd_to_r_script("PlotResults.qmd", script = "source_files/PlotResults.R")
 ```

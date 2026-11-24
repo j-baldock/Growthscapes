@@ -437,7 +437,7 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
- <span class="menu-text">Define Experiments</span></a>
+ <span class="menu-text">Run Experiments</span></a>
           <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
@@ -447,6 +447,12 @@ window.Quarto = {
   <div class="sidebar-item-container"> 
   <a href="./ScenarioDefs.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Define Scenarios &amp; Experiments</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./RunInstructions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Run Instructions</span></span></a>
   </div>
 </li>
       </ul>
@@ -463,31 +469,31 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SensitivityAnalysis.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Parameter Sensitivity Analysis</span></span></a>
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Parameter Sensitivity Analysis</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./TestPValSpecs.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sensitivity to Consumption Type</span></span></a>
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Sensitivity to Consumption Type</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./TestHabitatPcmax.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Sensitivity to Max. P_Cmax</span></span></a>
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Sensitivity to Max. P_Cmax</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SeedReplicates.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Reproducibility and replication</span></span></a>
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Reproducibility and replication</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./WarmCapTest.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Warm-patch temperature cap test</span></span></a>
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Warm-patch temperature test</span></span></a>
   </div>
 </li>
       </ul>
@@ -504,25 +510,25 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./ViewSimResults.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">View Simulation Results</span></span></a>
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">View Simulation Results</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./CompareOutcomes.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Compare Population Outcomes</span></span></a>
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Compare Population Outcomes</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./WarmContribution.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Warm Habitat Contribution</span></span></a>
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Warm Habitat Contribution</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SurplusProduction.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Surplus Production</span></span></a>
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Surplus Production</span></span></a>
   </div>
 </li>
       </ul>
@@ -649,7 +655,7 @@ window.Quarto = {
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wt.growth.array.pval.sthd.RData"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"source_files/wt.growth.RData"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <section id="basic-functions" class="level2" data-number="3.1">
@@ -4092,8 +4098,8 @@ F = aL^b
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb85"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"Functions.R"</span>)</span>
-<span id="cb85-2"><a href="#cb85-2" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"Functions.qmd"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb85"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"source_files/Functions.R"</span>)</span>
+<span id="cb85-2"><a href="#cb85-2" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"Functions.qmd"</span>, <span class="at">script =</span> <span class="st">"source_files/Functions.R"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -4738,14 +4744,14 @@ window._ojs.runtime.interpretFromScriptTags();
 <span id="cb90-17"><a href="#cb90-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb90-18"><a href="#cb90-18" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
 <span id="cb90-19"><a href="#cb90-19" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
-<span id="cb90-20"><a href="#cb90-20" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Habitat.R"</span>)</span>
+<span id="cb90-20"><a href="#cb90-20" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"source_files/Habitat.R"</span>)</span>
 <span id="cb90-21"><a href="#cb90-21" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb90-22"><a href="#cb90-22" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb90-23"><a href="#cb90-23" aria-hidden="true" tabindex="-1"></a>Load pre-calculated growth</span>
 <span id="cb90-24"><a href="#cb90-24" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb90-27"><a href="#cb90-27" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
 <span id="cb90-28"><a href="#cb90-28" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
-<span id="cb90-29"><a href="#cb90-29" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wt.growth.array.pval.sthd.RData"</span>)</span>
+<span id="cb90-29"><a href="#cb90-29" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"source_files/wt.growth.RData"</span>)</span>
 <span id="cb90-30"><a href="#cb90-30" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb90-31"><a href="#cb90-31" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb90-32"><a href="#cb90-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## Basic functions</span></span>
@@ -7711,8 +7717,8 @@ window._ojs.runtime.interpretFromScriptTags();
 <span id="cb90-3148"><a href="#cb90-3148" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
 <span id="cb90-3149"><a href="#cb90-3149" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
 <span id="cb90-3150"><a href="#cb90-3150" aria-hidden="true" tabindex="-1"></a><span class="co">#| purl: false</span></span>
-<span id="cb90-3151"><a href="#cb90-3151" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"Functions.R"</span>)</span>
-<span id="cb90-3152"><a href="#cb90-3152" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"Functions.qmd"</span>)</span>
+<span id="cb90-3151"><a href="#cb90-3151" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"source_files/Functions.R"</span>)</span>
+<span id="cb90-3152"><a href="#cb90-3152" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"Functions.qmd"</span>, <span class="at">script =</span> <span class="st">"source_files/Functions.R"</span>)</span>
 <span id="cb90-3153"><a href="#cb90-3153" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb90-3154"><a href="#cb90-3154" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb90-3155"><a href="#cb90-3155" aria-hidden="true" tabindex="-1"></a></span>

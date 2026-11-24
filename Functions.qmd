@@ -17,14 +17,14 @@ Source dependencies
 
 ```{r include=FALSE}
 #| cache: false
-source("Habitat.R")
+source("source_files/Habitat.R")
 ```
 
 Load pre-calculated growth
 
 ```{r}
 #| cache: false
-load("data/wt.growth.array.pval.sthd.RData")
+load("source_files/wt.growth.RData")
 ```
 
 ## Basic functions
@@ -2990,8 +2990,8 @@ For sourcing later
 ```{r}
 #| eval: false
 #| purl: false
-file.remove("Functions.R")
-quarto::qmd_to_r_script("Functions.qmd")
+file.remove("source_files/Functions.R")
+quarto::qmd_to_r_script("Functions.qmd", script = "source_files/Functions.R")
 ```
 
 

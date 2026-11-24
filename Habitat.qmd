@@ -357,6 +357,6 @@ For sourcing later.
 ```{r}
 #| eval: false
 #| purl: false
-file.remove("Habitat.R")
-quarto::qmd_to_r_script("Habitat.qmd")
+file.remove("source_files/Habitat.R")
+quarto::qmd_to_r_script("Habitat.qmd", script = "source_files/Habitat.R")
 ```

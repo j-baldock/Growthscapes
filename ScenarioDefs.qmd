@@ -18,7 +18,7 @@ library(DT)
 
 ```{r include=FALSE}
 #| cache: false
-source("Habitat.R")
+source("source_files/Habitat.R")
 ```
 
 
@@ -508,7 +508,7 @@ habitat_defs <- tribble(
   ~habitat,         ~pcmax_cold, ~pcmax_warm,
   "ColdOnly",       0.5,         0.5,
   "ColdWarm",       0.5,         0.5,
-  "ColdWarmHighP",  0.5,         0.7
+  "ColdWarmHighP",  0.5,         0.6
 )
 
 set.seed(6291)
@@ -544,9 +544,9 @@ datatable(exp_design)
 
 # Save small definition files so scripts (e.g. ProcessScenarios.R) can load the
 # design without sourcing this document's plotting code
-if (!dir.exists("data")) dir.create("data")
-saveRDS(exp_design,    "data/exp_design.rds")
-saveRDS(exp_scenarios, "data/exp_scenarios.rds")
+# if (!dir.exists("data")) dir.create("data")
+saveRDS(exp_design,    "source_files/exp_design.rds")
+saveRDS(exp_scenarios, "source_files/exp_scenarios.rds")
 ```
 
 
@@ -716,6 +716,6 @@ plot_habitat(build_habitat(scenarios[["Baseline_ColdWarmHighP_075percold_rep01"]
 ```{r}
 #| eval: false
 #| purl: false
-file.remove("ScenarioDefs.R")
-quarto::qmd_to_r_script("ScenarioDefs.qmd")
+file.remove("source_files/ScenarioDefs.R")
+quarto::qmd_to_r_script("ScenarioDefs.qmd", script = "source_files/ScenarioDefs.R")
 ```

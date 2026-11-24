@@ -17,12 +17,13 @@ library(tidyverse)
 library(lubridate)
 library(beepr)
 
-source("Habitat.R")
-source("Functions.R")
-source("SimulationLoop.R")
-source("ScenarioDefs.R")   # defines `scenarios` (list of named parameter sets)
+source("source_files/Habitat.R")
+source("source_files/Functions.R")
+source("source_files/SimulationLoop.R")
+# source("ScenarioDefs.R")   # defines `scenarios` (one-off variants) and `exp_scenarios` (full experimental set)
+exp_scenarios <- readRDS("source_files/exp_scenarios.rds") # list of experimental scenarios written by ScenarioDefs.R
 
-load("data/wt.growth.array.pval.sthd.RData")  # loads `wt.growth`
+load("source_files/wt.growth.RData")  # loads `wt.growth`
 
 if (!dir.exists("results")) dir.create("results")
 
@@ -32,7 +33,7 @@ if (!dir.exists("results")) dir.create("results")
 # save_burnin - keep per-fish burn-in rows in ibm_long? Precedence: this argument
 #               (if not NULL) > `save_burnin` set in the scenario definition > FALSE.
 
-run_scenario <- function(name, overwrite = FALSE, save_burnin = NULL) {
+run_scenario <- function(name, overwrite = FALSE, save_burnin = NULL, scenario_list = scenarios) {
   out_path <- file.path("results", paste0(name, ".rds"))
 
   if (file.exists(out_path) && !overwrite) {
@@ -41,12 +42,12 @@ run_scenario <- function(name, overwrite = FALSE, save_burnin = NULL) {
     return(invisible(NULL))
   }
 
-  if (!name %in% names(scenarios)) {
+  if (!name %in% names(scenario_list)) {
     stop("'", name, "' is not a defined scenario. ",
-         "Available: ", paste(names(scenarios), collapse = ", "))
+         "Available: ", paste(names(scenario_list), collapse = ", "))
   }
 
-  params     <- scenarios[[name]]
+  params     <- scenario_list[[name]]
   # Default to dropping burn-in records from ibm_long to reduce file size
   params$save_burnin <- save_burnin %||% params$save_burnin %||% FALSE
   habitat_df <- build_habitat(params)
@@ -72,15 +73,16 @@ run_scenario <- function(name, overwrite = FALSE, save_burnin = NULL) {
 }
 
 # ── run_all_scenarios(): batch run over all defined scenarios ──────────────────
-# Iterates over every entry in `scenarios`. Skips those that already have saved
-# results unless overwrite = TRUE.
+# Iterates over every entry in `exp_scenarios` (the full experimental set built
+# in ScenarioDefs.qmd). Skips those that already have saved results unless
+# overwrite = TRUE. The one-off `scenarios` list is still available to
+# run_scenario() directly.
 
 run_all_scenarios <- function(overwrite = FALSE, save_burnin = NULL) {
-  nms <- names(scenarios)
-  message("Batch run: ", length(nms), " scenario(s): ",
-          paste(nms, collapse = ", "))
+  nms <- names(exp_scenarios)
+  message("Batch run: ", length(nms), " scenario(s)")
   for (name in nms) {
-    run_scenario(name, overwrite = overwrite, save_burnin = save_burnin)
+    run_scenario(name, overwrite = overwrite, save_burnin = save_burnin, scenario_list = exp_scenarios)
   }
   message("Batch run complete.")
 }
@@ -110,293 +112,327 @@ get_run_times <- function(dir = "results") {
 }
 
 
-# ── Individual scenario calls ──────────────────────────────────────────────────
-# Uncomment a line below to run (or re-run) a single scenario:
-
-### SENSITIVITY ANALYSES
-run_scenario("Sensitivity_ColdOnly_Plegacy_05p",    overwrite = TRUE)
-run_scenario("Sensitivity_ColdOnly_Pcorrected_05p", overwrite = TRUE)
-run_scenario("Sensitivity_ColdOnly_Pfixedp_05p",    overwrite = TRUE)
-run_scenario("Sensitivity_ColdWarm_Plegacy_05p",    overwrite = TRUE)
-run_scenario("Sensitivity_ColdWarm_Pcorrected_05p", overwrite = TRUE)
-run_scenario("Sensitivity_ColdWarm_Pfixedp_05p",    overwrite = TRUE)
-
-run_scenario("Sensitivity_ColdOnly_Pfixedp_06p",    overwrite = TRUE)
-run_scenario("Sensitivity_ColdOnly_Pfixedp_07p",    overwrite = TRUE)
-run_scenario("Sensitivity_ColdWarm_Pfixedp_06p",    overwrite = TRUE)
-run_scenario("Sensitivity_ColdWarm_Pfixedp_07p",    overwrite = TRUE)
-
-run_scenario("AnticTau_ColdWarm_095percold_rep01",    overwrite = TRUE)
-run_scenario("AnticTau_ColdWarm_075percold_rep01",    overwrite = TRUE)
-
-
-### PILOT RUNS
-# Cold only
-run_scenario("Baseline_ColdOnly_100percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdOnly_095percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdOnly_075percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdOnly_050percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdOnly_025percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdOnly_010percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdOnly_005percold_rep01", overwrite = TRUE)
-# Cold + Warm
-run_scenario("Baseline_ColdWarm_095percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_075percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_050percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_025percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_010percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_005percold_rep01", overwrite = TRUE)
-# Cold + Warm, high P
-run_scenario("Baseline_ColdWarmHighP_095percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarmHighP_075percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarmHighP_050percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarmHighP_025percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarmHighP_010percold_rep01", overwrite = TRUE)
-run_scenario("Baseline_ColdWarmHighP_005percold_rep01", overwrite = TRUE)
-
-
-### REPLICATION
-# cold only
-# run_scenario("Baseline_ColdOnly_025percold_rep02", overwrite = TRUE)
-# run_scenario("Baseline_ColdOnly_025percold_rep03", overwrite = TRUE)
-# run_scenario("Baseline_ColdOnly_025percold_rep04", overwrite = TRUE)
-# run_scenario("Baseline_ColdOnly_025percold_rep05", overwrite = TRUE)
-# cold + warm
-run_scenario("Baseline_ColdWarm_025percold_rep02", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_025percold_rep03", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_025percold_rep04", overwrite = TRUE)
-run_scenario("Baseline_ColdWarm_025percold_rep05", overwrite = TRUE)
-
-
-
-
-
-
-
-# Variable Harvest, 50% cold, harvest rates = 0.1-0.5
-
-### 95% cold
-run_scenario("Harvest_10_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_20_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_30_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_40_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_50_ColdOnly_95percold", overwrite = TRUE)
-# run_scenario("Harvest_55_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_60_ColdOnly_95percold", overwrite = TRUE)
-# run_scenario("Harvest_65_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_70_ColdOnly_95percold", overwrite = TRUE)
-# run_scenario("Harvest_75_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_80_ColdOnly_95percold", overwrite = TRUE)
-run_scenario("Harvest_90_ColdOnly_95percold", overwrite = TRUE)
-
-run_scenario("Harvest_10_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_20_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_30_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_40_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_50_ColdWarm_95percold", overwrite = TRUE)
-# run_scenario("Harvest_55_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_60_ColdWarm_95percold", overwrite = TRUE)
-# run_scenario("Harvest_65_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_70_ColdWarm_95percold", overwrite = TRUE)
-# run_scenario("Harvest_75_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_80_ColdWarm_95percold", overwrite = TRUE)
-run_scenario("Harvest_90_ColdWarm_95percold", overwrite = TRUE)
-
-run_scenario("Harvest_10_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_20_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_30_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_40_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_50_ColdWarmHigh_95percold", overwrite = TRUE)
-# run_scenario("Harvest_55_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_60_ColdWarmHigh_95percold", overwrite = TRUE)
-# run_scenario("Harvest_65_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_70_ColdWarmHigh_95percold", overwrite = TRUE)
-# run_scenario("Harvest_75_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_80_ColdWarmHigh_95percold", overwrite = TRUE)
-run_scenario("Harvest_90_ColdWarmHigh_95percold", overwrite = TRUE)
-
-
-# ### 75% cold
-# run_scenario("Harvest_10_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdOnly_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdOnly_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdOnly_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdOnly_75percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdOnly_75percold", overwrite = TRUE)
-# 
-# run_scenario("Harvest_10_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdWarm_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdWarm_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdWarm_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdWarm_75percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdWarm_75percold", overwrite = TRUE)
-# 
-# run_scenario("Harvest_10_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdWarmHigh_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdWarmHigh_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdWarmHigh_75percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdWarmHigh_75percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdWarmHigh_75percold", overwrite = TRUE)
-# 
-# ### 50% cold
-# run_scenario("Harvest_10_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdOnly_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdOnly_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdOnly_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdOnly_50percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdOnly_50percold", overwrite = TRUE)
-# 
-# run_scenario("Harvest_10_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdWarm_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdWarm_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdWarm_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdWarm_50percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdWarm_50percold", overwrite = TRUE)
-# 
-# run_scenario("Harvest_10_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdWarmHigh_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdWarmHigh_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdWarmHigh_50percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdWarmHigh_50percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdWarmHigh_50percold", overwrite = TRUE)
-# 
-# 
-# ### 25% cold
-# run_scenario("Harvest_10_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdOnly_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdOnly_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdOnly_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdOnly_25percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdOnly_25percold", overwrite = TRUE)
-# 
-# run_scenario("Harvest_10_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdWarm_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdWarm_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdWarm_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdWarm_25percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdWarm_25percold", overwrite = TRUE)
-# 
-# run_scenario("Harvest_10_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_20_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_30_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_40_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_50_ColdWarmHigh_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_55_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_60_ColdWarmHigh_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_65_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_70_ColdWarmHigh_25percold", overwrite = TRUE)
-# # run_scenario("Harvest_75_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_80_ColdWarmHigh_25percold", overwrite = TRUE)
-# run_scenario("Harvest_90_ColdWarmHigh_25percold", overwrite = TRUE)
-
-### 5% cold
-run_scenario("Harvest_10_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_20_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_30_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_40_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_50_ColdOnly_05percold", overwrite = TRUE)
-# run_scenario("Harvest_55_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_60_ColdOnly_05percold", overwrite = TRUE)
-# run_scenario("Harvest_65_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_70_ColdOnly_05percold", overwrite = TRUE)
-# run_scenario("Harvest_75_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_80_ColdOnly_05percold", overwrite = TRUE)
-run_scenario("Harvest_90_ColdOnly_05percold", overwrite = TRUE)
-
-run_scenario("Harvest_10_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_20_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_30_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_40_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_50_ColdWarm_05percold", overwrite = TRUE)
-# run_scenario("Harvest_55_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_60_ColdWarm_05percold", overwrite = TRUE)
-# run_scenario("Harvest_65_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_70_ColdWarm_05percold", overwrite = TRUE)
-# run_scenario("Harvest_75_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_80_ColdWarm_05percold", overwrite = TRUE)
-run_scenario("Harvest_90_ColdWarm_05percold", overwrite = TRUE)
-
-run_scenario("Harvest_10_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_20_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_30_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_40_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_50_ColdWarmHigh_05percold", overwrite = TRUE)
-# run_scenario("Harvest_55_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_60_ColdWarmHigh_05percold", overwrite = TRUE)
-# run_scenario("Harvest_65_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_70_ColdWarmHigh_05percold", overwrite = TRUE)
-# run_scenario("Harvest_75_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_80_ColdWarmHigh_05percold", overwrite = TRUE)
-run_scenario("Harvest_90_ColdWarmHigh_05percold", overwrite = TRUE)
-
-
-
-### Harvest sensitivity
-run_scenario("Harvest50g_50_ColdOnly_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_60_ColdOnly_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_70_ColdOnly_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_80_ColdOnly_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_90_ColdOnly_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_50_ColdWarm_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_60_ColdWarm_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_70_ColdWarm_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_80_ColdWarm_75percold", overwrite = TRUE)
-run_scenario("Harvest50g_90_ColdWarm_75percold", overwrite = TRUE)
 
 
 # ── Batch run ─────────────────────────────────────────────────────────────────
 # Uncomment to run all scenarios (skips any with existing results):
 
 st <- Sys.time()
-# run_all_scenarios()
 run_all_scenarios(overwrite = TRUE)   # re-run everything
 Sys.time() - st
 beep()
+
+
+# ── Individual scenario calls ──────────────────────────────────────────────────
+# Uncomment a line below to run (or re-run) a single scenario:
+
+# ### SENSITIVITY ANALYSES
+# run_scenario("Sensitivity_ColdOnly_Plegacy_05p",    overwrite = TRUE)
+# run_scenario("Sensitivity_ColdOnly_Pcorrected_05p", overwrite = TRUE)
+# run_scenario("Sensitivity_ColdOnly_Pfixedp_05p",    overwrite = TRUE)
+# run_scenario("Sensitivity_ColdWarm_Plegacy_05p",    overwrite = TRUE)
+# run_scenario("Sensitivity_ColdWarm_Pcorrected_05p", overwrite = TRUE)
+# run_scenario("Sensitivity_ColdWarm_Pfixedp_05p",    overwrite = TRUE)
+# 
+# run_scenario("Sensitivity_ColdOnly_Pfixedp_06p",    overwrite = TRUE)
+# run_scenario("Sensitivity_ColdOnly_Pfixedp_07p",    overwrite = TRUE)
+# run_scenario("Sensitivity_ColdWarm_Pfixedp_06p",    overwrite = TRUE)
+# run_scenario("Sensitivity_ColdWarm_Pfixedp_07p",    overwrite = TRUE)
+# 
+# run_scenario("AnticTau_ColdWarm_095percold_rep01",    overwrite = TRUE)
+# run_scenario("AnticTau_ColdWarm_075percold_rep01",    overwrite = TRUE)
+# 
+# 
+# ### PILOT RUNS
+# # Cold only
+# run_scenario("Baseline_ColdOnly_100percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_095percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_075percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_050percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_025percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_010percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdOnly_005percold_rep01", overwrite = TRUE)
+# # Cold + Warm
+# run_scenario("Baseline_ColdWarm_095percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_075percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_050percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_025percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_010percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_005percold_rep01", overwrite = TRUE)
+# # Cold + Warm, high P
+# run_scenario("Baseline_ColdWarmHighP_095percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_075percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_050percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_025percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_010percold_rep01", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_005percold_rep01", overwrite = TRUE)
+# 
+# 
+# ### PILOT RUNS --- 22C max
+# # Cold + Warm
+# run_scenario("Baseline_ColdWarm_095percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_075percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_050percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_025percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_010percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_005percold_rep01_22max", overwrite = TRUE)
+# # Cold + Warm, high P
+# run_scenario("Baseline_ColdWarmHighP_095percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_075percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_050percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_025percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_010percold_rep01_22max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_005percold_rep01_22max", overwrite = TRUE)
+# 
+# ### PILOT RUNS --- 23C max
+# # Cold + Warm
+# run_scenario("Baseline_ColdWarm_095percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_075percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_050percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_025percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_010percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_005percold_rep01_23max", overwrite = TRUE)
+# # Cold + Warm, high P
+# run_scenario("Baseline_ColdWarmHighP_095percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_075percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_050percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_025percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_010percold_rep01_23max", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarmHighP_005percold_rep01_23max", overwrite = TRUE)
+# 
+# 
+# ### REPLICATION
+# # cold only
+# # run_scenario("Baseline_ColdOnly_025percold_rep02", overwrite = TRUE)
+# # run_scenario("Baseline_ColdOnly_025percold_rep03", overwrite = TRUE)
+# # run_scenario("Baseline_ColdOnly_025percold_rep04", overwrite = TRUE)
+# # run_scenario("Baseline_ColdOnly_025percold_rep05", overwrite = TRUE)
+# # cold + warm
+# run_scenario("Baseline_ColdWarm_025percold_rep02", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_025percold_rep03", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_025percold_rep04", overwrite = TRUE)
+# run_scenario("Baseline_ColdWarm_025percold_rep05", overwrite = TRUE)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# # Variable Harvest, 50% cold, harvest rates = 0.1-0.5
+# 
+# ### 95% cold
+# run_scenario("Harvest_10_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_20_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_30_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_40_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_50_ColdOnly_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_55_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_60_ColdOnly_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_65_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_70_ColdOnly_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_75_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_80_ColdOnly_95percold", overwrite = TRUE)
+# run_scenario("Harvest_90_ColdOnly_95percold", overwrite = TRUE)
+# 
+# run_scenario("Harvest_10_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_20_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_30_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_40_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_50_ColdWarm_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_55_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_60_ColdWarm_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_65_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_70_ColdWarm_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_75_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_80_ColdWarm_95percold", overwrite = TRUE)
+# run_scenario("Harvest_90_ColdWarm_95percold", overwrite = TRUE)
+# 
+# run_scenario("Harvest_10_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_20_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_30_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_40_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_50_ColdWarmHigh_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_55_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_60_ColdWarmHigh_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_65_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_70_ColdWarmHigh_95percold", overwrite = TRUE)
+# # run_scenario("Harvest_75_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_80_ColdWarmHigh_95percold", overwrite = TRUE)
+# run_scenario("Harvest_90_ColdWarmHigh_95percold", overwrite = TRUE)
+# 
+# 
+# # ### 75% cold
+# # run_scenario("Harvest_10_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdOnly_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdOnly_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdOnly_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdOnly_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdOnly_75percold", overwrite = TRUE)
+# # 
+# # run_scenario("Harvest_10_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdWarm_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdWarm_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdWarm_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdWarm_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdWarm_75percold", overwrite = TRUE)
+# # 
+# # run_scenario("Harvest_10_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdWarmHigh_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdWarmHigh_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdWarmHigh_75percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdWarmHigh_75percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdWarmHigh_75percold", overwrite = TRUE)
+# # 
+# # ### 50% cold
+# # run_scenario("Harvest_10_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdOnly_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdOnly_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdOnly_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdOnly_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdOnly_50percold", overwrite = TRUE)
+# # 
+# # run_scenario("Harvest_10_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdWarm_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdWarm_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdWarm_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdWarm_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdWarm_50percold", overwrite = TRUE)
+# # 
+# # run_scenario("Harvest_10_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdWarmHigh_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdWarmHigh_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdWarmHigh_50percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdWarmHigh_50percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdWarmHigh_50percold", overwrite = TRUE)
+# # 
+# # 
+# # ### 25% cold
+# # run_scenario("Harvest_10_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdOnly_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdOnly_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdOnly_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdOnly_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdOnly_25percold", overwrite = TRUE)
+# # 
+# # run_scenario("Harvest_10_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdWarm_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdWarm_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdWarm_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdWarm_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdWarm_25percold", overwrite = TRUE)
+# # 
+# # run_scenario("Harvest_10_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_20_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_30_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_40_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_50_ColdWarmHigh_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_55_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_60_ColdWarmHigh_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_65_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_70_ColdWarmHigh_25percold", overwrite = TRUE)
+# # # run_scenario("Harvest_75_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_80_ColdWarmHigh_25percold", overwrite = TRUE)
+# # run_scenario("Harvest_90_ColdWarmHigh_25percold", overwrite = TRUE)
+# 
+# ### 5% cold
+# run_scenario("Harvest_10_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_20_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_30_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_40_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_50_ColdOnly_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_55_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_60_ColdOnly_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_65_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_70_ColdOnly_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_75_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_80_ColdOnly_05percold", overwrite = TRUE)
+# run_scenario("Harvest_90_ColdOnly_05percold", overwrite = TRUE)
+# 
+# run_scenario("Harvest_10_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_20_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_30_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_40_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_50_ColdWarm_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_55_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_60_ColdWarm_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_65_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_70_ColdWarm_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_75_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_80_ColdWarm_05percold", overwrite = TRUE)
+# run_scenario("Harvest_90_ColdWarm_05percold", overwrite = TRUE)
+# 
+# run_scenario("Harvest_10_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_20_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_30_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_40_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_50_ColdWarmHigh_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_55_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_60_ColdWarmHigh_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_65_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_70_ColdWarmHigh_05percold", overwrite = TRUE)
+# # run_scenario("Harvest_75_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_80_ColdWarmHigh_05percold", overwrite = TRUE)
+# run_scenario("Harvest_90_ColdWarmHigh_05percold", overwrite = TRUE)
+# 
+# 
+# 
+# ### Harvest sensitivity
+# run_scenario("Harvest50g_50_ColdOnly_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_60_ColdOnly_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_70_ColdOnly_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_80_ColdOnly_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_90_ColdOnly_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_50_ColdWarm_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_60_ColdWarm_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_70_ColdWarm_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_80_ColdWarm_75percold", overwrite = TRUE)
+# run_scenario("Harvest50g_90_ColdWarm_75percold", overwrite = TRUE)

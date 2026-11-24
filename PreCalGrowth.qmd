@@ -13,8 +13,8 @@ library(egg)
 Source dependencies
 ```{r include=FALSE}
 #| cache: false
-source("Habitat.R")
-source("Functions.R")
+source("source_files/Habitat.R")
+source("source_files/Functions.R")
 ```
 
 
@@ -77,6 +77,8 @@ save("respiration",  file = "data/respiration.array.pval.sthd.RData")
 save("wastes",       file = "data/wastes.array.pval.sthd.RData")
 save("consumption",  file = "data/consumption.array.pval.sthd.RData")
 save("cmax",         file = "data/cmax.array.pval.sthd.RData")
+
+save("wt.growth",    file = "source_files/wt.growth.RData") # save a copy to source files folder 
 ```
 
 Load back in to plot

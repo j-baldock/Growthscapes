@@ -406,7 +406,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
- <span class="menu-text">Define Experiments</span></a>
+ <span class="menu-text">Run Experiments</span></a>
           <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
@@ -416,6 +416,12 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
   <div class="sidebar-item-container"> 
   <a href="./ScenarioDefs.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Define Scenarios &amp; Experiments</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./RunInstructions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Run Instructions</span></span></a>
   </div>
 </li>
       </ul>
@@ -432,31 +438,31 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SensitivityAnalysis.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Parameter Sensitivity Analysis</span></span></a>
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Parameter Sensitivity Analysis</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./TestPValSpecs.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sensitivity to Consumption Type</span></span></a>
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Sensitivity to Consumption Type</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./TestHabitatPcmax.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Sensitivity to Max. P_Cmax</span></span></a>
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Sensitivity to Max. P_Cmax</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SeedReplicates.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Reproducibility and replication</span></span></a>
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Reproducibility and replication</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./WarmCapTest.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Warm-patch temperature cap test</span></span></a>
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Warm-patch temperature test</span></span></a>
   </div>
 </li>
       </ul>
@@ -473,25 +479,25 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./ViewSimResults.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">View Simulation Results</span></span></a>
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">View Simulation Results</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./CompareOutcomes.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Compare Population Outcomes</span></span></a>
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Compare Population Outcomes</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./WarmContribution.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Warm Habitat Contribution</span></span></a>
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Warm Habitat Contribution</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SurplusProduction.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Surplus Production</span></span></a>
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Surplus Production</span></span></a>
   </div>
 </li>
       </ul>
@@ -608,7 +614,9 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"respiration"</span>,  <span class="at">file =</span> <span class="st">"data/respiration.array.pval.sthd.RData"</span>)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wastes"</span>,       <span class="at">file =</span> <span class="st">"data/wastes.array.pval.sthd.RData"</span>)</span>
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"consumption"</span>,  <span class="at">file =</span> <span class="st">"data/consumption.array.pval.sthd.RData"</span>)</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"cmax"</span>,         <span class="at">file =</span> <span class="st">"data/cmax.array.pval.sthd.RData"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"cmax"</span>,         <span class="at">file =</span> <span class="st">"data/cmax.array.pval.sthd.RData"</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wt.growth"</span>,    <span class="at">file =</span> <span class="st">"source_files/wt.growth.RData"</span>) <span class="co"># save a copy to source files folder </span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>Load back in to plot</p>
@@ -1424,8 +1432,8 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>Source dependencies</span>
 <span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="in">```{r include=FALSE}</span></span>
 <span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
-<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Habitat.R"</span>)</span>
-<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"Functions.R"</span>)</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"source_files/Habitat.R"</span>)</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"source_files/Functions.R"</span>)</span>
 <span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a></span>
@@ -1488,257 +1496,259 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb14-81"><a href="#cb14-81" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wastes"</span>,       <span class="at">file =</span> <span class="st">"data/wastes.array.pval.sthd.RData"</span>)</span>
 <span id="cb14-82"><a href="#cb14-82" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"consumption"</span>,  <span class="at">file =</span> <span class="st">"data/consumption.array.pval.sthd.RData"</span>)</span>
 <span id="cb14-83"><a href="#cb14-83" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"cmax"</span>,         <span class="at">file =</span> <span class="st">"data/cmax.array.pval.sthd.RData"</span>)</span>
-<span id="cb14-84"><a href="#cb14-84" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-85"><a href="#cb14-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a>Load back in to plot</span>
-<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb14-90"><a href="#cb14-90" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
-<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wt.growth.array.pval.sthd.RData"</span>)</span>
-<span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/consumption.array.pval.sthd.RData"</span>)</span>
-<span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wastes.array.pval.sthd.RData"</span>)</span>
-<span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/respiration.array.pval.sthd.RData"</span>)</span>
-<span id="cb14-95"><a href="#cb14-95" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/cmax.array.pval.sthd.RData"</span>)</span>
-<span id="cb14-96"><a href="#cb14-96" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-97"><a href="#cb14-97" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-98"><a href="#cb14-98" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-99"><a href="#cb14-99" aria-hidden="true" tabindex="-1"></a><span class="fu">## Plot output</span></span>
+<span id="cb14-84"><a href="#cb14-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-85"><a href="#cb14-85" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(<span class="st">"wt.growth"</span>,    <span class="at">file =</span> <span class="st">"source_files/wt.growth.RData"</span>) <span class="co"># save a copy to source files folder </span></span>
+<span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-87"><a href="#cb14-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-88"><a href="#cb14-88" aria-hidden="true" tabindex="-1"></a>Load back in to plot</span>
+<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a><span class="co">#| cache: false</span></span>
+<span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wt.growth.array.pval.sthd.RData"</span>)</span>
+<span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/consumption.array.pval.sthd.RData"</span>)</span>
+<span id="cb14-95"><a href="#cb14-95" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/wastes.array.pval.sthd.RData"</span>)</span>
+<span id="cb14-96"><a href="#cb14-96" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/respiration.array.pval.sthd.RData"</span>)</span>
+<span id="cb14-97"><a href="#cb14-97" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/cmax.array.pval.sthd.RData"</span>)</span>
+<span id="cb14-98"><a href="#cb14-98" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-99"><a href="#cb14-99" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-100"><a href="#cb14-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-101"><a href="#cb14-101" aria-hidden="true" tabindex="-1"></a><span class="fu">### Growth rate</span></span>
+<span id="cb14-101"><a href="#cb14-101" aria-hidden="true" tabindex="-1"></a><span class="fu">## Plot output</span></span>
 <span id="cb14-102"><a href="#cb14-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-103"><a href="#cb14-103" aria-hidden="true" tabindex="-1"></a>Plot growth rate by temperature for fish of varying sizes, across the full range of p-values. Line color runs blue (low p) → red (high p).</span>
-<span id="cb14-104"><a href="#cb14-104" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
-<span id="cb14-105"><a href="#cb14-105" aria-hidden="true" tabindex="-1"></a><span class="co"># Representative mass indices for the new array (step = 0.25 g): 1g→4, 10g→40, 100g→400, 250g→1000, 500g→2000, 1500g→6000</span></span>
-<span id="cb14-106"><a href="#cb14-106" aria-hidden="true" tabindex="-1"></a>mass_idx <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">40</span>, <span class="dv">400</span>, <span class="dv">1000</span>, <span class="dv">2000</span>, <span class="dv">6000</span>)</span>
-<span id="cb14-107"><a href="#cb14-107" aria-hidden="true" tabindex="-1"></a>mass_lbl <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)</span>
-<span id="cb14-108"><a href="#cb14-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-109"><a href="#cb14-109" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(mass_idx), \(k) {</span>
-<span id="cb14-110"><a href="#cb14-110" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
-<span id="cb14-111"><a href="#cb14-111" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
-<span id="cb14-112"><a href="#cb14-112" aria-hidden="true" tabindex="-1"></a>      <span class="at">weight_g =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">levels =</span> <span class="fu">paste0</span>(mass_lbl, <span class="st">" g"</span>)),</span>
-<span id="cb14-113"><a href="#cb14-113" aria-hidden="true" tabindex="-1"></a>      <span class="at">pval     =</span> pvals[pi],</span>
-<span id="cb14-114"><a href="#cb14-114" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp     =</span> waterTemps[, <span class="st">"WT"</span>],</span>
-<span id="cb14-115"><a href="#cb14-115" aria-hidden="true" tabindex="-1"></a>      <span class="at">growth   =</span> wt.growth[, pi, mass_idx[k]]</span>
-<span id="cb14-116"><a href="#cb14-116" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb14-117"><a href="#cb14-117" aria-hidden="true" tabindex="-1"></a>  })</span>
-<span id="cb14-118"><a href="#cb14-118" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
-<span id="cb14-119"><a href="#cb14-119" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp, <span class="at">y =</span> growth, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
-<span id="cb14-120"><a href="#cb14-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>) <span class="sc">+</span></span>
-<span id="cb14-121"><a href="#cb14-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
-<span id="cb14-122"><a href="#cb14-122" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> weight_g, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb14-123"><a href="#cb14-123" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
-<span id="cb14-124"><a href="#cb14-124" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.06</span>, <span class="fl">0.16</span>)) <span class="sc">+</span></span>
-<span id="cb14-125"><a href="#cb14-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Growth rate (g/g/d)"</span>) <span class="sc">+</span></span>
-<span id="cb14-126"><a href="#cb14-126" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
-<span id="cb14-127"><a href="#cb14-127" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-128"><a href="#cb14-128" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-129"><a href="#cb14-129" aria-hidden="true" tabindex="-1"></a>Plot growth potential by weight under different temperatures (panels) and p-values (line color: blue = low, red = high).</span>
-<span id="cb14-130"><a href="#cb14-130" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
-<span id="cb14-131"><a href="#cb14-131" aria-hidden="true" tabindex="-1"></a>tempseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(waterTemps[,<span class="st">"WT"</span>]), <span class="at">by =</span> <span class="dv">45</span>)</span>
-<span id="cb14-132"><a href="#cb14-132" aria-hidden="true" tabindex="-1"></a>w_show  <span class="ot">&lt;-</span> <span class="fu">which</span>(weights <span class="sc">&lt;=</span> <span class="dv">50</span>)  <span class="co"># focus on 0–50 g range</span></span>
-<span id="cb14-133"><a href="#cb14-133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-134"><a href="#cb14-134" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(tempseq), \(ti) {</span>
-<span id="cb14-135"><a href="#cb14-135" aria-hidden="true" tabindex="-1"></a>  temp_val <span class="ot">&lt;-</span> waterTemps[tempseq[ti], <span class="st">"WT"</span>]</span>
-<span id="cb14-136"><a href="#cb14-136" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
-<span id="cb14-137"><a href="#cb14-137" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
-<span id="cb14-138"><a href="#cb14-138" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp_label =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(temp_val, <span class="st">" °C"</span>),</span>
-<span id="cb14-139"><a href="#cb14-139" aria-hidden="true" tabindex="-1"></a>                          <span class="at">levels =</span> <span class="fu">paste0</span>(waterTemps[tempseq, <span class="st">"WT"</span>], <span class="st">" °C"</span>)),</span>
-<span id="cb14-140"><a href="#cb14-140" aria-hidden="true" tabindex="-1"></a>      <span class="at">pval   =</span> pvals[pi],</span>
-<span id="cb14-141"><a href="#cb14-141" aria-hidden="true" tabindex="-1"></a>      <span class="at">weight =</span> weights[w_show],</span>
-<span id="cb14-142"><a href="#cb14-142" aria-hidden="true" tabindex="-1"></a>      <span class="at">growth =</span> wt.growth[tempseq[ti], pi, w_show]</span>
-<span id="cb14-143"><a href="#cb14-143" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb14-144"><a href="#cb14-144" aria-hidden="true" tabindex="-1"></a>  })</span>
-<span id="cb14-145"><a href="#cb14-145" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
-<span id="cb14-146"><a href="#cb14-146" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> growth, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
-<span id="cb14-147"><a href="#cb14-147" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>) <span class="sc">+</span></span>
-<span id="cb14-148"><a href="#cb14-148" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
-<span id="cb14-149"><a href="#cb14-149" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> temp_label, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb14-150"><a href="#cb14-150" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
-<span id="cb14-151"><a href="#cb14-151" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.05</span>, <span class="fl">0.1</span>)) <span class="sc">+</span></span>
-<span id="cb14-152"><a href="#cb14-152" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Weight (g)"</span>, <span class="at">y =</span> <span class="st">"Growth rate (g/g/d)"</span>) <span class="sc">+</span></span>
-<span id="cb14-153"><a href="#cb14-153" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
-<span id="cb14-154"><a href="#cb14-154" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-155"><a href="#cb14-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-156"><a href="#cb14-156" aria-hidden="true" tabindex="-1"></a><span class="fu">### Maintenance p-value</span></span>
+<span id="cb14-103"><a href="#cb14-103" aria-hidden="true" tabindex="-1"></a><span class="fu">### Growth rate</span></span>
+<span id="cb14-104"><a href="#cb14-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-105"><a href="#cb14-105" aria-hidden="true" tabindex="-1"></a>Plot growth rate by temperature for fish of varying sizes, across the full range of p-values. Line color runs blue (low p) → red (high p).</span>
+<span id="cb14-106"><a href="#cb14-106" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb14-107"><a href="#cb14-107" aria-hidden="true" tabindex="-1"></a><span class="co"># Representative mass indices for the new array (step = 0.25 g): 1g→4, 10g→40, 100g→400, 250g→1000, 500g→2000, 1500g→6000</span></span>
+<span id="cb14-108"><a href="#cb14-108" aria-hidden="true" tabindex="-1"></a>mass_idx <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">40</span>, <span class="dv">400</span>, <span class="dv">1000</span>, <span class="dv">2000</span>, <span class="dv">6000</span>)</span>
+<span id="cb14-109"><a href="#cb14-109" aria-hidden="true" tabindex="-1"></a>mass_lbl <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">250</span>, <span class="dv">500</span>, <span class="dv">1500</span>)</span>
+<span id="cb14-110"><a href="#cb14-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-111"><a href="#cb14-111" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(mass_idx), \(k) {</span>
+<span id="cb14-112"><a href="#cb14-112" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
+<span id="cb14-113"><a href="#cb14-113" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
+<span id="cb14-114"><a href="#cb14-114" aria-hidden="true" tabindex="-1"></a>      <span class="at">weight_g =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">levels =</span> <span class="fu">paste0</span>(mass_lbl, <span class="st">" g"</span>)),</span>
+<span id="cb14-115"><a href="#cb14-115" aria-hidden="true" tabindex="-1"></a>      <span class="at">pval     =</span> pvals[pi],</span>
+<span id="cb14-116"><a href="#cb14-116" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp     =</span> waterTemps[, <span class="st">"WT"</span>],</span>
+<span id="cb14-117"><a href="#cb14-117" aria-hidden="true" tabindex="-1"></a>      <span class="at">growth   =</span> wt.growth[, pi, mass_idx[k]]</span>
+<span id="cb14-118"><a href="#cb14-118" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-119"><a href="#cb14-119" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb14-120"><a href="#cb14-120" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
+<span id="cb14-121"><a href="#cb14-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp, <span class="at">y =</span> growth, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
+<span id="cb14-122"><a href="#cb14-122" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>) <span class="sc">+</span></span>
+<span id="cb14-123"><a href="#cb14-123" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb14-124"><a href="#cb14-124" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> weight_g, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb14-125"><a href="#cb14-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
+<span id="cb14-126"><a href="#cb14-126" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.06</span>, <span class="fl">0.16</span>)) <span class="sc">+</span></span>
+<span id="cb14-127"><a href="#cb14-127" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Growth rate (g/g/d)"</span>) <span class="sc">+</span></span>
+<span id="cb14-128"><a href="#cb14-128" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb14-129"><a href="#cb14-129" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-130"><a href="#cb14-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-131"><a href="#cb14-131" aria-hidden="true" tabindex="-1"></a>Plot growth potential by weight under different temperatures (panels) and p-values (line color: blue = low, red = high).</span>
+<span id="cb14-132"><a href="#cb14-132" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb14-133"><a href="#cb14-133" aria-hidden="true" tabindex="-1"></a>tempseq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(waterTemps[,<span class="st">"WT"</span>]), <span class="at">by =</span> <span class="dv">45</span>)</span>
+<span id="cb14-134"><a href="#cb14-134" aria-hidden="true" tabindex="-1"></a>w_show  <span class="ot">&lt;-</span> <span class="fu">which</span>(weights <span class="sc">&lt;=</span> <span class="dv">50</span>)  <span class="co"># focus on 0–50 g range</span></span>
+<span id="cb14-135"><a href="#cb14-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-136"><a href="#cb14-136" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(tempseq), \(ti) {</span>
+<span id="cb14-137"><a href="#cb14-137" aria-hidden="true" tabindex="-1"></a>  temp_val <span class="ot">&lt;-</span> waterTemps[tempseq[ti], <span class="st">"WT"</span>]</span>
+<span id="cb14-138"><a href="#cb14-138" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
+<span id="cb14-139"><a href="#cb14-139" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
+<span id="cb14-140"><a href="#cb14-140" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp_label =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(temp_val, <span class="st">" °C"</span>),</span>
+<span id="cb14-141"><a href="#cb14-141" aria-hidden="true" tabindex="-1"></a>                          <span class="at">levels =</span> <span class="fu">paste0</span>(waterTemps[tempseq, <span class="st">"WT"</span>], <span class="st">" °C"</span>)),</span>
+<span id="cb14-142"><a href="#cb14-142" aria-hidden="true" tabindex="-1"></a>      <span class="at">pval   =</span> pvals[pi],</span>
+<span id="cb14-143"><a href="#cb14-143" aria-hidden="true" tabindex="-1"></a>      <span class="at">weight =</span> weights[w_show],</span>
+<span id="cb14-144"><a href="#cb14-144" aria-hidden="true" tabindex="-1"></a>      <span class="at">growth =</span> wt.growth[tempseq[ti], pi, w_show]</span>
+<span id="cb14-145"><a href="#cb14-145" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-146"><a href="#cb14-146" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb14-147"><a href="#cb14-147" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
+<span id="cb14-148"><a href="#cb14-148" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> growth, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
+<span id="cb14-149"><a href="#cb14-149" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>) <span class="sc">+</span></span>
+<span id="cb14-150"><a href="#cb14-150" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb14-151"><a href="#cb14-151" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> temp_label, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb14-152"><a href="#cb14-152" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
+<span id="cb14-153"><a href="#cb14-153" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.05</span>, <span class="fl">0.1</span>)) <span class="sc">+</span></span>
+<span id="cb14-154"><a href="#cb14-154" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Weight (g)"</span>, <span class="at">y =</span> <span class="st">"Growth rate (g/g/d)"</span>) <span class="sc">+</span></span>
+<span id="cb14-155"><a href="#cb14-155" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb14-156"><a href="#cb14-156" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb14-157"><a href="#cb14-157" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-158"><a href="#cb14-158" aria-hidden="true" tabindex="-1"></a>The **maintenance p-value** is the minimum proportion of maximum consumption a fish must achieve to maintain positive growth at a given temperature and body size. It increases with body size (as allometric C~max~ declines) and deviates from its optimum at extreme temperatures (where respiration costs rise relative to consumption capacity). Lines in the optimal-temperature plots above are truncated at each p-value's maintenance boundary; below we visualise the full surface.</span>
+<span id="cb14-158"><a href="#cb14-158" aria-hidden="true" tabindex="-1"></a><span class="fu">### Maintenance p-value</span></span>
 <span id="cb14-159"><a href="#cb14-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-160"><a href="#cb14-160" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=5}</span></span>
-<span id="cb14-161"><a href="#cb14-161" aria-hidden="true" tabindex="-1"></a><span class="co"># For every [temperature, weight] cell, find the minimum p-value at which growth &gt; 0.</span></span>
-<span id="cb14-162"><a href="#cb14-162" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: as.vector() is column-major (ti varies fast); t() transposes so wi varies fast,</span></span>
-<span id="cb14-163"><a href="#cb14-163" aria-hidden="true" tabindex="-1"></a><span class="co"># matching the row order produced by expand_grid(ti, wi).</span></span>
-<span id="cb14-164"><a href="#cb14-164" aria-hidden="true" tabindex="-1"></a>maint <span class="ot">&lt;-</span> <span class="fu">apply</span>(wt.growth, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>), <span class="cf">function</span>(gvec) {</span>
-<span id="cb14-165"><a href="#cb14-165" aria-hidden="true" tabindex="-1"></a>  pos <span class="ot">&lt;-</span> <span class="fu">which</span>(gvec <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
-<span id="cb14-166"><a href="#cb14-166" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(pos) <span class="sc">&gt;</span> <span class="dv">0</span>) pvals[<span class="fu">min</span>(pos)] <span class="cf">else</span> <span class="cn">NA_real_</span></span>
-<span id="cb14-167"><a href="#cb14-167" aria-hidden="true" tabindex="-1"></a>})</span>
-<span id="cb14-168"><a href="#cb14-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-169"><a href="#cb14-169" aria-hidden="true" tabindex="-1"></a>breaks_pv <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="fl">0.9</span>, <span class="at">by =</span> <span class="fl">0.1</span>)</span>
+<span id="cb14-160"><a href="#cb14-160" aria-hidden="true" tabindex="-1"></a>The **maintenance p-value** is the minimum proportion of maximum consumption a fish must achieve to maintain positive growth at a given temperature and body size. It increases with body size (as allometric C~max~ declines) and deviates from its optimum at extreme temperatures (where respiration costs rise relative to consumption capacity). Lines in the optimal-temperature plots above are truncated at each p-value's maintenance boundary; below we visualise the full surface.</span>
+<span id="cb14-161"><a href="#cb14-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-162"><a href="#cb14-162" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=5}</span></span>
+<span id="cb14-163"><a href="#cb14-163" aria-hidden="true" tabindex="-1"></a><span class="co"># For every [temperature, weight] cell, find the minimum p-value at which growth &gt; 0.</span></span>
+<span id="cb14-164"><a href="#cb14-164" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: as.vector() is column-major (ti varies fast); t() transposes so wi varies fast,</span></span>
+<span id="cb14-165"><a href="#cb14-165" aria-hidden="true" tabindex="-1"></a><span class="co"># matching the row order produced by expand_grid(ti, wi).</span></span>
+<span id="cb14-166"><a href="#cb14-166" aria-hidden="true" tabindex="-1"></a>maint <span class="ot">&lt;-</span> <span class="fu">apply</span>(wt.growth, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>), <span class="cf">function</span>(gvec) {</span>
+<span id="cb14-167"><a href="#cb14-167" aria-hidden="true" tabindex="-1"></a>  pos <span class="ot">&lt;-</span> <span class="fu">which</span>(gvec <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb14-168"><a href="#cb14-168" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(pos) <span class="sc">&gt;</span> <span class="dv">0</span>) pvals[<span class="fu">min</span>(pos)] <span class="cf">else</span> <span class="cn">NA_real_</span></span>
+<span id="cb14-169"><a href="#cb14-169" aria-hidden="true" tabindex="-1"></a>})</span>
 <span id="cb14-170"><a href="#cb14-170" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-171"><a href="#cb14-171" aria-hidden="true" tabindex="-1"></a>maint_df_full <span class="ot">&lt;-</span> <span class="fu">expand_grid</span>(<span class="at">ti =</span> <span class="fu">seq_len</span>(<span class="fu">nrow</span>(maint)), <span class="at">wi =</span> <span class="fu">seq_len</span>(<span class="fu">ncol</span>(maint))) <span class="sc">|&gt;</span></span>
-<span id="cb14-172"><a href="#cb14-172" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb14-173"><a href="#cb14-173" aria-hidden="true" tabindex="-1"></a>    <span class="at">temp       =</span> waterTemps[ti, <span class="st">"WT"</span>],</span>
-<span id="cb14-174"><a href="#cb14-174" aria-hidden="true" tabindex="-1"></a>    <span class="at">weight     =</span> weights[wi],</span>
-<span id="cb14-175"><a href="#cb14-175" aria-hidden="true" tabindex="-1"></a>    <span class="at">maint_pval =</span> <span class="fu">as.vector</span>(<span class="fu">t</span>(maint))</span>
-<span id="cb14-176"><a href="#cb14-176" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb14-177"><a href="#cb14-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-178"><a href="#cb14-178" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract contour midpoints in a legible weight range for labelling</span></span>
-<span id="cb14-179"><a href="#cb14-179" aria-hidden="true" tabindex="-1"></a>contour_data <span class="ot">&lt;-</span> <span class="fu">ggplot_build</span>(</span>
-<span id="cb14-180"><a href="#cb14-180" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(maint_df_full, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> temp, <span class="at">z =</span> maint_pval)) <span class="sc">+</span></span>
-<span id="cb14-181"><a href="#cb14-181" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_contour</span>(<span class="at">breaks =</span> breaks_pv, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb14-182"><a href="#cb14-182" aria-hidden="true" tabindex="-1"></a>)<span class="sc">$</span>data[[<span class="dv">1</span>]]</span>
-<span id="cb14-183"><a href="#cb14-183" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-184"><a href="#cb14-184" aria-hidden="true" tabindex="-1"></a>label_pts <span class="ot">&lt;-</span> contour_data <span class="sc">|&gt;</span></span>
-<span id="cb14-185"><a href="#cb14-185" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(x <span class="sc">&gt;</span> <span class="dv">500</span>, x <span class="sc">&lt;</span> <span class="dv">2500</span>) <span class="sc">|&gt;</span></span>
-<span id="cb14-186"><a href="#cb14-186" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(level) <span class="sc">|&gt;</span></span>
-<span id="cb14-187"><a href="#cb14-187" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice</span>(<span class="fu">n</span>() <span class="sc">%/%</span> <span class="dv">2</span>) <span class="sc">|&gt;</span></span>
-<span id="cb14-188"><a href="#cb14-188" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">|&gt;</span></span>
-<span id="cb14-189"><a href="#cb14-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">label =</span> <span class="fu">as.character</span>(<span class="fu">round</span>(<span class="fu">as.numeric</span>(level), <span class="dv">1</span>)))</span>
-<span id="cb14-190"><a href="#cb14-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-191"><a href="#cb14-191" aria-hidden="true" tabindex="-1"></a>maint_df_full <span class="sc">|&gt;</span></span>
-<span id="cb14-192"><a href="#cb14-192" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> temp, <span class="at">fill =</span> maint_pval)) <span class="sc">+</span></span>
-<span id="cb14-193"><a href="#cb14-193" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_raster</span>() <span class="sc">+</span></span>
-<span id="cb14-194"><a href="#cb14-194" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_contour</span>(<span class="fu">aes</span>(<span class="at">z =</span> maint_pval), <span class="at">breaks =</span> breaks_pv,</span>
-<span id="cb14-195"><a href="#cb14-195" aria-hidden="true" tabindex="-1"></a>               <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">linewidth =</span> <span class="fl">0.4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
-<span id="cb14-196"><a href="#cb14-196" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_label</span>(<span class="at">data =</span> label_pts, <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">label =</span> label),</span>
-<span id="cb14-197"><a href="#cb14-197" aria-hidden="true" tabindex="-1"></a>             <span class="at">size =</span> <span class="fl">2.8</span>, <span class="at">linewidth =</span> <span class="dv">0</span>, <span class="at">fill =</span> <span class="fu">alpha</span>(<span class="st">"white"</span>, <span class="fl">0.5</span>),</span>
-<span id="cb14-198"><a href="#cb14-198" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"grey20"</span>, <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
-<span id="cb14-199"><a href="#cb14-199" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradientn</span>(</span>
-<span id="cb14-200"><a href="#cb14-200" aria-hidden="true" tabindex="-1"></a>    <span class="at">colors   =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>),</span>
-<span id="cb14-201"><a href="#cb14-201" aria-hidden="true" tabindex="-1"></a>    <span class="at">name     =</span> <span class="st">"Maintenance</span><span class="sc">\n</span><span class="st">p-value"</span>,</span>
-<span id="cb14-202"><a href="#cb14-202" aria-hidden="true" tabindex="-1"></a>    <span class="at">limits   =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>),</span>
-<span id="cb14-203"><a href="#cb14-203" aria-hidden="true" tabindex="-1"></a>    <span class="at">na.value =</span> <span class="st">"grey70"</span></span>
-<span id="cb14-204"><a href="#cb14-204" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb14-205"><a href="#cb14-205" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
-<span id="cb14-206"><a href="#cb14-206" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
-<span id="cb14-207"><a href="#cb14-207" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb14-208"><a href="#cb14-208" aria-hidden="true" tabindex="-1"></a>    <span class="at">x       =</span> <span class="st">"Fish weight (g)"</span>,</span>
-<span id="cb14-209"><a href="#cb14-209" aria-hidden="true" tabindex="-1"></a>    <span class="at">y       =</span> <span class="st">"Water temperature (°C)"</span>,</span>
-<span id="cb14-210"><a href="#cb14-210" aria-hidden="true" tabindex="-1"></a>    <span class="at">title   =</span> <span class="st">"Minimum p-value required for positive growth"</span>,</span>
-<span id="cb14-211"><a href="#cb14-211" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Grey: growth impossible even at p = 1.0."</span></span>
-<span id="cb14-212"><a href="#cb14-212" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb14-213"><a href="#cb14-213" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
-<span id="cb14-214"><a href="#cb14-214" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-215"><a href="#cb14-215" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-216"><a href="#cb14-216" aria-hidden="true" tabindex="-1"></a>Plot optimal growth temperature and maximum growth rate by fish weight across a range of p-values (blue = low, red = high). Each line is set to <span class="in">`NA`</span> for weights at which that p-value cannot sustain positive growth at any temperature — i.e., where consumption falls below the maintenance ration. Consequently, line endpoints trace the **maintenance p-value boundary**: the minimum p-value required for zero net growth at a given body size. Lines are shorter at lower p-values because smaller fish are already below the maintenance threshold, and the boundary shifts to larger sizes as p-value increases.</span>
-<span id="cb14-217"><a href="#cb14-217" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=5}</span></span>
-<span id="cb14-218"><a href="#cb14-218" aria-hidden="true" tabindex="-1"></a>optgrowth_df <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
-<span id="cb14-219"><a href="#cb14-219" aria-hidden="true" tabindex="-1"></a>  mat    <span class="ot">&lt;-</span> wt.growth[, pi, ]                          <span class="co"># 250 temp × 24000 weight matrix</span></span>
-<span id="cb14-220"><a href="#cb14-220" aria-hidden="true" tabindex="-1"></a>  best_t <span class="ot">&lt;-</span> <span class="fu">apply</span>(mat, <span class="dv">2</span>, which.max)                   <span class="co"># temperature index of max growth, per weight</span></span>
-<span id="cb14-221"><a href="#cb14-221" aria-hidden="true" tabindex="-1"></a>  max_g  <span class="ot">&lt;-</span> mat[<span class="fu">cbind</span>(best_t, <span class="fu">seq_along</span>(best_t))]</span>
-<span id="cb14-222"><a href="#cb14-222" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
-<span id="cb14-223"><a href="#cb14-223" aria-hidden="true" tabindex="-1"></a>    <span class="at">pval      =</span> pvals[pi],</span>
-<span id="cb14-224"><a href="#cb14-224" aria-hidden="true" tabindex="-1"></a>    <span class="at">weight    =</span> weights,</span>
-<span id="cb14-225"><a href="#cb14-225" aria-hidden="true" tabindex="-1"></a>    <span class="co"># NA where max growth is negative: optimal temp is undefined when no positive growth is possible</span></span>
-<span id="cb14-226"><a href="#cb14-226" aria-hidden="true" tabindex="-1"></a>    <span class="at">opttemp   =</span> <span class="fu">if_else</span>(max_g <span class="sc">&gt;</span> <span class="dv">0</span>, waterTemps[best_t, <span class="st">"WT"</span>], <span class="cn">NA_real_</span>),</span>
-<span id="cb14-227"><a href="#cb14-227" aria-hidden="true" tabindex="-1"></a>    <span class="at">maxgrowth =</span> <span class="fu">if_else</span>(max_g <span class="sc">&gt;</span> <span class="dv">0</span>, max_g,                    <span class="cn">NA_real_</span>)</span>
-<span id="cb14-228"><a href="#cb14-228" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb14-229"><a href="#cb14-229" aria-hidden="true" tabindex="-1"></a>})</span>
-<span id="cb14-230"><a href="#cb14-230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-231"><a href="#cb14-231" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(optgrowth_df, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> opttemp, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
-<span id="cb14-232"><a href="#cb14-232" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
-<span id="cb14-233"><a href="#cb14-233" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
-<span id="cb14-234"><a href="#cb14-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"Optimal temperature for growth (°C)"</span>) <span class="sc">+</span></span>
-<span id="cb14-235"><a href="#cb14-235" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span> </span>
-<span id="cb14-236"><a href="#cb14-236" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">2000</span>))</span>
-<span id="cb14-237"><a href="#cb14-237" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-238"><a href="#cb14-238" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(optgrowth_df, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> maxgrowth, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
-<span id="cb14-239"><a href="#cb14-239" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
-<span id="cb14-240"><a href="#cb14-240" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
-<span id="cb14-241"><a href="#cb14-241" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
-<span id="cb14-242"><a href="#cb14-242" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"Maximum growth rate (g/g/d)"</span>) <span class="sc">+</span></span>
-<span id="cb14-243"><a href="#cb14-243" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span> </span>
-<span id="cb14-244"><a href="#cb14-244" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">2000</span>))</span>
-<span id="cb14-245"><a href="#cb14-245" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-246"><a href="#cb14-246" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-247"><a href="#cb14-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-171"><a href="#cb14-171" aria-hidden="true" tabindex="-1"></a>breaks_pv <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.1</span>, <span class="fl">0.9</span>, <span class="at">by =</span> <span class="fl">0.1</span>)</span>
+<span id="cb14-172"><a href="#cb14-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-173"><a href="#cb14-173" aria-hidden="true" tabindex="-1"></a>maint_df_full <span class="ot">&lt;-</span> <span class="fu">expand_grid</span>(<span class="at">ti =</span> <span class="fu">seq_len</span>(<span class="fu">nrow</span>(maint)), <span class="at">wi =</span> <span class="fu">seq_len</span>(<span class="fu">ncol</span>(maint))) <span class="sc">|&gt;</span></span>
+<span id="cb14-174"><a href="#cb14-174" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb14-175"><a href="#cb14-175" aria-hidden="true" tabindex="-1"></a>    <span class="at">temp       =</span> waterTemps[ti, <span class="st">"WT"</span>],</span>
+<span id="cb14-176"><a href="#cb14-176" aria-hidden="true" tabindex="-1"></a>    <span class="at">weight     =</span> weights[wi],</span>
+<span id="cb14-177"><a href="#cb14-177" aria-hidden="true" tabindex="-1"></a>    <span class="at">maint_pval =</span> <span class="fu">as.vector</span>(<span class="fu">t</span>(maint))</span>
+<span id="cb14-178"><a href="#cb14-178" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb14-179"><a href="#cb14-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-180"><a href="#cb14-180" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract contour midpoints in a legible weight range for labelling</span></span>
+<span id="cb14-181"><a href="#cb14-181" aria-hidden="true" tabindex="-1"></a>contour_data <span class="ot">&lt;-</span> <span class="fu">ggplot_build</span>(</span>
+<span id="cb14-182"><a href="#cb14-182" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(maint_df_full, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> temp, <span class="at">z =</span> maint_pval)) <span class="sc">+</span></span>
+<span id="cb14-183"><a href="#cb14-183" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_contour</span>(<span class="at">breaks =</span> breaks_pv, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb14-184"><a href="#cb14-184" aria-hidden="true" tabindex="-1"></a>)<span class="sc">$</span>data[[<span class="dv">1</span>]]</span>
+<span id="cb14-185"><a href="#cb14-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-186"><a href="#cb14-186" aria-hidden="true" tabindex="-1"></a>label_pts <span class="ot">&lt;-</span> contour_data <span class="sc">|&gt;</span></span>
+<span id="cb14-187"><a href="#cb14-187" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(x <span class="sc">&gt;</span> <span class="dv">500</span>, x <span class="sc">&lt;</span> <span class="dv">2500</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-188"><a href="#cb14-188" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(level) <span class="sc">|&gt;</span></span>
+<span id="cb14-189"><a href="#cb14-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice</span>(<span class="fu">n</span>() <span class="sc">%/%</span> <span class="dv">2</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-190"><a href="#cb14-190" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">|&gt;</span></span>
+<span id="cb14-191"><a href="#cb14-191" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">label =</span> <span class="fu">as.character</span>(<span class="fu">round</span>(<span class="fu">as.numeric</span>(level), <span class="dv">1</span>)))</span>
+<span id="cb14-192"><a href="#cb14-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-193"><a href="#cb14-193" aria-hidden="true" tabindex="-1"></a>maint_df_full <span class="sc">|&gt;</span></span>
+<span id="cb14-194"><a href="#cb14-194" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> temp, <span class="at">fill =</span> maint_pval)) <span class="sc">+</span></span>
+<span id="cb14-195"><a href="#cb14-195" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_raster</span>() <span class="sc">+</span></span>
+<span id="cb14-196"><a href="#cb14-196" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_contour</span>(<span class="fu">aes</span>(<span class="at">z =</span> maint_pval), <span class="at">breaks =</span> breaks_pv,</span>
+<span id="cb14-197"><a href="#cb14-197" aria-hidden="true" tabindex="-1"></a>               <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">linewidth =</span> <span class="fl">0.4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb14-198"><a href="#cb14-198" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_label</span>(<span class="at">data =</span> label_pts, <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">label =</span> label),</span>
+<span id="cb14-199"><a href="#cb14-199" aria-hidden="true" tabindex="-1"></a>             <span class="at">size =</span> <span class="fl">2.8</span>, <span class="at">linewidth =</span> <span class="dv">0</span>, <span class="at">fill =</span> <span class="fu">alpha</span>(<span class="st">"white"</span>, <span class="fl">0.5</span>),</span>
+<span id="cb14-200"><a href="#cb14-200" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"grey20"</span>, <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
+<span id="cb14-201"><a href="#cb14-201" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradientn</span>(</span>
+<span id="cb14-202"><a href="#cb14-202" aria-hidden="true" tabindex="-1"></a>    <span class="at">colors   =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>),</span>
+<span id="cb14-203"><a href="#cb14-203" aria-hidden="true" tabindex="-1"></a>    <span class="at">name     =</span> <span class="st">"Maintenance</span><span class="sc">\n</span><span class="st">p-value"</span>,</span>
+<span id="cb14-204"><a href="#cb14-204" aria-hidden="true" tabindex="-1"></a>    <span class="at">limits   =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>),</span>
+<span id="cb14-205"><a href="#cb14-205" aria-hidden="true" tabindex="-1"></a>    <span class="at">na.value =</span> <span class="st">"grey70"</span></span>
+<span id="cb14-206"><a href="#cb14-206" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb14-207"><a href="#cb14-207" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb14-208"><a href="#cb14-208" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb14-209"><a href="#cb14-209" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb14-210"><a href="#cb14-210" aria-hidden="true" tabindex="-1"></a>    <span class="at">x       =</span> <span class="st">"Fish weight (g)"</span>,</span>
+<span id="cb14-211"><a href="#cb14-211" aria-hidden="true" tabindex="-1"></a>    <span class="at">y       =</span> <span class="st">"Water temperature (°C)"</span>,</span>
+<span id="cb14-212"><a href="#cb14-212" aria-hidden="true" tabindex="-1"></a>    <span class="at">title   =</span> <span class="st">"Minimum p-value required for positive growth"</span>,</span>
+<span id="cb14-213"><a href="#cb14-213" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Grey: growth impossible even at p = 1.0."</span></span>
+<span id="cb14-214"><a href="#cb14-214" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb14-215"><a href="#cb14-215" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
+<span id="cb14-216"><a href="#cb14-216" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-217"><a href="#cb14-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-218"><a href="#cb14-218" aria-hidden="true" tabindex="-1"></a>Plot optimal growth temperature and maximum growth rate by fish weight across a range of p-values (blue = low, red = high). Each line is set to <span class="in">`NA`</span> for weights at which that p-value cannot sustain positive growth at any temperature — i.e., where consumption falls below the maintenance ration. Consequently, line endpoints trace the **maintenance p-value boundary**: the minimum p-value required for zero net growth at a given body size. Lines are shorter at lower p-values because smaller fish are already below the maintenance threshold, and the boundary shifts to larger sizes as p-value increases.</span>
+<span id="cb14-219"><a href="#cb14-219" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=5}</span></span>
+<span id="cb14-220"><a href="#cb14-220" aria-hidden="true" tabindex="-1"></a>optgrowth_df <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
+<span id="cb14-221"><a href="#cb14-221" aria-hidden="true" tabindex="-1"></a>  mat    <span class="ot">&lt;-</span> wt.growth[, pi, ]                          <span class="co"># 250 temp × 24000 weight matrix</span></span>
+<span id="cb14-222"><a href="#cb14-222" aria-hidden="true" tabindex="-1"></a>  best_t <span class="ot">&lt;-</span> <span class="fu">apply</span>(mat, <span class="dv">2</span>, which.max)                   <span class="co"># temperature index of max growth, per weight</span></span>
+<span id="cb14-223"><a href="#cb14-223" aria-hidden="true" tabindex="-1"></a>  max_g  <span class="ot">&lt;-</span> mat[<span class="fu">cbind</span>(best_t, <span class="fu">seq_along</span>(best_t))]</span>
+<span id="cb14-224"><a href="#cb14-224" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb14-225"><a href="#cb14-225" aria-hidden="true" tabindex="-1"></a>    <span class="at">pval      =</span> pvals[pi],</span>
+<span id="cb14-226"><a href="#cb14-226" aria-hidden="true" tabindex="-1"></a>    <span class="at">weight    =</span> weights,</span>
+<span id="cb14-227"><a href="#cb14-227" aria-hidden="true" tabindex="-1"></a>    <span class="co"># NA where max growth is negative: optimal temp is undefined when no positive growth is possible</span></span>
+<span id="cb14-228"><a href="#cb14-228" aria-hidden="true" tabindex="-1"></a>    <span class="at">opttemp   =</span> <span class="fu">if_else</span>(max_g <span class="sc">&gt;</span> <span class="dv">0</span>, waterTemps[best_t, <span class="st">"WT"</span>], <span class="cn">NA_real_</span>),</span>
+<span id="cb14-229"><a href="#cb14-229" aria-hidden="true" tabindex="-1"></a>    <span class="at">maxgrowth =</span> <span class="fu">if_else</span>(max_g <span class="sc">&gt;</span> <span class="dv">0</span>, max_g,                    <span class="cn">NA_real_</span>)</span>
+<span id="cb14-230"><a href="#cb14-230" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb14-231"><a href="#cb14-231" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb14-232"><a href="#cb14-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-233"><a href="#cb14-233" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(optgrowth_df, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> opttemp, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
+<span id="cb14-234"><a href="#cb14-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb14-235"><a href="#cb14-235" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
+<span id="cb14-236"><a href="#cb14-236" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"Optimal temperature for growth (°C)"</span>) <span class="sc">+</span></span>
+<span id="cb14-237"><a href="#cb14-237" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span> </span>
+<span id="cb14-238"><a href="#cb14-238" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">2000</span>))</span>
+<span id="cb14-239"><a href="#cb14-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-240"><a href="#cb14-240" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(optgrowth_df, <span class="fu">aes</span>(<span class="at">x =</span> weight, <span class="at">y =</span> maxgrowth, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
+<span id="cb14-241"><a href="#cb14-241" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb14-242"><a href="#cb14-242" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb14-243"><a href="#cb14-243" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
+<span id="cb14-244"><a href="#cb14-244" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Fish weight (g)"</span>, <span class="at">y =</span> <span class="st">"Maximum growth rate (g/g/d)"</span>) <span class="sc">+</span></span>
+<span id="cb14-245"><a href="#cb14-245" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span> </span>
+<span id="cb14-246"><a href="#cb14-246" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">2000</span>))</span>
+<span id="cb14-247"><a href="#cb14-247" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb14-248"><a href="#cb14-248" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-249"><a href="#cb14-249" aria-hidden="true" tabindex="-1"></a><span class="fu">### Consumption</span></span>
+<span id="cb14-249"><a href="#cb14-249" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-250"><a href="#cb14-250" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-251"><a href="#cb14-251" aria-hidden="true" tabindex="-1"></a>Consumption by temperature for representative fish sizes, across the full range of p-values (blue = low, red = high):</span>
-<span id="cb14-252"><a href="#cb14-252" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
-<span id="cb14-253"><a href="#cb14-253" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(mass_idx), \(k) {</span>
-<span id="cb14-254"><a href="#cb14-254" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
-<span id="cb14-255"><a href="#cb14-255" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
-<span id="cb14-256"><a href="#cb14-256" aria-hidden="true" tabindex="-1"></a>      <span class="at">weight_g =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">levels =</span> <span class="fu">paste0</span>(mass_lbl, <span class="st">" g"</span>)),</span>
-<span id="cb14-257"><a href="#cb14-257" aria-hidden="true" tabindex="-1"></a>      <span class="at">pval     =</span> pvals[pi],</span>
-<span id="cb14-258"><a href="#cb14-258" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp     =</span> waterTemps[, <span class="st">"WT"</span>],</span>
-<span id="cb14-259"><a href="#cb14-259" aria-hidden="true" tabindex="-1"></a>      <span class="at">cons     =</span> consumption[, pi, mass_idx[k]]</span>
-<span id="cb14-260"><a href="#cb14-260" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb14-261"><a href="#cb14-261" aria-hidden="true" tabindex="-1"></a>  })</span>
-<span id="cb14-262"><a href="#cb14-262" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
-<span id="cb14-263"><a href="#cb14-263" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp, <span class="at">y =</span> cons, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
-<span id="cb14-264"><a href="#cb14-264" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
-<span id="cb14-265"><a href="#cb14-265" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>) <span class="sc">+</span></span>
-<span id="cb14-266"><a href="#cb14-266" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> weight_g, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb14-267"><a href="#cb14-267" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
-<span id="cb14-268"><a href="#cb14-268" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.6</span>)) <span class="sc">+</span></span>
-<span id="cb14-269"><a href="#cb14-269" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Consumption (g/g/d)"</span>) <span class="sc">+</span></span>
-<span id="cb14-270"><a href="#cb14-270" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
-<span id="cb14-271"><a href="#cb14-271" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-272"><a href="#cb14-272" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-273"><a href="#cb14-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-251"><a href="#cb14-251" aria-hidden="true" tabindex="-1"></a><span class="fu">### Consumption</span></span>
+<span id="cb14-252"><a href="#cb14-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-253"><a href="#cb14-253" aria-hidden="true" tabindex="-1"></a>Consumption by temperature for representative fish sizes, across the full range of p-values (blue = low, red = high):</span>
+<span id="cb14-254"><a href="#cb14-254" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb14-255"><a href="#cb14-255" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(mass_idx), \(k) {</span>
+<span id="cb14-256"><a href="#cb14-256" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="dv">5</span>), \(pi) {</span>
+<span id="cb14-257"><a href="#cb14-257" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
+<span id="cb14-258"><a href="#cb14-258" aria-hidden="true" tabindex="-1"></a>      <span class="at">weight_g =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">levels =</span> <span class="fu">paste0</span>(mass_lbl, <span class="st">" g"</span>)),</span>
+<span id="cb14-259"><a href="#cb14-259" aria-hidden="true" tabindex="-1"></a>      <span class="at">pval     =</span> pvals[pi],</span>
+<span id="cb14-260"><a href="#cb14-260" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp     =</span> waterTemps[, <span class="st">"WT"</span>],</span>
+<span id="cb14-261"><a href="#cb14-261" aria-hidden="true" tabindex="-1"></a>      <span class="at">cons     =</span> consumption[, pi, mass_idx[k]]</span>
+<span id="cb14-262"><a href="#cb14-262" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-263"><a href="#cb14-263" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb14-264"><a href="#cb14-264" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
+<span id="cb14-265"><a href="#cb14-265" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp, <span class="at">y =</span> cons, <span class="at">color =</span> pval, <span class="at">group =</span> pval)) <span class="sc">+</span></span>
+<span id="cb14-266"><a href="#cb14-266" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb14-267"><a href="#cb14-267" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.4</span>) <span class="sc">+</span></span>
+<span id="cb14-268"><a href="#cb14-268" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> weight_g, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb14-269"><a href="#cb14-269" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradientn</span>(<span class="at">colors =</span> <span class="fu">hcl.colors</span>(<span class="dv">100</span>, <span class="st">"Temps"</span>), <span class="at">name =</span> <span class="st">"P-value"</span>) <span class="sc">+</span></span>
+<span id="cb14-270"><a href="#cb14-270" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.6</span>)) <span class="sc">+</span></span>
+<span id="cb14-271"><a href="#cb14-271" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Consumption (g/g/d)"</span>) <span class="sc">+</span></span>
+<span id="cb14-272"><a href="#cb14-272" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb14-273"><a href="#cb14-273" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb14-274"><a href="#cb14-274" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-275"><a href="#cb14-275" aria-hidden="true" tabindex="-1"></a><span class="fu">### Energy budget</span></span>
+<span id="cb14-275"><a href="#cb14-275" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-276"><a href="#cb14-276" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-277"><a href="#cb14-277" aria-hidden="true" tabindex="-1"></a>Create multi-panel energy budget plots for different sized fish: *Consumption* = *metabolism* + *wastes* + *growth*</span>
+<span id="cb14-277"><a href="#cb14-277" aria-hidden="true" tabindex="-1"></a><span class="fu">### Energy budget</span></span>
 <span id="cb14-278"><a href="#cb14-278" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-279"><a href="#cb14-279" aria-hidden="true" tabindex="-1"></a>Scope for growth is thus the difference between *Consumption* and (*metabolism* + *wastes*), i.e., the space between the Consumption and Wastes lines. Shown at p = 0.5 (index 50):</span>
-<span id="cb14-280"><a href="#cb14-280" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
-<span id="cb14-281"><a href="#cb14-281" aria-hidden="true" tabindex="-1"></a>budget_cols <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Consumption"</span> <span class="ot">=</span> <span class="st">"#2166ac"</span>, <span class="st">"Wastes"</span> <span class="ot">=</span> <span class="st">"#1a9641"</span>, <span class="st">"Respiration"</span> <span class="ot">=</span> <span class="st">"#d73027"</span>)</span>
-<span id="cb14-282"><a href="#cb14-282" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-283"><a href="#cb14-283" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(mass_idx), \(k) {</span>
-<span id="cb14-284"><a href="#cb14-284" aria-hidden="true" tabindex="-1"></a>  mi   <span class="ot">&lt;-</span> mass_idx[k]</span>
-<span id="cb14-285"><a href="#cb14-285" aria-hidden="true" tabindex="-1"></a>  temp <span class="ot">&lt;-</span> waterTemps[, <span class="st">"WT"</span>]</span>
-<span id="cb14-286"><a href="#cb14-286" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(</span>
-<span id="cb14-287"><a href="#cb14-287" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">weight_g =</span> <span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">component =</span> <span class="st">"Consumption"</span>, <span class="at">temp =</span> temp, <span class="at">rate =</span> consumption[, <span class="dv">50</span>, mi]),</span>
-<span id="cb14-288"><a href="#cb14-288" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">weight_g =</span> <span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">component =</span> <span class="st">"Wastes"</span>,      <span class="at">temp =</span> temp, <span class="at">rate =</span> wastes[,      <span class="dv">50</span>, mi]),</span>
-<span id="cb14-289"><a href="#cb14-289" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">weight_g =</span> <span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">component =</span> <span class="st">"Respiration"</span>, <span class="at">temp =</span> temp, <span class="at">rate =</span> respiration[, <span class="dv">50</span>, mi])</span>
-<span id="cb14-290"><a href="#cb14-290" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb14-291"><a href="#cb14-291" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
-<span id="cb14-292"><a href="#cb14-292" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb14-293"><a href="#cb14-293" aria-hidden="true" tabindex="-1"></a>    <span class="at">weight_g  =</span> <span class="fu">factor</span>(weight_g,  <span class="at">levels =</span> <span class="fu">paste0</span>(mass_lbl, <span class="st">" g"</span>)),</span>
-<span id="cb14-294"><a href="#cb14-294" aria-hidden="true" tabindex="-1"></a>    <span class="at">component =</span> <span class="fu">factor</span>(component, <span class="at">levels =</span> <span class="fu">names</span>(budget_cols))</span>
-<span id="cb14-295"><a href="#cb14-295" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
-<span id="cb14-296"><a href="#cb14-296" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp, <span class="at">y =</span> rate, <span class="at">color =</span> component)) <span class="sc">+</span></span>
-<span id="cb14-297"><a href="#cb14-297" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
-<span id="cb14-298"><a href="#cb14-298" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
-<span id="cb14-299"><a href="#cb14-299" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> weight_g, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb14-300"><a href="#cb14-300" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> budget_cols, <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
-<span id="cb14-301"><a href="#cb14-301" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.3</span>)) <span class="sc">+</span></span>
-<span id="cb14-302"><a href="#cb14-302" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Rate (g/g/d)"</span>) <span class="sc">+</span></span>
-<span id="cb14-303"><a href="#cb14-303" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb14-304"><a href="#cb14-304" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
-<span id="cb14-305"><a href="#cb14-305" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-306"><a href="#cb14-306" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-307"><a href="#cb14-307" aria-hidden="true" tabindex="-1"></a>Create single panel 'growth banana' as in FB4 documentation: shaded region is the scope for growth (p = 0.5, 500g fish):</span>
-<span id="cb14-308"><a href="#cb14-308" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=5, fig.height=4}</span></span>
-<span id="cb14-309"><a href="#cb14-309" aria-hidden="true" tabindex="-1"></a>mi <span class="ot">&lt;-</span> <span class="dv">2000</span>  <span class="co"># index for 500g fish</span></span>
-<span id="cb14-310"><a href="#cb14-310" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-311"><a href="#cb14-311" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
-<span id="cb14-312"><a href="#cb14-312" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp        =</span> waterTemps[, <span class="st">"WT"</span>],</span>
-<span id="cb14-313"><a href="#cb14-313" aria-hidden="true" tabindex="-1"></a>  <span class="at">consumption =</span> consumption[, <span class="dv">50</span>, mi],</span>
-<span id="cb14-314"><a href="#cb14-314" aria-hidden="true" tabindex="-1"></a>  <span class="at">wastes      =</span> wastes[,      <span class="dv">50</span>, mi],</span>
-<span id="cb14-315"><a href="#cb14-315" aria-hidden="true" tabindex="-1"></a>  <span class="at">respiration =</span> respiration[, <span class="dv">50</span>, mi]</span>
-<span id="cb14-316"><a href="#cb14-316" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
-<span id="cb14-317"><a href="#cb14-317" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp)) <span class="sc">+</span></span>
-<span id="cb14-318"><a href="#cb14-318" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> respiration, <span class="at">ymax =</span> wastes), <span class="at">fill =</span> <span class="st">"grey80"</span>) <span class="sc">+</span></span>
-<span id="cb14-319"><a href="#cb14-319" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> consumption, <span class="at">color =</span> <span class="st">"Consumption"</span>), <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
-<span id="cb14-320"><a href="#cb14-320" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> wastes,      <span class="at">color =</span> <span class="st">"Wastes"</span>),      <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
-<span id="cb14-321"><a href="#cb14-321" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> respiration, <span class="at">color =</span> <span class="st">"Respiration"</span>), <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
-<span id="cb14-322"><a href="#cb14-322" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"grey60"</span>) <span class="sc">+</span></span>
-<span id="cb14-323"><a href="#cb14-323" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> budget_cols, <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
-<span id="cb14-324"><a href="#cb14-324" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.05</span>)) <span class="sc">+</span></span>
-<span id="cb14-325"><a href="#cb14-325" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Rate (g/g/d)"</span>,</span>
-<span id="cb14-326"><a href="#cb14-326" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"500 g fish, p = 0.5"</span>,</span>
-<span id="cb14-327"><a href="#cb14-327" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Shaded = scope for growth"</span>) <span class="sc">+</span></span>
-<span id="cb14-328"><a href="#cb14-328" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb14-329"><a href="#cb14-329" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
-<span id="cb14-330"><a href="#cb14-330" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-331"><a href="#cb14-331" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-332"><a href="#cb14-332" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-279"><a href="#cb14-279" aria-hidden="true" tabindex="-1"></a>Create multi-panel energy budget plots for different sized fish: *Consumption* = *metabolism* + *wastes* + *growth*</span>
+<span id="cb14-280"><a href="#cb14-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-281"><a href="#cb14-281" aria-hidden="true" tabindex="-1"></a>Scope for growth is thus the difference between *Consumption* and (*metabolism* + *wastes*), i.e., the space between the Consumption and Wastes lines. Shown at p = 0.5 (index 50):</span>
+<span id="cb14-282"><a href="#cb14-282" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=7, fig.height=6}</span></span>
+<span id="cb14-283"><a href="#cb14-283" aria-hidden="true" tabindex="-1"></a>budget_cols <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Consumption"</span> <span class="ot">=</span> <span class="st">"#2166ac"</span>, <span class="st">"Wastes"</span> <span class="ot">=</span> <span class="st">"#1a9641"</span>, <span class="st">"Respiration"</span> <span class="ot">=</span> <span class="st">"#d73027"</span>)</span>
+<span id="cb14-284"><a href="#cb14-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-285"><a href="#cb14-285" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">seq_along</span>(mass_idx), \(k) {</span>
+<span id="cb14-286"><a href="#cb14-286" aria-hidden="true" tabindex="-1"></a>  mi   <span class="ot">&lt;-</span> mass_idx[k]</span>
+<span id="cb14-287"><a href="#cb14-287" aria-hidden="true" tabindex="-1"></a>  temp <span class="ot">&lt;-</span> waterTemps[, <span class="st">"WT"</span>]</span>
+<span id="cb14-288"><a href="#cb14-288" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(</span>
+<span id="cb14-289"><a href="#cb14-289" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">weight_g =</span> <span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">component =</span> <span class="st">"Consumption"</span>, <span class="at">temp =</span> temp, <span class="at">rate =</span> consumption[, <span class="dv">50</span>, mi]),</span>
+<span id="cb14-290"><a href="#cb14-290" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">weight_g =</span> <span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">component =</span> <span class="st">"Wastes"</span>,      <span class="at">temp =</span> temp, <span class="at">rate =</span> wastes[,      <span class="dv">50</span>, mi]),</span>
+<span id="cb14-291"><a href="#cb14-291" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">weight_g =</span> <span class="fu">paste0</span>(mass_lbl[k], <span class="st">" g"</span>), <span class="at">component =</span> <span class="st">"Respiration"</span>, <span class="at">temp =</span> temp, <span class="at">rate =</span> respiration[, <span class="dv">50</span>, mi])</span>
+<span id="cb14-292"><a href="#cb14-292" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb14-293"><a href="#cb14-293" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
+<span id="cb14-294"><a href="#cb14-294" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb14-295"><a href="#cb14-295" aria-hidden="true" tabindex="-1"></a>    <span class="at">weight_g  =</span> <span class="fu">factor</span>(weight_g,  <span class="at">levels =</span> <span class="fu">paste0</span>(mass_lbl, <span class="st">" g"</span>)),</span>
+<span id="cb14-296"><a href="#cb14-296" aria-hidden="true" tabindex="-1"></a>    <span class="at">component =</span> <span class="fu">factor</span>(component, <span class="at">levels =</span> <span class="fu">names</span>(budget_cols))</span>
+<span id="cb14-297"><a href="#cb14-297" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb14-298"><a href="#cb14-298" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp, <span class="at">y =</span> rate, <span class="at">color =</span> component)) <span class="sc">+</span></span>
+<span id="cb14-299"><a href="#cb14-299" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb14-300"><a href="#cb14-300" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb14-301"><a href="#cb14-301" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> weight_g, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb14-302"><a href="#cb14-302" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> budget_cols, <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb14-303"><a href="#cb14-303" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.3</span>)) <span class="sc">+</span></span>
+<span id="cb14-304"><a href="#cb14-304" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Rate (g/g/d)"</span>) <span class="sc">+</span></span>
+<span id="cb14-305"><a href="#cb14-305" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb14-306"><a href="#cb14-306" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb14-307"><a href="#cb14-307" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-308"><a href="#cb14-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-309"><a href="#cb14-309" aria-hidden="true" tabindex="-1"></a>Create single panel 'growth banana' as in FB4 documentation: shaded region is the scope for growth (p = 0.5, 500g fish):</span>
+<span id="cb14-310"><a href="#cb14-310" aria-hidden="true" tabindex="-1"></a><span class="in">```{r fig.width=5, fig.height=4}</span></span>
+<span id="cb14-311"><a href="#cb14-311" aria-hidden="true" tabindex="-1"></a>mi <span class="ot">&lt;-</span> <span class="dv">2000</span>  <span class="co"># index for 500g fish</span></span>
+<span id="cb14-312"><a href="#cb14-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-313"><a href="#cb14-313" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb14-314"><a href="#cb14-314" aria-hidden="true" tabindex="-1"></a>  <span class="at">temp        =</span> waterTemps[, <span class="st">"WT"</span>],</span>
+<span id="cb14-315"><a href="#cb14-315" aria-hidden="true" tabindex="-1"></a>  <span class="at">consumption =</span> consumption[, <span class="dv">50</span>, mi],</span>
+<span id="cb14-316"><a href="#cb14-316" aria-hidden="true" tabindex="-1"></a>  <span class="at">wastes      =</span> wastes[,      <span class="dv">50</span>, mi],</span>
+<span id="cb14-317"><a href="#cb14-317" aria-hidden="true" tabindex="-1"></a>  <span class="at">respiration =</span> respiration[, <span class="dv">50</span>, mi]</span>
+<span id="cb14-318"><a href="#cb14-318" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb14-319"><a href="#cb14-319" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> temp)) <span class="sc">+</span></span>
+<span id="cb14-320"><a href="#cb14-320" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> respiration, <span class="at">ymax =</span> wastes), <span class="at">fill =</span> <span class="st">"grey80"</span>) <span class="sc">+</span></span>
+<span id="cb14-321"><a href="#cb14-321" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> consumption, <span class="at">color =</span> <span class="st">"Consumption"</span>), <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb14-322"><a href="#cb14-322" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> wastes,      <span class="at">color =</span> <span class="st">"Wastes"</span>),      <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb14-323"><a href="#cb14-323" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> respiration, <span class="at">color =</span> <span class="st">"Respiration"</span>), <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb14-324"><a href="#cb14-324" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"grey60"</span>) <span class="sc">+</span></span>
+<span id="cb14-325"><a href="#cb14-325" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> budget_cols, <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb14-326"><a href="#cb14-326" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.05</span>)) <span class="sc">+</span></span>
+<span id="cb14-327"><a href="#cb14-327" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Water temperature (°C)"</span>, <span class="at">y =</span> <span class="st">"Rate (g/g/d)"</span>,</span>
+<span id="cb14-328"><a href="#cb14-328" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"500 g fish, p = 0.5"</span>,</span>
+<span id="cb14-329"><a href="#cb14-329" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Shaded = scope for growth"</span>) <span class="sc">+</span></span>
+<span id="cb14-330"><a href="#cb14-330" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb14-331"><a href="#cb14-331" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb14-332"><a href="#cb14-332" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb14-333"><a href="#cb14-333" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-334"><a href="#cb14-334" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-335"><a href="#cb14-335" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-336"><a href="#cb14-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-337"><a href="#cb14-337" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-338"><a href="#cb14-338" aria-hidden="true" tabindex="-1"></a></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

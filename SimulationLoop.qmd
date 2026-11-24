@@ -123,7 +123,7 @@ Run the IBM simulation loop over the full `habitat_df` time series. Returns a na
 | `extinct` | `TRUE` if no fish were recorded on or after the start of the experimental period (replaces the empty-`ibm_long` test) |
 | `extinction_date` | Date of the last recorded day if the population died out (`NA` if it persisted to the end of the run) |
 | `census` | Per-fish survivors on each `census_mmdd` date (default Oct 1), experimental period only |
-| `daily_patch` | Experimental period only; one row per date × patch × `cohort_grp` × `age_group` (0 = age 0, 1 = age 1+). `cohort_grp` is the birth cohort for fish in their first two calendar years, `NA` (pooled) for older fish. Columns: `n_fish` (all fish recorded that day), `n_alive` (survivors), `temp` (mean temp), `n_ggd_all` / `sum_ggd_all` / `sum_growth_g` (fish with non-missing growth: count, sum of ggd, sum of weight × ggd), `n_ggd_alive` / `sum_ggd_alive` (same, survivors only) |
+| `daily_patch` | Experimental period only; one row per date × patch × `cohort_grp` × `age_group` (0 = age 0, 1 = age 1+). `cohort_grp` is the birth cohort for fish in their first two calendar years, `NA` (pooled) for older fish. Columns: `n_fish` (all fish recorded that day), `n_alive` (survivors), `temp` (mean temp), `n_ggd_all` / `sum_ggd_all` / `sum_growth_g` (fish with non-missing growth: count, sum of ggd, sum of weight × ggd), `n_ggd_alive` / `sum_ggd_alive` (same, survivors only), `n_pcmax` / `sum_pcmax` (fish with non-missing `pcmax_adjusted_dd`: count and sum) |
 | `surv_by_dsh` | Experimental period only; age-0 survivors by day since hatch (0–364): `n` and summed daily survival components `sum_p_sg`, `sum_p_temp`, `sum_p_starv`, `sum_p_age` (divide by `n` for means) |
 | `stock_daily` | One row per simulated day for the exploitable stock (fish with `peak_weight` ≥ `stock_size`): `B` = stock biomass (g) alive at end of day; `G_net`, `G_gross`, `M`, `C`, `R` = flows (g) for the transition from this day to the next (net growth, gross growth, natural mortality, harvest, recruitment) |
 | `fish_registry` | One row per fish (founders + all offspring); includes `cross_day`, the first day `peak_weight` ≥ `stock_size` (`NA` if never) |
@@ -1048,6 +1048,7 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
       patch          = fish_pop$patch,
       temp           = growth_df$WT.actual,
       ggd            = growth_df$growth,
+      pcmax_adjusted_dd = fish_pop$pcmax_adjusted_dd,
       survived       = growth_df$survive,
       condition      = condition,
       age            = fish_pop$age_days / 365,
@@ -1087,6 +1088,8 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
       key      <- (coh_code * 2L + age_grp) * 2L + (fish_pop$patch == "warm")
       g_ok     <- !is.na(growth_df$growth)
       g_val    <- ifelse(g_ok, growth_df$growth, 0)
+      p_ok     <- !is.na(fish_pop$pcmax_adjusted_dd)
+      p_val    <- ifelse(p_ok, fish_pop$pcmax_adjusted_dd, 0)
       rs <- rowsum(cbind(n_fish        = 1,
                          n_alive       = alive,
                          temp_sum      = growth_df$WT.actual,
@@ -1094,7 +1097,9 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
                          sum_ggd_all   = g_val,
                          sum_growth_g  = g_val * fish_pop$weight,
                          n_ggd_alive   = g_ok & alive,
-                         sum_ggd_alive = g_val * alive),
+                         sum_ggd_alive = g_val * alive,
+                         n_pcmax       = p_ok,
+                         sum_pcmax     = p_val),
                    key)
       daily_patch_list[[d]] <- cbind(dayofsim = d, key = as.integer(rownames(rs)), rs)
 
@@ -1168,7 +1173,8 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
     tibble(dayofsim = integer(), date = as.Date(character()), patch = character(),
            cohort_grp = integer(), age_group = integer(), n_fish = numeric(), n_alive = numeric(),
            temp = numeric(), n_ggd_all = numeric(), sum_ggd_all = numeric(), sum_growth_g = numeric(),
-           n_ggd_alive = numeric(), sum_ggd_alive = numeric())
+           n_ggd_alive = numeric(), sum_ggd_alive = numeric(),
+           n_pcmax = numeric(), sum_pcmax = numeric())
   } else {
     as_tibble(daily_patch) |>
       mutate(
@@ -1179,7 +1185,8 @@ hatch_floor                <- params$hatch_floor                %||% TRUE       
         temp       = temp_sum / n_fish
       ) |>
       select(dayofsim, date, patch, cohort_grp, age_group, n_fish, n_alive, temp,
-             n_ggd_all, sum_ggd_all, sum_growth_g, n_ggd_alive, sum_ggd_alive)
+             n_ggd_all, sum_ggd_all, sum_growth_g, n_ggd_alive, sum_ggd_alive,
+             n_pcmax, sum_pcmax)
   }
 
   surv_by_dsh <- as_tibble(surv_acc) |>
@@ -1232,6 +1239,6 @@ For sourcing by other scripts.
 ```{r}
 #| eval: false
 #| purl: false
-file.remove("SimulationLoop.R")
-quarto::qmd_to_r_script("SimulationLoop.qmd")
+file.remove("source_files/SimulationLoop.R")
+quarto::qmd_to_r_script("SimulationLoop.qmd", script = "source_files/SimulationLoop.R")
 ```

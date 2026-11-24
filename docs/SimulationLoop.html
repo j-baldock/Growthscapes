@@ -406,7 +406,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
- <span class="menu-text">Define Experiments</span></a>
+ <span class="menu-text">Run Experiments</span></a>
           <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
@@ -416,6 +416,12 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
   <div class="sidebar-item-container"> 
   <a href="./ScenarioDefs.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Define Scenarios &amp; Experiments</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./RunInstructions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Run Instructions</span></span></a>
   </div>
 </li>
       </ul>
@@ -432,31 +438,31 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SensitivityAnalysis.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Parameter Sensitivity Analysis</span></span></a>
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Parameter Sensitivity Analysis</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./TestPValSpecs.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sensitivity to Consumption Type</span></span></a>
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Sensitivity to Consumption Type</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./TestHabitatPcmax.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Sensitivity to Max. P_Cmax</span></span></a>
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Sensitivity to Max. P_Cmax</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SeedReplicates.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Reproducibility and replication</span></span></a>
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Reproducibility and replication</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./WarmCapTest.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Warm-patch temperature test</span></span></a>
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Warm-patch temperature test</span></span></a>
   </div>
 </li>
       </ul>
@@ -473,25 +479,25 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./ViewSimResults.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">View Simulation Results</span></span></a>
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">View Simulation Results</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./CompareOutcomes.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Compare Population Outcomes</span></span></a>
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Compare Population Outcomes</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./WarmContribution.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Warm Habitat Contribution</span></span></a>
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Warm Habitat Contribution</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./SurplusProduction.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Surplus Production</span></span></a>
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Surplus Production</span></span></a>
   </div>
 </li>
       </ul>
@@ -706,7 +712,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 </tr>
 <tr class="even">
 <td><code>daily_patch</code></td>
-<td>Experimental period only; one row per date × patch × <code>cohort_grp</code> × <code>age_group</code> (0 = age 0, 1 = age 1+). <code>cohort_grp</code> is the birth cohort for fish in their first two calendar years, <code>NA</code> (pooled) for older fish. Columns: <code>n_fish</code> (all fish recorded that day), <code>n_alive</code> (survivors), <code>temp</code> (mean temp), <code>n_ggd_all</code> / <code>sum_ggd_all</code> / <code>sum_growth_g</code> (fish with non-missing growth: count, sum of ggd, sum of weight × ggd), <code>n_ggd_alive</code> / <code>sum_ggd_alive</code> (same, survivors only)</td>
+<td>Experimental period only; one row per date × patch × <code>cohort_grp</code> × <code>age_group</code> (0 = age 0, 1 = age 1+). <code>cohort_grp</code> is the birth cohort for fish in their first two calendar years, <code>NA</code> (pooled) for older fish. Columns: <code>n_fish</code> (all fish recorded that day), <code>n_alive</code> (survivors), <code>temp</code> (mean temp), <code>n_ggd_all</code> / <code>sum_ggd_all</code> / <code>sum_growth_g</code> (fish with non-missing growth: count, sum of ggd, sum of weight × ggd), <code>n_ggd_alive</code> / <code>sum_ggd_alive</code> (same, survivors only), <code>n_pcmax</code> / <code>sum_pcmax</code> (fish with non-missing <code>pcmax_adjusted_dd</code>: count and sum)</td>
 </tr>
 <tr class="odd">
 <td><code>surv_by_dsh</code></td>
@@ -1662,181 +1668,188 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb1-911"><a href="#cb1-911" aria-hidden="true" tabindex="-1"></a>      <span class="at">patch          =</span> fish_pop<span class="sc">$</span>patch,</span>
 <span id="cb1-912"><a href="#cb1-912" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp           =</span> growth_df<span class="sc">$</span>WT.actual,</span>
 <span id="cb1-913"><a href="#cb1-913" aria-hidden="true" tabindex="-1"></a>      <span class="at">ggd            =</span> growth_df<span class="sc">$</span>growth,</span>
-<span id="cb1-914"><a href="#cb1-914" aria-hidden="true" tabindex="-1"></a>      <span class="at">survived       =</span> growth_df<span class="sc">$</span>survive,</span>
-<span id="cb1-915"><a href="#cb1-915" aria-hidden="true" tabindex="-1"></a>      <span class="at">condition      =</span> condition,</span>
-<span id="cb1-916"><a href="#cb1-916" aria-hidden="true" tabindex="-1"></a>      <span class="at">age            =</span> fish_pop<span class="sc">$</span>age_days <span class="sc">/</span> <span class="dv">365</span>,</span>
-<span id="cb1-917"><a href="#cb1-917" aria-hidden="true" tabindex="-1"></a>      <span class="at">p_survive      =</span> prb.srv,</span>
-<span id="cb1-918"><a href="#cb1-918" aria-hidden="true" tabindex="-1"></a>      <span class="at">cohort         =</span> fish_pop<span class="sc">$</span>cohort,</span>
-<span id="cb1-919"><a href="#cb1-919" aria-hidden="true" tabindex="-1"></a>      <span class="at">parent_pid     =</span> fish_pop<span class="sc">$</span>parent_pid,</span>
-<span id="cb1-920"><a href="#cb1-920" aria-hidden="true" tabindex="-1"></a>      <span class="at">birth_dayofsim =</span> d <span class="sc">-</span> fish_pop<span class="sc">$</span>age_days</span>
-<span id="cb1-921"><a href="#cb1-921" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb1-922"><a href="#cb1-922" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-923"><a href="#cb1-923" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ── 7b. In-loop result accumulators (no ibm_long needed) ───────────────────</span></span>
-<span id="cb1-924"><a href="#cb1-924" aria-hidden="true" tabindex="-1"></a>    last_day_recorded <span class="ot">&lt;-</span> d</span>
-<span id="cb1-925"><a href="#cb1-925" aria-hidden="true" tabindex="-1"></a>    alive  <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span></span>
-<span id="cb1-926"><a href="#cb1-926" aria-hidden="true" tabindex="-1"></a>    in_exp <span class="ot">&lt;-</span> current_date <span class="sc">&gt;=</span> exp_start_date</span>
-<span id="cb1-927"><a href="#cb1-927" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-928"><a href="#cb1-928" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (i) Per-fish census of survivors on selected dates (experimental period)</span></span>
-<span id="cb1-929"><a href="#cb1-929" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp <span class="sc">&amp;&amp;</span> <span class="fu">format</span>(current_date, <span class="st">"%m-%d"</span>) <span class="sc">%in%</span> census_mmdd) {</span>
-<span id="cb1-930"><a href="#cb1-930" aria-hidden="true" tabindex="-1"></a>      census_list[[<span class="fu">length</span>(census_list) <span class="sc">+</span> <span class="dv">1</span>L]] <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb1-931"><a href="#cb1-931" aria-hidden="true" tabindex="-1"></a>        <span class="at">pid         =</span> fish_pop<span class="sc">$</span>pid[alive],</span>
-<span id="cb1-932"><a href="#cb1-932" aria-hidden="true" tabindex="-1"></a>        <span class="at">dayofsim    =</span> d,</span>
-<span id="cb1-933"><a href="#cb1-933" aria-hidden="true" tabindex="-1"></a>        <span class="at">date        =</span> current_date,</span>
-<span id="cb1-934"><a href="#cb1-934" aria-hidden="true" tabindex="-1"></a>        <span class="at">strategy    =</span> fish_pop<span class="sc">$</span>strategy[alive],</span>
-<span id="cb1-935"><a href="#cb1-935" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch       =</span> fish_pop<span class="sc">$</span>patch[alive],</span>
-<span id="cb1-936"><a href="#cb1-936" aria-hidden="true" tabindex="-1"></a>        <span class="at">weight      =</span> fish_pop<span class="sc">$</span>weight[alive],</span>
-<span id="cb1-937"><a href="#cb1-937" aria-hidden="true" tabindex="-1"></a>        <span class="at">age         =</span> fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">/</span> <span class="dv">365</span>,</span>
-<span id="cb1-938"><a href="#cb1-938" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_class   =</span> <span class="fu">as.integer</span>(fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">%/%</span> <span class="dv">365</span>L),</span>
-<span id="cb1-939"><a href="#cb1-939" aria-hidden="true" tabindex="-1"></a>        <span class="at">condition   =</span> condition[alive],</span>
-<span id="cb1-940"><a href="#cb1-940" aria-hidden="true" tabindex="-1"></a>        <span class="at">peak_weight =</span> fish_pop<span class="sc">$</span>peak_weight[alive],</span>
-<span id="cb1-941"><a href="#cb1-941" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort      =</span> fish_pop<span class="sc">$</span>cohort[alive]</span>
-<span id="cb1-942"><a href="#cb1-942" aria-hidden="true" tabindex="-1"></a>      )</span>
-<span id="cb1-943"><a href="#cb1-943" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb1-944"><a href="#cb1-944" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-945"><a href="#cb1-945" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp) {</span>
-<span id="cb1-946"><a href="#cb1-946" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (ii) Daily sums by patch x cohort_grp x age_group. Integer key encodes the groups:</span></span>
-<span id="cb1-947"><a href="#cb1-947" aria-hidden="true" tabindex="-1"></a>      <span class="co">#      key = (cohort_code * 2 + age_group) * 2 + is_warm; cohort_code 0 = pooled older fish.</span></span>
-<span id="cb1-948"><a href="#cb1-948" aria-hidden="true" tabindex="-1"></a>      age_grp  <span class="ot">&lt;-</span> <span class="fu">pmin</span>(fish_pop<span class="sc">$</span>age_days <span class="sc">%/%</span> <span class="dv">365</span>L, <span class="dv">1</span>L)</span>
-<span id="cb1-949"><a href="#cb1-949" aria-hidden="true" tabindex="-1"></a>      coh_code <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(current_year <span class="sc">-</span> fish_pop<span class="sc">$</span>cohort <span class="sc">&lt;=</span> <span class="dv">1</span>L, fish_pop<span class="sc">$</span>cohort <span class="sc">-</span> cohort_base <span class="sc">+</span> <span class="dv">1</span>L, <span class="dv">0</span>L)</span>
-<span id="cb1-950"><a href="#cb1-950" aria-hidden="true" tabindex="-1"></a>      key      <span class="ot">&lt;-</span> (coh_code <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> age_grp) <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> (fish_pop<span class="sc">$</span>patch <span class="sc">==</span> <span class="st">"warm"</span>)</span>
-<span id="cb1-951"><a href="#cb1-951" aria-hidden="true" tabindex="-1"></a>      g_ok     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(growth_df<span class="sc">$</span>growth)</span>
-<span id="cb1-952"><a href="#cb1-952" aria-hidden="true" tabindex="-1"></a>      g_val    <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(g_ok, growth_df<span class="sc">$</span>growth, <span class="dv">0</span>)</span>
-<span id="cb1-953"><a href="#cb1-953" aria-hidden="true" tabindex="-1"></a>      rs <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="at">n_fish        =</span> <span class="dv">1</span>,</span>
-<span id="cb1-954"><a href="#cb1-954" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_alive       =</span> alive,</span>
-<span id="cb1-955"><a href="#cb1-955" aria-hidden="true" tabindex="-1"></a>                         <span class="at">temp_sum      =</span> growth_df<span class="sc">$</span>WT.actual,</span>
-<span id="cb1-956"><a href="#cb1-956" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_all     =</span> g_ok,</span>
-<span id="cb1-957"><a href="#cb1-957" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_all   =</span> g_val,</span>
-<span id="cb1-958"><a href="#cb1-958" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_growth_g  =</span> g_val <span class="sc">*</span> fish_pop<span class="sc">$</span>weight,</span>
-<span id="cb1-959"><a href="#cb1-959" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_alive   =</span> g_ok <span class="sc">&amp;</span> alive,</span>
-<span id="cb1-960"><a href="#cb1-960" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_alive =</span> g_val <span class="sc">*</span> alive),</span>
-<span id="cb1-961"><a href="#cb1-961" aria-hidden="true" tabindex="-1"></a>                   key)</span>
-<span id="cb1-962"><a href="#cb1-962" aria-hidden="true" tabindex="-1"></a>      daily_patch_list[[d]] <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">dayofsim =</span> d, <span class="at">key =</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs)), rs)</span>
-<span id="cb1-963"><a href="#cb1-963" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-964"><a href="#cb1-964" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (iii) Age-0 survival components by day since hatch (= age_days) for survivors</span></span>
-<span id="cb1-965"><a href="#cb1-965" aria-hidden="true" tabindex="-1"></a>      sel <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>age_days <span class="sc">&lt;</span> <span class="dv">365</span>L</span>
-<span id="cb1-966"><a href="#cb1-966" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">any</span>(sel)) {</span>
-<span id="cb1-967"><a href="#cb1-967" aria-hidden="true" tabindex="-1"></a>        rs2 <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="dv">1</span>, p_sg[sel], p_temp[sel], p_starv[sel], p_age[sel]),</span>
-<span id="cb1-968"><a href="#cb1-968" aria-hidden="true" tabindex="-1"></a>                      fish_pop<span class="sc">$</span>age_days[sel] <span class="sc">+</span> <span class="dv">1</span>L)</span>
-<span id="cb1-969"><a href="#cb1-969" aria-hidden="true" tabindex="-1"></a>        ri  <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs2))</span>
-<span id="cb1-970"><a href="#cb1-970" aria-hidden="true" tabindex="-1"></a>        surv_acc[ri, ] <span class="ot">&lt;-</span> surv_acc[ri, ] <span class="sc">+</span> rs2</span>
-<span id="cb1-971"><a href="#cb1-971" aria-hidden="true" tabindex="-1"></a>      }</span>
-<span id="cb1-972"><a href="#cb1-972" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb1-973"><a href="#cb1-973" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-974"><a href="#cb1-974" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (iv) Exploitable-stock budget (all days). Flows for the transition d-1 -&gt; d are</span></span>
-<span id="cb1-975"><a href="#cb1-975" aria-hidden="true" tabindex="-1"></a>    <span class="co">#      keyed to the start day d-1, from yesterday's stock members:</span></span>
-<span id="cb1-976"><a href="#cb1-976" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        stay    - present today and survived: growth = weight change</span></span>
-<span id="cb1-977"><a href="#cb1-977" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        die     - present today but died: weight at death leaves the stock (M)</span></span>
-<span id="cb1-978"><a href="#cb1-978" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        harvest - absent today and in today's harvest: harvest weight leaves (C)</span></span>
-<span id="cb1-979"><a href="#cb1-979" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L <span class="sc">&amp;&amp;</span> <span class="fu">length</span>(stock_prev_pid) <span class="sc">&gt;</span> <span class="dv">0</span>L) {</span>
-<span id="cb1-980"><a href="#cb1-980" aria-hidden="true" tabindex="-1"></a>      m_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, fish_pop<span class="sc">$</span>pid)</span>
-<span id="cb1-981"><a href="#cb1-981" aria-hidden="true" tabindex="-1"></a>      present     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(m_row)</span>
-<span id="cb1-982"><a href="#cb1-982" aria-hidden="true" tabindex="-1"></a>      h_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, harvested_today_pid)</span>
-<span id="cb1-983"><a href="#cb1-983" aria-hidden="true" tabindex="-1"></a>      harvested_f <span class="ot">&lt;-</span> <span class="sc">!</span>present <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(h_row)</span>
-<span id="cb1-984"><a href="#cb1-984" aria-hidden="true" tabindex="-1"></a>      valid       <span class="ot">&lt;-</span> present <span class="sc">|</span> harvested_f</span>
-<span id="cb1-985"><a href="#cb1-985" aria-hidden="true" tabindex="-1"></a>      w_out       <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(present, fish_pop<span class="sc">$</span>weight[m_row], harvested_today_wt[h_row])</span>
-<span id="cb1-986"><a href="#cb1-986" aria-hidden="true" tabindex="-1"></a>      died        <span class="ot">&lt;-</span> present <span class="sc">&amp;</span> growth_df<span class="sc">$</span>survive[m_row] <span class="sc">==</span> <span class="dv">0</span></span>
-<span id="cb1-987"><a href="#cb1-987" aria-hidden="true" tabindex="-1"></a>      stock_G_net[d <span class="sc">-</span> <span class="dv">1</span>L]   <span class="ot">&lt;-</span> <span class="fu">sum</span>((w_out <span class="sc">-</span> stock_prev_wt)[valid])</span>
-<span id="cb1-988"><a href="#cb1-988" aria-hidden="true" tabindex="-1"></a>      stock_G_gross[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> <span class="fu">sum</span>((stock_prev_wt <span class="sc">*</span> stock_prev_ggd)[valid], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb1-989"><a href="#cb1-989" aria-hidden="true" tabindex="-1"></a>      stock_M[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[died])</span>
-<span id="cb1-990"><a href="#cb1-990" aria-hidden="true" tabindex="-1"></a>      stock_C[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[harvested_f])</span>
-<span id="cb1-991"><a href="#cb1-991" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb1-992"><a href="#cb1-992" aria-hidden="true" tabindex="-1"></a>    stock_ok   <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size</span>
-<span id="cb1-993"><a href="#cb1-993" aria-hidden="true" tabindex="-1"></a>    stock_B[d] <span class="ot">&lt;-</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[stock_ok])</span>
-<span id="cb1-994"><a href="#cb1-994" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-995"><a href="#cb1-995" aria-hidden="true" tabindex="-1"></a>    <span class="co"># First day each fish reaches stock size (cross_day); recruits are those still alive that day</span></span>
-<span id="cb1-996"><a href="#cb1-996" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">length</span>(cross_day) <span class="sc">&lt;</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L) <span class="fu">length</span>(cross_day) <span class="ot">&lt;-</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L</span>
-<span id="cb1-997"><a href="#cb1-997" aria-hidden="true" tabindex="-1"></a>    newly <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size <span class="sc">&amp;</span> <span class="fu">is.na</span>(cross_day[fish_pop<span class="sc">$</span>pid])</span>
-<span id="cb1-998"><a href="#cb1-998" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">any</span>(newly)) {</span>
-<span id="cb1-999"><a href="#cb1-999" aria-hidden="true" tabindex="-1"></a>      cross_day[fish_pop<span class="sc">$</span>pid[newly]] <span class="ot">&lt;-</span> d</span>
-<span id="cb1-1000"><a href="#cb1-1000" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L) stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="sc">+</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[newly <span class="sc">&amp;</span> alive])</span>
-<span id="cb1-1001"><a href="#cb1-1001" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb1-1002"><a href="#cb1-1002" aria-hidden="true" tabindex="-1"></a>    stock_prev_pid <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>pid[stock_ok]</span>
-<span id="cb1-1003"><a href="#cb1-1003" aria-hidden="true" tabindex="-1"></a>    stock_prev_wt  <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>weight[stock_ok]</span>
-<span id="cb1-1004"><a href="#cb1-1004" aria-hidden="true" tabindex="-1"></a>    stock_prev_ggd <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>growth[stock_ok]</span>
-<span id="cb1-1005"><a href="#cb1-1005" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1006"><a href="#cb1-1006" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Remove non-survivors — only living fish carry forward to next iteration</span></span>
-<span id="cb1-1007"><a href="#cb1-1007" aria-hidden="true" tabindex="-1"></a>    fish_pop <span class="ot">&lt;-</span> fish_pop[growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span>, ]</span>
-<span id="cb1-1008"><a href="#cb1-1008" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1009"><a href="#cb1-1009" aria-hidden="true" tabindex="-1"></a>    <span class="co"># exit loop if all fish have died</span></span>
-<span id="cb1-1010"><a href="#cb1-1010" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span>) <span class="cf">break</span></span>
-<span id="cb1-1011"><a href="#cb1-1011" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb1-1012"><a href="#cb1-1012" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1013"><a href="#cb1-1013" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate accumulated lists into final data frames ─────────────────────────</span></span>
-<span id="cb1-1014"><a href="#cb1-1014" aria-hidden="true" tabindex="-1"></a>  fish_registry    <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(fish_registry_list)</span>
-<span id="cb1-1015"><a href="#cb1-1015" aria-hidden="true" tabindex="-1"></a>  spawn_log        <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(spawn_log_list)        <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(spawn_log_list)        <span class="cf">else</span> spawn_log_empty</span>
-<span id="cb1-1016"><a href="#cb1-1016" aria-hidden="true" tabindex="-1"></a>  harvest_log      <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_log_list)      <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_log_list)      <span class="cf">else</span> harvest_log_empty</span>
-<span id="cb1-1017"><a href="#cb1-1017" aria-hidden="true" tabindex="-1"></a>  harvest_summary  <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_summary_list)  <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_summary_list)  <span class="cf">else</span> harvest_summary_empty</span>
-<span id="cb1-1018"><a href="#cb1-1018" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1019"><a href="#cb1-1019" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate ibm_long (experimental period only if save_burnin = FALSE) ────────</span></span>
-<span id="cb1-1020"><a href="#cb1-1020" aria-hidden="true" tabindex="-1"></a>  <span class="co"># No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored</span></span>
-<span id="cb1-1021"><a href="#cb1-1021" aria-hidden="true" tabindex="-1"></a>  <span class="co"># directly in each ibm_records[[d]] during step 7.</span></span>
-<span id="cb1-1022"><a href="#cb1-1022" aria-hidden="true" tabindex="-1"></a>  ibm_long <span class="ot">&lt;-</span> <span class="cf">if</span> (save_ibm_long) <span class="fu">bind_rows</span>(ibm_records) <span class="cf">else</span> <span class="cn">NULL</span></span>
+<span id="cb1-914"><a href="#cb1-914" aria-hidden="true" tabindex="-1"></a>      <span class="at">pcmax_adjusted_dd =</span> fish_pop<span class="sc">$</span>pcmax_adjusted_dd,</span>
+<span id="cb1-915"><a href="#cb1-915" aria-hidden="true" tabindex="-1"></a>      <span class="at">survived       =</span> growth_df<span class="sc">$</span>survive,</span>
+<span id="cb1-916"><a href="#cb1-916" aria-hidden="true" tabindex="-1"></a>      <span class="at">condition      =</span> condition,</span>
+<span id="cb1-917"><a href="#cb1-917" aria-hidden="true" tabindex="-1"></a>      <span class="at">age            =</span> fish_pop<span class="sc">$</span>age_days <span class="sc">/</span> <span class="dv">365</span>,</span>
+<span id="cb1-918"><a href="#cb1-918" aria-hidden="true" tabindex="-1"></a>      <span class="at">p_survive      =</span> prb.srv,</span>
+<span id="cb1-919"><a href="#cb1-919" aria-hidden="true" tabindex="-1"></a>      <span class="at">cohort         =</span> fish_pop<span class="sc">$</span>cohort,</span>
+<span id="cb1-920"><a href="#cb1-920" aria-hidden="true" tabindex="-1"></a>      <span class="at">parent_pid     =</span> fish_pop<span class="sc">$</span>parent_pid,</span>
+<span id="cb1-921"><a href="#cb1-921" aria-hidden="true" tabindex="-1"></a>      <span class="at">birth_dayofsim =</span> d <span class="sc">-</span> fish_pop<span class="sc">$</span>age_days</span>
+<span id="cb1-922"><a href="#cb1-922" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb1-923"><a href="#cb1-923" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-924"><a href="#cb1-924" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ── 7b. In-loop result accumulators (no ibm_long needed) ───────────────────</span></span>
+<span id="cb1-925"><a href="#cb1-925" aria-hidden="true" tabindex="-1"></a>    last_day_recorded <span class="ot">&lt;-</span> d</span>
+<span id="cb1-926"><a href="#cb1-926" aria-hidden="true" tabindex="-1"></a>    alive  <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span></span>
+<span id="cb1-927"><a href="#cb1-927" aria-hidden="true" tabindex="-1"></a>    in_exp <span class="ot">&lt;-</span> current_date <span class="sc">&gt;=</span> exp_start_date</span>
+<span id="cb1-928"><a href="#cb1-928" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-929"><a href="#cb1-929" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (i) Per-fish census of survivors on selected dates (experimental period)</span></span>
+<span id="cb1-930"><a href="#cb1-930" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp <span class="sc">&amp;&amp;</span> <span class="fu">format</span>(current_date, <span class="st">"%m-%d"</span>) <span class="sc">%in%</span> census_mmdd) {</span>
+<span id="cb1-931"><a href="#cb1-931" aria-hidden="true" tabindex="-1"></a>      census_list[[<span class="fu">length</span>(census_list) <span class="sc">+</span> <span class="dv">1</span>L]] <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb1-932"><a href="#cb1-932" aria-hidden="true" tabindex="-1"></a>        <span class="at">pid         =</span> fish_pop<span class="sc">$</span>pid[alive],</span>
+<span id="cb1-933"><a href="#cb1-933" aria-hidden="true" tabindex="-1"></a>        <span class="at">dayofsim    =</span> d,</span>
+<span id="cb1-934"><a href="#cb1-934" aria-hidden="true" tabindex="-1"></a>        <span class="at">date        =</span> current_date,</span>
+<span id="cb1-935"><a href="#cb1-935" aria-hidden="true" tabindex="-1"></a>        <span class="at">strategy    =</span> fish_pop<span class="sc">$</span>strategy[alive],</span>
+<span id="cb1-936"><a href="#cb1-936" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch       =</span> fish_pop<span class="sc">$</span>patch[alive],</span>
+<span id="cb1-937"><a href="#cb1-937" aria-hidden="true" tabindex="-1"></a>        <span class="at">weight      =</span> fish_pop<span class="sc">$</span>weight[alive],</span>
+<span id="cb1-938"><a href="#cb1-938" aria-hidden="true" tabindex="-1"></a>        <span class="at">age         =</span> fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">/</span> <span class="dv">365</span>,</span>
+<span id="cb1-939"><a href="#cb1-939" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_class   =</span> <span class="fu">as.integer</span>(fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">%/%</span> <span class="dv">365</span>L),</span>
+<span id="cb1-940"><a href="#cb1-940" aria-hidden="true" tabindex="-1"></a>        <span class="at">condition   =</span> condition[alive],</span>
+<span id="cb1-941"><a href="#cb1-941" aria-hidden="true" tabindex="-1"></a>        <span class="at">peak_weight =</span> fish_pop<span class="sc">$</span>peak_weight[alive],</span>
+<span id="cb1-942"><a href="#cb1-942" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort      =</span> fish_pop<span class="sc">$</span>cohort[alive]</span>
+<span id="cb1-943"><a href="#cb1-943" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb1-944"><a href="#cb1-944" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-945"><a href="#cb1-945" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-946"><a href="#cb1-946" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp) {</span>
+<span id="cb1-947"><a href="#cb1-947" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (ii) Daily sums by patch x cohort_grp x age_group. Integer key encodes the groups:</span></span>
+<span id="cb1-948"><a href="#cb1-948" aria-hidden="true" tabindex="-1"></a>      <span class="co">#      key = (cohort_code * 2 + age_group) * 2 + is_warm; cohort_code 0 = pooled older fish.</span></span>
+<span id="cb1-949"><a href="#cb1-949" aria-hidden="true" tabindex="-1"></a>      age_grp  <span class="ot">&lt;-</span> <span class="fu">pmin</span>(fish_pop<span class="sc">$</span>age_days <span class="sc">%/%</span> <span class="dv">365</span>L, <span class="dv">1</span>L)</span>
+<span id="cb1-950"><a href="#cb1-950" aria-hidden="true" tabindex="-1"></a>      coh_code <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(current_year <span class="sc">-</span> fish_pop<span class="sc">$</span>cohort <span class="sc">&lt;=</span> <span class="dv">1</span>L, fish_pop<span class="sc">$</span>cohort <span class="sc">-</span> cohort_base <span class="sc">+</span> <span class="dv">1</span>L, <span class="dv">0</span>L)</span>
+<span id="cb1-951"><a href="#cb1-951" aria-hidden="true" tabindex="-1"></a>      key      <span class="ot">&lt;-</span> (coh_code <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> age_grp) <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> (fish_pop<span class="sc">$</span>patch <span class="sc">==</span> <span class="st">"warm"</span>)</span>
+<span id="cb1-952"><a href="#cb1-952" aria-hidden="true" tabindex="-1"></a>      g_ok     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(growth_df<span class="sc">$</span>growth)</span>
+<span id="cb1-953"><a href="#cb1-953" aria-hidden="true" tabindex="-1"></a>      g_val    <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(g_ok, growth_df<span class="sc">$</span>growth, <span class="dv">0</span>)</span>
+<span id="cb1-954"><a href="#cb1-954" aria-hidden="true" tabindex="-1"></a>      p_ok     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(fish_pop<span class="sc">$</span>pcmax_adjusted_dd)</span>
+<span id="cb1-955"><a href="#cb1-955" aria-hidden="true" tabindex="-1"></a>      p_val    <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(p_ok, fish_pop<span class="sc">$</span>pcmax_adjusted_dd, <span class="dv">0</span>)</span>
+<span id="cb1-956"><a href="#cb1-956" aria-hidden="true" tabindex="-1"></a>      rs <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="at">n_fish        =</span> <span class="dv">1</span>,</span>
+<span id="cb1-957"><a href="#cb1-957" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_alive       =</span> alive,</span>
+<span id="cb1-958"><a href="#cb1-958" aria-hidden="true" tabindex="-1"></a>                         <span class="at">temp_sum      =</span> growth_df<span class="sc">$</span>WT.actual,</span>
+<span id="cb1-959"><a href="#cb1-959" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_all     =</span> g_ok,</span>
+<span id="cb1-960"><a href="#cb1-960" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_all   =</span> g_val,</span>
+<span id="cb1-961"><a href="#cb1-961" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_growth_g  =</span> g_val <span class="sc">*</span> fish_pop<span class="sc">$</span>weight,</span>
+<span id="cb1-962"><a href="#cb1-962" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_alive   =</span> g_ok <span class="sc">&amp;</span> alive,</span>
+<span id="cb1-963"><a href="#cb1-963" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_alive =</span> g_val <span class="sc">*</span> alive,</span>
+<span id="cb1-964"><a href="#cb1-964" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_pcmax       =</span> p_ok,</span>
+<span id="cb1-965"><a href="#cb1-965" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_pcmax     =</span> p_val),</span>
+<span id="cb1-966"><a href="#cb1-966" aria-hidden="true" tabindex="-1"></a>                   key)</span>
+<span id="cb1-967"><a href="#cb1-967" aria-hidden="true" tabindex="-1"></a>      daily_patch_list[[d]] <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">dayofsim =</span> d, <span class="at">key =</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs)), rs)</span>
+<span id="cb1-968"><a href="#cb1-968" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-969"><a href="#cb1-969" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (iii) Age-0 survival components by day since hatch (= age_days) for survivors</span></span>
+<span id="cb1-970"><a href="#cb1-970" aria-hidden="true" tabindex="-1"></a>      sel <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>age_days <span class="sc">&lt;</span> <span class="dv">365</span>L</span>
+<span id="cb1-971"><a href="#cb1-971" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">any</span>(sel)) {</span>
+<span id="cb1-972"><a href="#cb1-972" aria-hidden="true" tabindex="-1"></a>        rs2 <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="dv">1</span>, p_sg[sel], p_temp[sel], p_starv[sel], p_age[sel]),</span>
+<span id="cb1-973"><a href="#cb1-973" aria-hidden="true" tabindex="-1"></a>                      fish_pop<span class="sc">$</span>age_days[sel] <span class="sc">+</span> <span class="dv">1</span>L)</span>
+<span id="cb1-974"><a href="#cb1-974" aria-hidden="true" tabindex="-1"></a>        ri  <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs2))</span>
+<span id="cb1-975"><a href="#cb1-975" aria-hidden="true" tabindex="-1"></a>        surv_acc[ri, ] <span class="ot">&lt;-</span> surv_acc[ri, ] <span class="sc">+</span> rs2</span>
+<span id="cb1-976"><a href="#cb1-976" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-977"><a href="#cb1-977" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-978"><a href="#cb1-978" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-979"><a href="#cb1-979" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (iv) Exploitable-stock budget (all days). Flows for the transition d-1 -&gt; d are</span></span>
+<span id="cb1-980"><a href="#cb1-980" aria-hidden="true" tabindex="-1"></a>    <span class="co">#      keyed to the start day d-1, from yesterday's stock members:</span></span>
+<span id="cb1-981"><a href="#cb1-981" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        stay    - present today and survived: growth = weight change</span></span>
+<span id="cb1-982"><a href="#cb1-982" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        die     - present today but died: weight at death leaves the stock (M)</span></span>
+<span id="cb1-983"><a href="#cb1-983" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        harvest - absent today and in today's harvest: harvest weight leaves (C)</span></span>
+<span id="cb1-984"><a href="#cb1-984" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L <span class="sc">&amp;&amp;</span> <span class="fu">length</span>(stock_prev_pid) <span class="sc">&gt;</span> <span class="dv">0</span>L) {</span>
+<span id="cb1-985"><a href="#cb1-985" aria-hidden="true" tabindex="-1"></a>      m_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, fish_pop<span class="sc">$</span>pid)</span>
+<span id="cb1-986"><a href="#cb1-986" aria-hidden="true" tabindex="-1"></a>      present     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(m_row)</span>
+<span id="cb1-987"><a href="#cb1-987" aria-hidden="true" tabindex="-1"></a>      h_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, harvested_today_pid)</span>
+<span id="cb1-988"><a href="#cb1-988" aria-hidden="true" tabindex="-1"></a>      harvested_f <span class="ot">&lt;-</span> <span class="sc">!</span>present <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(h_row)</span>
+<span id="cb1-989"><a href="#cb1-989" aria-hidden="true" tabindex="-1"></a>      valid       <span class="ot">&lt;-</span> present <span class="sc">|</span> harvested_f</span>
+<span id="cb1-990"><a href="#cb1-990" aria-hidden="true" tabindex="-1"></a>      w_out       <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(present, fish_pop<span class="sc">$</span>weight[m_row], harvested_today_wt[h_row])</span>
+<span id="cb1-991"><a href="#cb1-991" aria-hidden="true" tabindex="-1"></a>      died        <span class="ot">&lt;-</span> present <span class="sc">&amp;</span> growth_df<span class="sc">$</span>survive[m_row] <span class="sc">==</span> <span class="dv">0</span></span>
+<span id="cb1-992"><a href="#cb1-992" aria-hidden="true" tabindex="-1"></a>      stock_G_net[d <span class="sc">-</span> <span class="dv">1</span>L]   <span class="ot">&lt;-</span> <span class="fu">sum</span>((w_out <span class="sc">-</span> stock_prev_wt)[valid])</span>
+<span id="cb1-993"><a href="#cb1-993" aria-hidden="true" tabindex="-1"></a>      stock_G_gross[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> <span class="fu">sum</span>((stock_prev_wt <span class="sc">*</span> stock_prev_ggd)[valid], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-994"><a href="#cb1-994" aria-hidden="true" tabindex="-1"></a>      stock_M[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[died])</span>
+<span id="cb1-995"><a href="#cb1-995" aria-hidden="true" tabindex="-1"></a>      stock_C[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[harvested_f])</span>
+<span id="cb1-996"><a href="#cb1-996" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-997"><a href="#cb1-997" aria-hidden="true" tabindex="-1"></a>    stock_ok   <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size</span>
+<span id="cb1-998"><a href="#cb1-998" aria-hidden="true" tabindex="-1"></a>    stock_B[d] <span class="ot">&lt;-</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[stock_ok])</span>
+<span id="cb1-999"><a href="#cb1-999" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1000"><a href="#cb1-1000" aria-hidden="true" tabindex="-1"></a>    <span class="co"># First day each fish reaches stock size (cross_day); recruits are those still alive that day</span></span>
+<span id="cb1-1001"><a href="#cb1-1001" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">length</span>(cross_day) <span class="sc">&lt;</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L) <span class="fu">length</span>(cross_day) <span class="ot">&lt;-</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L</span>
+<span id="cb1-1002"><a href="#cb1-1002" aria-hidden="true" tabindex="-1"></a>    newly <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size <span class="sc">&amp;</span> <span class="fu">is.na</span>(cross_day[fish_pop<span class="sc">$</span>pid])</span>
+<span id="cb1-1003"><a href="#cb1-1003" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">any</span>(newly)) {</span>
+<span id="cb1-1004"><a href="#cb1-1004" aria-hidden="true" tabindex="-1"></a>      cross_day[fish_pop<span class="sc">$</span>pid[newly]] <span class="ot">&lt;-</span> d</span>
+<span id="cb1-1005"><a href="#cb1-1005" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L) stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="sc">+</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[newly <span class="sc">&amp;</span> alive])</span>
+<span id="cb1-1006"><a href="#cb1-1006" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-1007"><a href="#cb1-1007" aria-hidden="true" tabindex="-1"></a>    stock_prev_pid <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>pid[stock_ok]</span>
+<span id="cb1-1008"><a href="#cb1-1008" aria-hidden="true" tabindex="-1"></a>    stock_prev_wt  <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>weight[stock_ok]</span>
+<span id="cb1-1009"><a href="#cb1-1009" aria-hidden="true" tabindex="-1"></a>    stock_prev_ggd <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>growth[stock_ok]</span>
+<span id="cb1-1010"><a href="#cb1-1010" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1011"><a href="#cb1-1011" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Remove non-survivors — only living fish carry forward to next iteration</span></span>
+<span id="cb1-1012"><a href="#cb1-1012" aria-hidden="true" tabindex="-1"></a>    fish_pop <span class="ot">&lt;-</span> fish_pop[growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span>, ]</span>
+<span id="cb1-1013"><a href="#cb1-1013" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1014"><a href="#cb1-1014" aria-hidden="true" tabindex="-1"></a>    <span class="co"># exit loop if all fish have died</span></span>
+<span id="cb1-1015"><a href="#cb1-1015" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span>) <span class="cf">break</span></span>
+<span id="cb1-1016"><a href="#cb1-1016" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-1017"><a href="#cb1-1017" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1018"><a href="#cb1-1018" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate accumulated lists into final data frames ─────────────────────────</span></span>
+<span id="cb1-1019"><a href="#cb1-1019" aria-hidden="true" tabindex="-1"></a>  fish_registry    <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(fish_registry_list)</span>
+<span id="cb1-1020"><a href="#cb1-1020" aria-hidden="true" tabindex="-1"></a>  spawn_log        <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(spawn_log_list)        <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(spawn_log_list)        <span class="cf">else</span> spawn_log_empty</span>
+<span id="cb1-1021"><a href="#cb1-1021" aria-hidden="true" tabindex="-1"></a>  harvest_log      <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_log_list)      <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_log_list)      <span class="cf">else</span> harvest_log_empty</span>
+<span id="cb1-1022"><a href="#cb1-1022" aria-hidden="true" tabindex="-1"></a>  harvest_summary  <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_summary_list)  <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_summary_list)  <span class="cf">else</span> harvest_summary_empty</span>
 <span id="cb1-1023"><a href="#cb1-1023" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1024"><a href="#cb1-1024" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate in-loop accumulators ──────────────────────────────────────────────</span></span>
-<span id="cb1-1025"><a href="#cb1-1025" aria-hidden="true" tabindex="-1"></a>  fish_registry<span class="sc">$</span>cross_day <span class="ot">&lt;-</span> cross_day[fish_registry<span class="sc">$</span>pid]</span>
-<span id="cb1-1026"><a href="#cb1-1026" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1027"><a href="#cb1-1027" aria-hidden="true" tabindex="-1"></a>  census <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(census_list)</span>
+<span id="cb1-1024"><a href="#cb1-1024" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate ibm_long (experimental period only if save_burnin = FALSE) ────────</span></span>
+<span id="cb1-1025"><a href="#cb1-1025" aria-hidden="true" tabindex="-1"></a>  <span class="co"># No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored</span></span>
+<span id="cb1-1026"><a href="#cb1-1026" aria-hidden="true" tabindex="-1"></a>  <span class="co"># directly in each ibm_records[[d]] during step 7.</span></span>
+<span id="cb1-1027"><a href="#cb1-1027" aria-hidden="true" tabindex="-1"></a>  ibm_long <span class="ot">&lt;-</span> <span class="cf">if</span> (save_ibm_long) <span class="fu">bind_rows</span>(ibm_records) <span class="cf">else</span> <span class="cn">NULL</span></span>
 <span id="cb1-1028"><a href="#cb1-1028" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1029"><a href="#cb1-1029" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, daily_patch_list)</span>
-<span id="cb1-1030"><a href="#cb1-1030" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(daily_patch)) {</span>
-<span id="cb1-1031"><a href="#cb1-1031" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">dayofsim =</span> <span class="fu">integer</span>(), <span class="at">date =</span> <span class="fu">as.Date</span>(<span class="fu">character</span>()), <span class="at">patch =</span> <span class="fu">character</span>(),</span>
-<span id="cb1-1032"><a href="#cb1-1032" aria-hidden="true" tabindex="-1"></a>           <span class="at">cohort_grp =</span> <span class="fu">integer</span>(), <span class="at">age_group =</span> <span class="fu">integer</span>(), <span class="at">n_fish =</span> <span class="fu">numeric</span>(), <span class="at">n_alive =</span> <span class="fu">numeric</span>(),</span>
-<span id="cb1-1033"><a href="#cb1-1033" aria-hidden="true" tabindex="-1"></a>           <span class="at">temp =</span> <span class="fu">numeric</span>(), <span class="at">n_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_growth_g =</span> <span class="fu">numeric</span>(),</span>
-<span id="cb1-1034"><a href="#cb1-1034" aria-hidden="true" tabindex="-1"></a>           <span class="at">n_ggd_alive =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_alive =</span> <span class="fu">numeric</span>())</span>
-<span id="cb1-1035"><a href="#cb1-1035" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
-<span id="cb1-1036"><a href="#cb1-1036" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as_tibble</span>(daily_patch) <span class="sc">|&gt;</span></span>
-<span id="cb1-1037"><a href="#cb1-1037" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(</span>
-<span id="cb1-1038"><a href="#cb1-1038" aria-hidden="true" tabindex="-1"></a>        <span class="at">date       =</span> habitat_df<span class="sc">$</span>date[dayofsim],</span>
-<span id="cb1-1039"><a href="#cb1-1039" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch      =</span> <span class="fu">if_else</span>(key <span class="sc">%%</span> <span class="dv">2</span>L <span class="sc">==</span> <span class="dv">1</span>L, <span class="st">"warm"</span>, <span class="st">"cold"</span>),</span>
-<span id="cb1-1040"><a href="#cb1-1040" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_group  =</span> <span class="fu">as.integer</span>((key <span class="sc">%/%</span> <span class="dv">2</span>L) <span class="sc">%%</span> <span class="dv">2</span>L),</span>
-<span id="cb1-1041"><a href="#cb1-1041" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort_grp =</span> <span class="fu">if_else</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">==</span> <span class="dv">0</span>L, <span class="cn">NA_integer_</span>, <span class="fu">as.integer</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">+</span> cohort_base <span class="sc">-</span> <span class="dv">1</span>L)),</span>
-<span id="cb1-1042"><a href="#cb1-1042" aria-hidden="true" tabindex="-1"></a>        <span class="at">temp       =</span> temp_sum <span class="sc">/</span> n_fish</span>
-<span id="cb1-1043"><a href="#cb1-1043" aria-hidden="true" tabindex="-1"></a>      ) <span class="sc">|&gt;</span></span>
-<span id="cb1-1044"><a href="#cb1-1044" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(dayofsim, date, patch, cohort_grp, age_group, n_fish, n_alive, temp,</span>
-<span id="cb1-1045"><a href="#cb1-1045" aria-hidden="true" tabindex="-1"></a>             n_ggd_all, sum_ggd_all, sum_growth_g, n_ggd_alive, sum_ggd_alive)</span>
-<span id="cb1-1046"><a href="#cb1-1046" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb1-1047"><a href="#cb1-1047" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1048"><a href="#cb1-1048" aria-hidden="true" tabindex="-1"></a>  surv_by_dsh <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(surv_acc) <span class="sc">|&gt;</span></span>
-<span id="cb1-1049"><a href="#cb1-1049" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">dsh =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">364</span>, <span class="at">.before =</span> <span class="dv">1</span>)</span>
-<span id="cb1-1050"><a href="#cb1-1050" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1051"><a href="#cb1-1051" aria-hidden="true" tabindex="-1"></a>  stock_days  <span class="ot">&lt;-</span> <span class="fu">seq_len</span>(last_day_recorded)</span>
-<span id="cb1-1052"><a href="#cb1-1052" aria-hidden="true" tabindex="-1"></a>  stock_daily <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb1-1053"><a href="#cb1-1053" aria-hidden="true" tabindex="-1"></a>    <span class="at">dayofsim =</span> stock_days,</span>
-<span id="cb1-1054"><a href="#cb1-1054" aria-hidden="true" tabindex="-1"></a>    <span class="at">date     =</span> habitat_df<span class="sc">$</span>date[stock_days],</span>
-<span id="cb1-1055"><a href="#cb1-1055" aria-hidden="true" tabindex="-1"></a>    <span class="at">doy      =</span> <span class="fu">yday</span>(habitat_df<span class="sc">$</span>date[stock_days]),</span>
-<span id="cb1-1056"><a href="#cb1-1056" aria-hidden="true" tabindex="-1"></a>    <span class="at">B        =</span> stock_B[stock_days],</span>
-<span id="cb1-1057"><a href="#cb1-1057" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_net    =</span> stock_G_net[stock_days],</span>
-<span id="cb1-1058"><a href="#cb1-1058" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_gross  =</span> stock_G_gross[stock_days],</span>
-<span id="cb1-1059"><a href="#cb1-1059" aria-hidden="true" tabindex="-1"></a>    <span class="at">M        =</span> stock_M[stock_days],</span>
-<span id="cb1-1060"><a href="#cb1-1060" aria-hidden="true" tabindex="-1"></a>    <span class="at">C        =</span> stock_C[stock_days],</span>
-<span id="cb1-1061"><a href="#cb1-1061" aria-hidden="true" tabindex="-1"></a>    <span class="at">R        =</span> stock_R[stock_days]</span>
-<span id="cb1-1062"><a href="#cb1-1062" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb1-1063"><a href="#cb1-1063" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1064"><a href="#cb1-1064" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extinct = nothing recorded on or after the start of the experimental period</span></span>
-<span id="cb1-1065"><a href="#cb1-1065" aria-hidden="true" tabindex="-1"></a>  extinct <span class="ot">&lt;-</span> last_day_recorded <span class="sc">==</span> <span class="dv">0</span>L <span class="sc">||</span> habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="sc">&lt;</span> exp_start_date</span>
-<span id="cb1-1066"><a href="#cb1-1066" aria-hidden="true" tabindex="-1"></a>  extinction_date <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> last_day_recorded <span class="sc">&gt;</span> <span class="dv">0</span>L) habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="cf">else</span> <span class="fu">as.Date</span>(<span class="cn">NA</span>)</span>
-<span id="cb1-1067"><a href="#cb1-1067" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1068"><a href="#cb1-1068" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Monthly summary (1st of each month, pre-computed in the loop) ─────────────</span></span>
-<span id="cb1-1069"><a href="#cb1-1069" aria-hidden="true" tabindex="-1"></a>  ibm_summary <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(ibm_summary_list)</span>
+<span id="cb1-1029"><a href="#cb1-1029" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate in-loop accumulators ──────────────────────────────────────────────</span></span>
+<span id="cb1-1030"><a href="#cb1-1030" aria-hidden="true" tabindex="-1"></a>  fish_registry<span class="sc">$</span>cross_day <span class="ot">&lt;-</span> cross_day[fish_registry<span class="sc">$</span>pid]</span>
+<span id="cb1-1031"><a href="#cb1-1031" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1032"><a href="#cb1-1032" aria-hidden="true" tabindex="-1"></a>  census <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(census_list)</span>
+<span id="cb1-1033"><a href="#cb1-1033" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1034"><a href="#cb1-1034" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, daily_patch_list)</span>
+<span id="cb1-1035"><a href="#cb1-1035" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(daily_patch)) {</span>
+<span id="cb1-1036"><a href="#cb1-1036" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">dayofsim =</span> <span class="fu">integer</span>(), <span class="at">date =</span> <span class="fu">as.Date</span>(<span class="fu">character</span>()), <span class="at">patch =</span> <span class="fu">character</span>(),</span>
+<span id="cb1-1037"><a href="#cb1-1037" aria-hidden="true" tabindex="-1"></a>           <span class="at">cohort_grp =</span> <span class="fu">integer</span>(), <span class="at">age_group =</span> <span class="fu">integer</span>(), <span class="at">n_fish =</span> <span class="fu">numeric</span>(), <span class="at">n_alive =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb1-1038"><a href="#cb1-1038" aria-hidden="true" tabindex="-1"></a>           <span class="at">temp =</span> <span class="fu">numeric</span>(), <span class="at">n_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_growth_g =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb1-1039"><a href="#cb1-1039" aria-hidden="true" tabindex="-1"></a>           <span class="at">n_ggd_alive =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_alive =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb1-1040"><a href="#cb1-1040" aria-hidden="true" tabindex="-1"></a>           <span class="at">n_pcmax =</span> <span class="fu">numeric</span>(), <span class="at">sum_pcmax =</span> <span class="fu">numeric</span>())</span>
+<span id="cb1-1041"><a href="#cb1-1041" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb1-1042"><a href="#cb1-1042" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as_tibble</span>(daily_patch) <span class="sc">|&gt;</span></span>
+<span id="cb1-1043"><a href="#cb1-1043" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(</span>
+<span id="cb1-1044"><a href="#cb1-1044" aria-hidden="true" tabindex="-1"></a>        <span class="at">date       =</span> habitat_df<span class="sc">$</span>date[dayofsim],</span>
+<span id="cb1-1045"><a href="#cb1-1045" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch      =</span> <span class="fu">if_else</span>(key <span class="sc">%%</span> <span class="dv">2</span>L <span class="sc">==</span> <span class="dv">1</span>L, <span class="st">"warm"</span>, <span class="st">"cold"</span>),</span>
+<span id="cb1-1046"><a href="#cb1-1046" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_group  =</span> <span class="fu">as.integer</span>((key <span class="sc">%/%</span> <span class="dv">2</span>L) <span class="sc">%%</span> <span class="dv">2</span>L),</span>
+<span id="cb1-1047"><a href="#cb1-1047" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort_grp =</span> <span class="fu">if_else</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">==</span> <span class="dv">0</span>L, <span class="cn">NA_integer_</span>, <span class="fu">as.integer</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">+</span> cohort_base <span class="sc">-</span> <span class="dv">1</span>L)),</span>
+<span id="cb1-1048"><a href="#cb1-1048" aria-hidden="true" tabindex="-1"></a>        <span class="at">temp       =</span> temp_sum <span class="sc">/</span> n_fish</span>
+<span id="cb1-1049"><a href="#cb1-1049" aria-hidden="true" tabindex="-1"></a>      ) <span class="sc">|&gt;</span></span>
+<span id="cb1-1050"><a href="#cb1-1050" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(dayofsim, date, patch, cohort_grp, age_group, n_fish, n_alive, temp,</span>
+<span id="cb1-1051"><a href="#cb1-1051" aria-hidden="true" tabindex="-1"></a>             n_ggd_all, sum_ggd_all, sum_growth_g, n_ggd_alive, sum_ggd_alive,</span>
+<span id="cb1-1052"><a href="#cb1-1052" aria-hidden="true" tabindex="-1"></a>             n_pcmax, sum_pcmax)</span>
+<span id="cb1-1053"><a href="#cb1-1053" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-1054"><a href="#cb1-1054" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1055"><a href="#cb1-1055" aria-hidden="true" tabindex="-1"></a>  surv_by_dsh <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(surv_acc) <span class="sc">|&gt;</span></span>
+<span id="cb1-1056"><a href="#cb1-1056" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">dsh =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">364</span>, <span class="at">.before =</span> <span class="dv">1</span>)</span>
+<span id="cb1-1057"><a href="#cb1-1057" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1058"><a href="#cb1-1058" aria-hidden="true" tabindex="-1"></a>  stock_days  <span class="ot">&lt;-</span> <span class="fu">seq_len</span>(last_day_recorded)</span>
+<span id="cb1-1059"><a href="#cb1-1059" aria-hidden="true" tabindex="-1"></a>  stock_daily <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb1-1060"><a href="#cb1-1060" aria-hidden="true" tabindex="-1"></a>    <span class="at">dayofsim =</span> stock_days,</span>
+<span id="cb1-1061"><a href="#cb1-1061" aria-hidden="true" tabindex="-1"></a>    <span class="at">date     =</span> habitat_df<span class="sc">$</span>date[stock_days],</span>
+<span id="cb1-1062"><a href="#cb1-1062" aria-hidden="true" tabindex="-1"></a>    <span class="at">doy      =</span> <span class="fu">yday</span>(habitat_df<span class="sc">$</span>date[stock_days]),</span>
+<span id="cb1-1063"><a href="#cb1-1063" aria-hidden="true" tabindex="-1"></a>    <span class="at">B        =</span> stock_B[stock_days],</span>
+<span id="cb1-1064"><a href="#cb1-1064" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_net    =</span> stock_G_net[stock_days],</span>
+<span id="cb1-1065"><a href="#cb1-1065" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_gross  =</span> stock_G_gross[stock_days],</span>
+<span id="cb1-1066"><a href="#cb1-1066" aria-hidden="true" tabindex="-1"></a>    <span class="at">M        =</span> stock_M[stock_days],</span>
+<span id="cb1-1067"><a href="#cb1-1067" aria-hidden="true" tabindex="-1"></a>    <span class="at">C        =</span> stock_C[stock_days],</span>
+<span id="cb1-1068"><a href="#cb1-1068" aria-hidden="true" tabindex="-1"></a>    <span class="at">R        =</span> stock_R[stock_days]</span>
+<span id="cb1-1069"><a href="#cb1-1069" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb1-1070"><a href="#cb1-1070" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1071"><a href="#cb1-1071" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
-<span id="cb1-1072"><a href="#cb1-1072" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_long         =</span> ibm_long,</span>
-<span id="cb1-1073"><a href="#cb1-1073" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_summary      =</span> ibm_summary,</span>
-<span id="cb1-1074"><a href="#cb1-1074" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinct          =</span> extinct,</span>
-<span id="cb1-1075"><a href="#cb1-1075" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinction_date  =</span> extinction_date,</span>
-<span id="cb1-1076"><a href="#cb1-1076" aria-hidden="true" tabindex="-1"></a>    <span class="at">census           =</span> census,</span>
-<span id="cb1-1077"><a href="#cb1-1077" aria-hidden="true" tabindex="-1"></a>    <span class="at">daily_patch      =</span> daily_patch,</span>
-<span id="cb1-1078"><a href="#cb1-1078" aria-hidden="true" tabindex="-1"></a>    <span class="at">surv_by_dsh      =</span> surv_by_dsh,</span>
-<span id="cb1-1079"><a href="#cb1-1079" aria-hidden="true" tabindex="-1"></a>    <span class="at">stock_daily      =</span> stock_daily,</span>
-<span id="cb1-1080"><a href="#cb1-1080" aria-hidden="true" tabindex="-1"></a>    <span class="at">fish_registry    =</span> fish_registry,</span>
-<span id="cb1-1081"><a href="#cb1-1081" aria-hidden="true" tabindex="-1"></a>    <span class="at">spawn_log        =</span> spawn_log,</span>
-<span id="cb1-1082"><a href="#cb1-1082" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_log      =</span> harvest_log,</span>
-<span id="cb1-1083"><a href="#cb1-1083" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_summary  =</span> harvest_summary,</span>
-<span id="cb1-1084"><a href="#cb1-1084" aria-hidden="true" tabindex="-1"></a>    <span class="at">switches         =</span> switches,</span>
-<span id="cb1-1085"><a href="#cb1-1085" aria-hidden="true" tabindex="-1"></a>    <span class="at">params           =</span> params,</span>
-<span id="cb1-1086"><a href="#cb1-1086" aria-hidden="true" tabindex="-1"></a>    <span class="at">habitat_df       =</span> habitat_df</span>
-<span id="cb1-1087"><a href="#cb1-1087" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb1-1088"><a href="#cb1-1088" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-1071"><a href="#cb1-1071" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extinct = nothing recorded on or after the start of the experimental period</span></span>
+<span id="cb1-1072"><a href="#cb1-1072" aria-hidden="true" tabindex="-1"></a>  extinct <span class="ot">&lt;-</span> last_day_recorded <span class="sc">==</span> <span class="dv">0</span>L <span class="sc">||</span> habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="sc">&lt;</span> exp_start_date</span>
+<span id="cb1-1073"><a href="#cb1-1073" aria-hidden="true" tabindex="-1"></a>  extinction_date <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> last_day_recorded <span class="sc">&gt;</span> <span class="dv">0</span>L) habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="cf">else</span> <span class="fu">as.Date</span>(<span class="cn">NA</span>)</span>
+<span id="cb1-1074"><a href="#cb1-1074" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1075"><a href="#cb1-1075" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Monthly summary (1st of each month, pre-computed in the loop) ─────────────</span></span>
+<span id="cb1-1076"><a href="#cb1-1076" aria-hidden="true" tabindex="-1"></a>  ibm_summary <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(ibm_summary_list)</span>
+<span id="cb1-1077"><a href="#cb1-1077" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1078"><a href="#cb1-1078" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb1-1079"><a href="#cb1-1079" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_long         =</span> ibm_long,</span>
+<span id="cb1-1080"><a href="#cb1-1080" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_summary      =</span> ibm_summary,</span>
+<span id="cb1-1081"><a href="#cb1-1081" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinct          =</span> extinct,</span>
+<span id="cb1-1082"><a href="#cb1-1082" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinction_date  =</span> extinction_date,</span>
+<span id="cb1-1083"><a href="#cb1-1083" aria-hidden="true" tabindex="-1"></a>    <span class="at">census           =</span> census,</span>
+<span id="cb1-1084"><a href="#cb1-1084" aria-hidden="true" tabindex="-1"></a>    <span class="at">daily_patch      =</span> daily_patch,</span>
+<span id="cb1-1085"><a href="#cb1-1085" aria-hidden="true" tabindex="-1"></a>    <span class="at">surv_by_dsh      =</span> surv_by_dsh,</span>
+<span id="cb1-1086"><a href="#cb1-1086" aria-hidden="true" tabindex="-1"></a>    <span class="at">stock_daily      =</span> stock_daily,</span>
+<span id="cb1-1087"><a href="#cb1-1087" aria-hidden="true" tabindex="-1"></a>    <span class="at">fish_registry    =</span> fish_registry,</span>
+<span id="cb1-1088"><a href="#cb1-1088" aria-hidden="true" tabindex="-1"></a>    <span class="at">spawn_log        =</span> spawn_log,</span>
+<span id="cb1-1089"><a href="#cb1-1089" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_log      =</span> harvest_log,</span>
+<span id="cb1-1090"><a href="#cb1-1090" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_summary  =</span> harvest_summary,</span>
+<span id="cb1-1091"><a href="#cb1-1091" aria-hidden="true" tabindex="-1"></a>    <span class="at">switches         =</span> switches,</span>
+<span id="cb1-1092"><a href="#cb1-1092" aria-hidden="true" tabindex="-1"></a>    <span class="at">params           =</span> params,</span>
+<span id="cb1-1093"><a href="#cb1-1093" aria-hidden="true" tabindex="-1"></a>    <span class="at">habitat_df       =</span> habitat_df</span>
+<span id="cb1-1094"><a href="#cb1-1094" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb1-1095"><a href="#cb1-1095" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -1846,8 +1859,8 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"SimulationLoop.R"</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"SimulationLoop.qmd"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"source_files/SimulationLoop.R"</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"SimulationLoop.qmd"</span>, <span class="at">script =</span> <span class="st">"source_files/SimulationLoop.R"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 
@@ -2458,7 +2471,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`extinct`</span> <span class="pp">|</span> <span class="in">`TRUE`</span> if no fish were recorded on or after the start of the experimental period (replaces the empty-<span class="in">`ibm_long`</span> test) <span class="pp">|</span></span>
 <span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`extinction_date`</span> <span class="pp">|</span> Date of the last recorded day if the population died out (<span class="in">`NA`</span> if it persisted to the end of the run) <span class="pp">|</span></span>
 <span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`census`</span> <span class="pp">|</span> Per-fish survivors on each <span class="in">`census_mmdd`</span> date (default Oct 1), experimental period only <span class="pp">|</span></span>
-<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`daily_patch`</span> <span class="pp">|</span> Experimental period only; one row per date × patch × <span class="in">`cohort_grp`</span> × <span class="in">`age_group`</span> (0 = age 0, 1 = age 1+). <span class="in">`cohort_grp`</span> is the birth cohort for fish in their first two calendar years, <span class="in">`NA`</span> (pooled) for older fish. Columns: <span class="in">`n_fish`</span> (all fish recorded that day), <span class="in">`n_alive`</span> (survivors), <span class="in">`temp`</span> (mean temp), <span class="in">`n_ggd_all`</span> / <span class="in">`sum_ggd_all`</span> / <span class="in">`sum_growth_g`</span> (fish with non-missing growth: count, sum of ggd, sum of weight × ggd), <span class="in">`n_ggd_alive`</span> / <span class="in">`sum_ggd_alive`</span> (same, survivors only) <span class="pp">|</span></span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`daily_patch`</span> <span class="pp">|</span> Experimental period only; one row per date × patch × <span class="in">`cohort_grp`</span> × <span class="in">`age_group`</span> (0 = age 0, 1 = age 1+). <span class="in">`cohort_grp`</span> is the birth cohort for fish in their first two calendar years, <span class="in">`NA`</span> (pooled) for older fish. Columns: <span class="in">`n_fish`</span> (all fish recorded that day), <span class="in">`n_alive`</span> (survivors), <span class="in">`temp`</span> (mean temp), <span class="in">`n_ggd_all`</span> / <span class="in">`sum_ggd_all`</span> / <span class="in">`sum_growth_g`</span> (fish with non-missing growth: count, sum of ggd, sum of weight × ggd), <span class="in">`n_ggd_alive`</span> / <span class="in">`sum_ggd_alive`</span> (same, survivors only), <span class="in">`n_pcmax`</span> / <span class="in">`sum_pcmax`</span> (fish with non-missing <span class="in">`pcmax_adjusted_dd`</span>: count and sum) <span class="pp">|</span></span>
 <span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`surv_by_dsh`</span> <span class="pp">|</span> Experimental period only; age-0 survivors by day since hatch (0–364): <span class="in">`n`</span> and summed daily survival components <span class="in">`sum_p_sg`</span>, <span class="in">`sum_p_temp`</span>, <span class="in">`sum_p_starv`</span>, <span class="in">`sum_p_age`</span> (divide by <span class="in">`n`</span> for means) <span class="pp">|</span></span>
 <span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`stock_daily`</span> <span class="pp">|</span> One row per simulated day for the exploitable stock (fish with <span class="in">`peak_weight`</span> ≥ <span class="in">`stock_size`</span>): <span class="in">`B`</span> = stock biomass (g) alive at end of day; <span class="in">`G_net`</span>, <span class="in">`G_gross`</span>, <span class="in">`M`</span>, <span class="in">`C`</span>, <span class="in">`R`</span> = flows (g) for the transition from this day to the next (net growth, gross growth, natural mortality, harvest, recruitment) <span class="pp">|</span></span>
 <span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`fish_registry`</span> <span class="pp">|</span> One row per fish (founders + all offspring); includes <span class="in">`cross_day`</span>, the first day <span class="in">`peak_weight`</span> ≥ <span class="in">`stock_size`</span> (<span class="in">`NA`</span> if never) <span class="pp">|</span></span>
@@ -3383,193 +3396,200 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb3-1050"><a href="#cb3-1050" aria-hidden="true" tabindex="-1"></a>      <span class="at">patch          =</span> fish_pop<span class="sc">$</span>patch,</span>
 <span id="cb3-1051"><a href="#cb3-1051" aria-hidden="true" tabindex="-1"></a>      <span class="at">temp           =</span> growth_df<span class="sc">$</span>WT.actual,</span>
 <span id="cb3-1052"><a href="#cb3-1052" aria-hidden="true" tabindex="-1"></a>      <span class="at">ggd            =</span> growth_df<span class="sc">$</span>growth,</span>
-<span id="cb3-1053"><a href="#cb3-1053" aria-hidden="true" tabindex="-1"></a>      <span class="at">survived       =</span> growth_df<span class="sc">$</span>survive,</span>
-<span id="cb3-1054"><a href="#cb3-1054" aria-hidden="true" tabindex="-1"></a>      <span class="at">condition      =</span> condition,</span>
-<span id="cb3-1055"><a href="#cb3-1055" aria-hidden="true" tabindex="-1"></a>      <span class="at">age            =</span> fish_pop<span class="sc">$</span>age_days <span class="sc">/</span> <span class="dv">365</span>,</span>
-<span id="cb3-1056"><a href="#cb3-1056" aria-hidden="true" tabindex="-1"></a>      <span class="at">p_survive      =</span> prb.srv,</span>
-<span id="cb3-1057"><a href="#cb3-1057" aria-hidden="true" tabindex="-1"></a>      <span class="at">cohort         =</span> fish_pop<span class="sc">$</span>cohort,</span>
-<span id="cb3-1058"><a href="#cb3-1058" aria-hidden="true" tabindex="-1"></a>      <span class="at">parent_pid     =</span> fish_pop<span class="sc">$</span>parent_pid,</span>
-<span id="cb3-1059"><a href="#cb3-1059" aria-hidden="true" tabindex="-1"></a>      <span class="at">birth_dayofsim =</span> d <span class="sc">-</span> fish_pop<span class="sc">$</span>age_days</span>
-<span id="cb3-1060"><a href="#cb3-1060" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb3-1061"><a href="#cb3-1061" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1062"><a href="#cb3-1062" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ── 7b. In-loop result accumulators (no ibm_long needed) ───────────────────</span></span>
-<span id="cb3-1063"><a href="#cb3-1063" aria-hidden="true" tabindex="-1"></a>    last_day_recorded <span class="ot">&lt;-</span> d</span>
-<span id="cb3-1064"><a href="#cb3-1064" aria-hidden="true" tabindex="-1"></a>    alive  <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span></span>
-<span id="cb3-1065"><a href="#cb3-1065" aria-hidden="true" tabindex="-1"></a>    in_exp <span class="ot">&lt;-</span> current_date <span class="sc">&gt;=</span> exp_start_date</span>
-<span id="cb3-1066"><a href="#cb3-1066" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1067"><a href="#cb3-1067" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (i) Per-fish census of survivors on selected dates (experimental period)</span></span>
-<span id="cb3-1068"><a href="#cb3-1068" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp <span class="sc">&amp;&amp;</span> <span class="fu">format</span>(current_date, <span class="st">"%m-%d"</span>) <span class="sc">%in%</span> census_mmdd) {</span>
-<span id="cb3-1069"><a href="#cb3-1069" aria-hidden="true" tabindex="-1"></a>      census_list[[<span class="fu">length</span>(census_list) <span class="sc">+</span> <span class="dv">1</span>L]] <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb3-1070"><a href="#cb3-1070" aria-hidden="true" tabindex="-1"></a>        <span class="at">pid         =</span> fish_pop<span class="sc">$</span>pid[alive],</span>
-<span id="cb3-1071"><a href="#cb3-1071" aria-hidden="true" tabindex="-1"></a>        <span class="at">dayofsim    =</span> d,</span>
-<span id="cb3-1072"><a href="#cb3-1072" aria-hidden="true" tabindex="-1"></a>        <span class="at">date        =</span> current_date,</span>
-<span id="cb3-1073"><a href="#cb3-1073" aria-hidden="true" tabindex="-1"></a>        <span class="at">strategy    =</span> fish_pop<span class="sc">$</span>strategy[alive],</span>
-<span id="cb3-1074"><a href="#cb3-1074" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch       =</span> fish_pop<span class="sc">$</span>patch[alive],</span>
-<span id="cb3-1075"><a href="#cb3-1075" aria-hidden="true" tabindex="-1"></a>        <span class="at">weight      =</span> fish_pop<span class="sc">$</span>weight[alive],</span>
-<span id="cb3-1076"><a href="#cb3-1076" aria-hidden="true" tabindex="-1"></a>        <span class="at">age         =</span> fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">/</span> <span class="dv">365</span>,</span>
-<span id="cb3-1077"><a href="#cb3-1077" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_class   =</span> <span class="fu">as.integer</span>(fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">%/%</span> <span class="dv">365</span>L),</span>
-<span id="cb3-1078"><a href="#cb3-1078" aria-hidden="true" tabindex="-1"></a>        <span class="at">condition   =</span> condition[alive],</span>
-<span id="cb3-1079"><a href="#cb3-1079" aria-hidden="true" tabindex="-1"></a>        <span class="at">peak_weight =</span> fish_pop<span class="sc">$</span>peak_weight[alive],</span>
-<span id="cb3-1080"><a href="#cb3-1080" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort      =</span> fish_pop<span class="sc">$</span>cohort[alive]</span>
-<span id="cb3-1081"><a href="#cb3-1081" aria-hidden="true" tabindex="-1"></a>      )</span>
-<span id="cb3-1082"><a href="#cb3-1082" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb3-1083"><a href="#cb3-1083" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1084"><a href="#cb3-1084" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp) {</span>
-<span id="cb3-1085"><a href="#cb3-1085" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (ii) Daily sums by patch x cohort_grp x age_group. Integer key encodes the groups:</span></span>
-<span id="cb3-1086"><a href="#cb3-1086" aria-hidden="true" tabindex="-1"></a>      <span class="co">#      key = (cohort_code * 2 + age_group) * 2 + is_warm; cohort_code 0 = pooled older fish.</span></span>
-<span id="cb3-1087"><a href="#cb3-1087" aria-hidden="true" tabindex="-1"></a>      age_grp  <span class="ot">&lt;-</span> <span class="fu">pmin</span>(fish_pop<span class="sc">$</span>age_days <span class="sc">%/%</span> <span class="dv">365</span>L, <span class="dv">1</span>L)</span>
-<span id="cb3-1088"><a href="#cb3-1088" aria-hidden="true" tabindex="-1"></a>      coh_code <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(current_year <span class="sc">-</span> fish_pop<span class="sc">$</span>cohort <span class="sc">&lt;=</span> <span class="dv">1</span>L, fish_pop<span class="sc">$</span>cohort <span class="sc">-</span> cohort_base <span class="sc">+</span> <span class="dv">1</span>L, <span class="dv">0</span>L)</span>
-<span id="cb3-1089"><a href="#cb3-1089" aria-hidden="true" tabindex="-1"></a>      key      <span class="ot">&lt;-</span> (coh_code <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> age_grp) <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> (fish_pop<span class="sc">$</span>patch <span class="sc">==</span> <span class="st">"warm"</span>)</span>
-<span id="cb3-1090"><a href="#cb3-1090" aria-hidden="true" tabindex="-1"></a>      g_ok     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(growth_df<span class="sc">$</span>growth)</span>
-<span id="cb3-1091"><a href="#cb3-1091" aria-hidden="true" tabindex="-1"></a>      g_val    <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(g_ok, growth_df<span class="sc">$</span>growth, <span class="dv">0</span>)</span>
-<span id="cb3-1092"><a href="#cb3-1092" aria-hidden="true" tabindex="-1"></a>      rs <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="at">n_fish        =</span> <span class="dv">1</span>,</span>
-<span id="cb3-1093"><a href="#cb3-1093" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_alive       =</span> alive,</span>
-<span id="cb3-1094"><a href="#cb3-1094" aria-hidden="true" tabindex="-1"></a>                         <span class="at">temp_sum      =</span> growth_df<span class="sc">$</span>WT.actual,</span>
-<span id="cb3-1095"><a href="#cb3-1095" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_all     =</span> g_ok,</span>
-<span id="cb3-1096"><a href="#cb3-1096" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_all   =</span> g_val,</span>
-<span id="cb3-1097"><a href="#cb3-1097" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_growth_g  =</span> g_val <span class="sc">*</span> fish_pop<span class="sc">$</span>weight,</span>
-<span id="cb3-1098"><a href="#cb3-1098" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_alive   =</span> g_ok <span class="sc">&amp;</span> alive,</span>
-<span id="cb3-1099"><a href="#cb3-1099" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_alive =</span> g_val <span class="sc">*</span> alive),</span>
-<span id="cb3-1100"><a href="#cb3-1100" aria-hidden="true" tabindex="-1"></a>                   key)</span>
-<span id="cb3-1101"><a href="#cb3-1101" aria-hidden="true" tabindex="-1"></a>      daily_patch_list[[d]] <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">dayofsim =</span> d, <span class="at">key =</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs)), rs)</span>
-<span id="cb3-1102"><a href="#cb3-1102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1103"><a href="#cb3-1103" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (iii) Age-0 survival components by day since hatch (= age_days) for survivors</span></span>
-<span id="cb3-1104"><a href="#cb3-1104" aria-hidden="true" tabindex="-1"></a>      sel <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>age_days <span class="sc">&lt;</span> <span class="dv">365</span>L</span>
-<span id="cb3-1105"><a href="#cb3-1105" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">any</span>(sel)) {</span>
-<span id="cb3-1106"><a href="#cb3-1106" aria-hidden="true" tabindex="-1"></a>        rs2 <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="dv">1</span>, p_sg[sel], p_temp[sel], p_starv[sel], p_age[sel]),</span>
-<span id="cb3-1107"><a href="#cb3-1107" aria-hidden="true" tabindex="-1"></a>                      fish_pop<span class="sc">$</span>age_days[sel] <span class="sc">+</span> <span class="dv">1</span>L)</span>
-<span id="cb3-1108"><a href="#cb3-1108" aria-hidden="true" tabindex="-1"></a>        ri  <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs2))</span>
-<span id="cb3-1109"><a href="#cb3-1109" aria-hidden="true" tabindex="-1"></a>        surv_acc[ri, ] <span class="ot">&lt;-</span> surv_acc[ri, ] <span class="sc">+</span> rs2</span>
-<span id="cb3-1110"><a href="#cb3-1110" aria-hidden="true" tabindex="-1"></a>      }</span>
-<span id="cb3-1111"><a href="#cb3-1111" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb3-1112"><a href="#cb3-1112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1113"><a href="#cb3-1113" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (iv) Exploitable-stock budget (all days). Flows for the transition d-1 -&gt; d are</span></span>
-<span id="cb3-1114"><a href="#cb3-1114" aria-hidden="true" tabindex="-1"></a>    <span class="co">#      keyed to the start day d-1, from yesterday's stock members:</span></span>
-<span id="cb3-1115"><a href="#cb3-1115" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        stay    - present today and survived: growth = weight change</span></span>
-<span id="cb3-1116"><a href="#cb3-1116" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        die     - present today but died: weight at death leaves the stock (M)</span></span>
-<span id="cb3-1117"><a href="#cb3-1117" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        harvest - absent today and in today's harvest: harvest weight leaves (C)</span></span>
-<span id="cb3-1118"><a href="#cb3-1118" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L <span class="sc">&amp;&amp;</span> <span class="fu">length</span>(stock_prev_pid) <span class="sc">&gt;</span> <span class="dv">0</span>L) {</span>
-<span id="cb3-1119"><a href="#cb3-1119" aria-hidden="true" tabindex="-1"></a>      m_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, fish_pop<span class="sc">$</span>pid)</span>
-<span id="cb3-1120"><a href="#cb3-1120" aria-hidden="true" tabindex="-1"></a>      present     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(m_row)</span>
-<span id="cb3-1121"><a href="#cb3-1121" aria-hidden="true" tabindex="-1"></a>      h_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, harvested_today_pid)</span>
-<span id="cb3-1122"><a href="#cb3-1122" aria-hidden="true" tabindex="-1"></a>      harvested_f <span class="ot">&lt;-</span> <span class="sc">!</span>present <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(h_row)</span>
-<span id="cb3-1123"><a href="#cb3-1123" aria-hidden="true" tabindex="-1"></a>      valid       <span class="ot">&lt;-</span> present <span class="sc">|</span> harvested_f</span>
-<span id="cb3-1124"><a href="#cb3-1124" aria-hidden="true" tabindex="-1"></a>      w_out       <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(present, fish_pop<span class="sc">$</span>weight[m_row], harvested_today_wt[h_row])</span>
-<span id="cb3-1125"><a href="#cb3-1125" aria-hidden="true" tabindex="-1"></a>      died        <span class="ot">&lt;-</span> present <span class="sc">&amp;</span> growth_df<span class="sc">$</span>survive[m_row] <span class="sc">==</span> <span class="dv">0</span></span>
-<span id="cb3-1126"><a href="#cb3-1126" aria-hidden="true" tabindex="-1"></a>      stock_G_net[d <span class="sc">-</span> <span class="dv">1</span>L]   <span class="ot">&lt;-</span> <span class="fu">sum</span>((w_out <span class="sc">-</span> stock_prev_wt)[valid])</span>
-<span id="cb3-1127"><a href="#cb3-1127" aria-hidden="true" tabindex="-1"></a>      stock_G_gross[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> <span class="fu">sum</span>((stock_prev_wt <span class="sc">*</span> stock_prev_ggd)[valid], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-1128"><a href="#cb3-1128" aria-hidden="true" tabindex="-1"></a>      stock_M[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[died])</span>
-<span id="cb3-1129"><a href="#cb3-1129" aria-hidden="true" tabindex="-1"></a>      stock_C[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[harvested_f])</span>
-<span id="cb3-1130"><a href="#cb3-1130" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb3-1131"><a href="#cb3-1131" aria-hidden="true" tabindex="-1"></a>    stock_ok   <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size</span>
-<span id="cb3-1132"><a href="#cb3-1132" aria-hidden="true" tabindex="-1"></a>    stock_B[d] <span class="ot">&lt;-</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[stock_ok])</span>
-<span id="cb3-1133"><a href="#cb3-1133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1134"><a href="#cb3-1134" aria-hidden="true" tabindex="-1"></a>    <span class="co"># First day each fish reaches stock size (cross_day); recruits are those still alive that day</span></span>
-<span id="cb3-1135"><a href="#cb3-1135" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">length</span>(cross_day) <span class="sc">&lt;</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L) <span class="fu">length</span>(cross_day) <span class="ot">&lt;-</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L</span>
-<span id="cb3-1136"><a href="#cb3-1136" aria-hidden="true" tabindex="-1"></a>    newly <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size <span class="sc">&amp;</span> <span class="fu">is.na</span>(cross_day[fish_pop<span class="sc">$</span>pid])</span>
-<span id="cb3-1137"><a href="#cb3-1137" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">any</span>(newly)) {</span>
-<span id="cb3-1138"><a href="#cb3-1138" aria-hidden="true" tabindex="-1"></a>      cross_day[fish_pop<span class="sc">$</span>pid[newly]] <span class="ot">&lt;-</span> d</span>
-<span id="cb3-1139"><a href="#cb3-1139" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L) stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="sc">+</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[newly <span class="sc">&amp;</span> alive])</span>
-<span id="cb3-1140"><a href="#cb3-1140" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb3-1141"><a href="#cb3-1141" aria-hidden="true" tabindex="-1"></a>    stock_prev_pid <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>pid[stock_ok]</span>
-<span id="cb3-1142"><a href="#cb3-1142" aria-hidden="true" tabindex="-1"></a>    stock_prev_wt  <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>weight[stock_ok]</span>
-<span id="cb3-1143"><a href="#cb3-1143" aria-hidden="true" tabindex="-1"></a>    stock_prev_ggd <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>growth[stock_ok]</span>
-<span id="cb3-1144"><a href="#cb3-1144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1145"><a href="#cb3-1145" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Remove non-survivors — only living fish carry forward to next iteration</span></span>
-<span id="cb3-1146"><a href="#cb3-1146" aria-hidden="true" tabindex="-1"></a>    fish_pop <span class="ot">&lt;-</span> fish_pop[growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span>, ]</span>
-<span id="cb3-1147"><a href="#cb3-1147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1148"><a href="#cb3-1148" aria-hidden="true" tabindex="-1"></a>    <span class="co"># exit loop if all fish have died</span></span>
-<span id="cb3-1149"><a href="#cb3-1149" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span>) <span class="cf">break</span></span>
-<span id="cb3-1150"><a href="#cb3-1150" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb3-1151"><a href="#cb3-1151" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1152"><a href="#cb3-1152" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate accumulated lists into final data frames ─────────────────────────</span></span>
-<span id="cb3-1153"><a href="#cb3-1153" aria-hidden="true" tabindex="-1"></a>  fish_registry    <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(fish_registry_list)</span>
-<span id="cb3-1154"><a href="#cb3-1154" aria-hidden="true" tabindex="-1"></a>  spawn_log        <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(spawn_log_list)        <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(spawn_log_list)        <span class="cf">else</span> spawn_log_empty</span>
-<span id="cb3-1155"><a href="#cb3-1155" aria-hidden="true" tabindex="-1"></a>  harvest_log      <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_log_list)      <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_log_list)      <span class="cf">else</span> harvest_log_empty</span>
-<span id="cb3-1156"><a href="#cb3-1156" aria-hidden="true" tabindex="-1"></a>  harvest_summary  <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_summary_list)  <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_summary_list)  <span class="cf">else</span> harvest_summary_empty</span>
-<span id="cb3-1157"><a href="#cb3-1157" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1158"><a href="#cb3-1158" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate ibm_long (experimental period only if save_burnin = FALSE) ────────</span></span>
-<span id="cb3-1159"><a href="#cb3-1159" aria-hidden="true" tabindex="-1"></a>  <span class="co"># No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored</span></span>
-<span id="cb3-1160"><a href="#cb3-1160" aria-hidden="true" tabindex="-1"></a>  <span class="co"># directly in each ibm_records[[d]] during step 7.</span></span>
-<span id="cb3-1161"><a href="#cb3-1161" aria-hidden="true" tabindex="-1"></a>  ibm_long <span class="ot">&lt;-</span> <span class="cf">if</span> (save_ibm_long) <span class="fu">bind_rows</span>(ibm_records) <span class="cf">else</span> <span class="cn">NULL</span></span>
+<span id="cb3-1053"><a href="#cb3-1053" aria-hidden="true" tabindex="-1"></a>      <span class="at">pcmax_adjusted_dd =</span> fish_pop<span class="sc">$</span>pcmax_adjusted_dd,</span>
+<span id="cb3-1054"><a href="#cb3-1054" aria-hidden="true" tabindex="-1"></a>      <span class="at">survived       =</span> growth_df<span class="sc">$</span>survive,</span>
+<span id="cb3-1055"><a href="#cb3-1055" aria-hidden="true" tabindex="-1"></a>      <span class="at">condition      =</span> condition,</span>
+<span id="cb3-1056"><a href="#cb3-1056" aria-hidden="true" tabindex="-1"></a>      <span class="at">age            =</span> fish_pop<span class="sc">$</span>age_days <span class="sc">/</span> <span class="dv">365</span>,</span>
+<span id="cb3-1057"><a href="#cb3-1057" aria-hidden="true" tabindex="-1"></a>      <span class="at">p_survive      =</span> prb.srv,</span>
+<span id="cb3-1058"><a href="#cb3-1058" aria-hidden="true" tabindex="-1"></a>      <span class="at">cohort         =</span> fish_pop<span class="sc">$</span>cohort,</span>
+<span id="cb3-1059"><a href="#cb3-1059" aria-hidden="true" tabindex="-1"></a>      <span class="at">parent_pid     =</span> fish_pop<span class="sc">$</span>parent_pid,</span>
+<span id="cb3-1060"><a href="#cb3-1060" aria-hidden="true" tabindex="-1"></a>      <span class="at">birth_dayofsim =</span> d <span class="sc">-</span> fish_pop<span class="sc">$</span>age_days</span>
+<span id="cb3-1061"><a href="#cb3-1061" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb3-1062"><a href="#cb3-1062" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1063"><a href="#cb3-1063" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ── 7b. In-loop result accumulators (no ibm_long needed) ───────────────────</span></span>
+<span id="cb3-1064"><a href="#cb3-1064" aria-hidden="true" tabindex="-1"></a>    last_day_recorded <span class="ot">&lt;-</span> d</span>
+<span id="cb3-1065"><a href="#cb3-1065" aria-hidden="true" tabindex="-1"></a>    alive  <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span></span>
+<span id="cb3-1066"><a href="#cb3-1066" aria-hidden="true" tabindex="-1"></a>    in_exp <span class="ot">&lt;-</span> current_date <span class="sc">&gt;=</span> exp_start_date</span>
+<span id="cb3-1067"><a href="#cb3-1067" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1068"><a href="#cb3-1068" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (i) Per-fish census of survivors on selected dates (experimental period)</span></span>
+<span id="cb3-1069"><a href="#cb3-1069" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp <span class="sc">&amp;&amp;</span> <span class="fu">format</span>(current_date, <span class="st">"%m-%d"</span>) <span class="sc">%in%</span> census_mmdd) {</span>
+<span id="cb3-1070"><a href="#cb3-1070" aria-hidden="true" tabindex="-1"></a>      census_list[[<span class="fu">length</span>(census_list) <span class="sc">+</span> <span class="dv">1</span>L]] <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb3-1071"><a href="#cb3-1071" aria-hidden="true" tabindex="-1"></a>        <span class="at">pid         =</span> fish_pop<span class="sc">$</span>pid[alive],</span>
+<span id="cb3-1072"><a href="#cb3-1072" aria-hidden="true" tabindex="-1"></a>        <span class="at">dayofsim    =</span> d,</span>
+<span id="cb3-1073"><a href="#cb3-1073" aria-hidden="true" tabindex="-1"></a>        <span class="at">date        =</span> current_date,</span>
+<span id="cb3-1074"><a href="#cb3-1074" aria-hidden="true" tabindex="-1"></a>        <span class="at">strategy    =</span> fish_pop<span class="sc">$</span>strategy[alive],</span>
+<span id="cb3-1075"><a href="#cb3-1075" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch       =</span> fish_pop<span class="sc">$</span>patch[alive],</span>
+<span id="cb3-1076"><a href="#cb3-1076" aria-hidden="true" tabindex="-1"></a>        <span class="at">weight      =</span> fish_pop<span class="sc">$</span>weight[alive],</span>
+<span id="cb3-1077"><a href="#cb3-1077" aria-hidden="true" tabindex="-1"></a>        <span class="at">age         =</span> fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">/</span> <span class="dv">365</span>,</span>
+<span id="cb3-1078"><a href="#cb3-1078" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_class   =</span> <span class="fu">as.integer</span>(fish_pop<span class="sc">$</span>age_days[alive] <span class="sc">%/%</span> <span class="dv">365</span>L),</span>
+<span id="cb3-1079"><a href="#cb3-1079" aria-hidden="true" tabindex="-1"></a>        <span class="at">condition   =</span> condition[alive],</span>
+<span id="cb3-1080"><a href="#cb3-1080" aria-hidden="true" tabindex="-1"></a>        <span class="at">peak_weight =</span> fish_pop<span class="sc">$</span>peak_weight[alive],</span>
+<span id="cb3-1081"><a href="#cb3-1081" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort      =</span> fish_pop<span class="sc">$</span>cohort[alive]</span>
+<span id="cb3-1082"><a href="#cb3-1082" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb3-1083"><a href="#cb3-1083" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-1084"><a href="#cb3-1084" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1085"><a href="#cb3-1085" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (in_exp) {</span>
+<span id="cb3-1086"><a href="#cb3-1086" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (ii) Daily sums by patch x cohort_grp x age_group. Integer key encodes the groups:</span></span>
+<span id="cb3-1087"><a href="#cb3-1087" aria-hidden="true" tabindex="-1"></a>      <span class="co">#      key = (cohort_code * 2 + age_group) * 2 + is_warm; cohort_code 0 = pooled older fish.</span></span>
+<span id="cb3-1088"><a href="#cb3-1088" aria-hidden="true" tabindex="-1"></a>      age_grp  <span class="ot">&lt;-</span> <span class="fu">pmin</span>(fish_pop<span class="sc">$</span>age_days <span class="sc">%/%</span> <span class="dv">365</span>L, <span class="dv">1</span>L)</span>
+<span id="cb3-1089"><a href="#cb3-1089" aria-hidden="true" tabindex="-1"></a>      coh_code <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(current_year <span class="sc">-</span> fish_pop<span class="sc">$</span>cohort <span class="sc">&lt;=</span> <span class="dv">1</span>L, fish_pop<span class="sc">$</span>cohort <span class="sc">-</span> cohort_base <span class="sc">+</span> <span class="dv">1</span>L, <span class="dv">0</span>L)</span>
+<span id="cb3-1090"><a href="#cb3-1090" aria-hidden="true" tabindex="-1"></a>      key      <span class="ot">&lt;-</span> (coh_code <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> age_grp) <span class="sc">*</span> <span class="dv">2</span>L <span class="sc">+</span> (fish_pop<span class="sc">$</span>patch <span class="sc">==</span> <span class="st">"warm"</span>)</span>
+<span id="cb3-1091"><a href="#cb3-1091" aria-hidden="true" tabindex="-1"></a>      g_ok     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(growth_df<span class="sc">$</span>growth)</span>
+<span id="cb3-1092"><a href="#cb3-1092" aria-hidden="true" tabindex="-1"></a>      g_val    <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(g_ok, growth_df<span class="sc">$</span>growth, <span class="dv">0</span>)</span>
+<span id="cb3-1093"><a href="#cb3-1093" aria-hidden="true" tabindex="-1"></a>      p_ok     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(fish_pop<span class="sc">$</span>pcmax_adjusted_dd)</span>
+<span id="cb3-1094"><a href="#cb3-1094" aria-hidden="true" tabindex="-1"></a>      p_val    <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(p_ok, fish_pop<span class="sc">$</span>pcmax_adjusted_dd, <span class="dv">0</span>)</span>
+<span id="cb3-1095"><a href="#cb3-1095" aria-hidden="true" tabindex="-1"></a>      rs <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="at">n_fish        =</span> <span class="dv">1</span>,</span>
+<span id="cb3-1096"><a href="#cb3-1096" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_alive       =</span> alive,</span>
+<span id="cb3-1097"><a href="#cb3-1097" aria-hidden="true" tabindex="-1"></a>                         <span class="at">temp_sum      =</span> growth_df<span class="sc">$</span>WT.actual,</span>
+<span id="cb3-1098"><a href="#cb3-1098" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_all     =</span> g_ok,</span>
+<span id="cb3-1099"><a href="#cb3-1099" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_all   =</span> g_val,</span>
+<span id="cb3-1100"><a href="#cb3-1100" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_growth_g  =</span> g_val <span class="sc">*</span> fish_pop<span class="sc">$</span>weight,</span>
+<span id="cb3-1101"><a href="#cb3-1101" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_ggd_alive   =</span> g_ok <span class="sc">&amp;</span> alive,</span>
+<span id="cb3-1102"><a href="#cb3-1102" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_ggd_alive =</span> g_val <span class="sc">*</span> alive,</span>
+<span id="cb3-1103"><a href="#cb3-1103" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n_pcmax       =</span> p_ok,</span>
+<span id="cb3-1104"><a href="#cb3-1104" aria-hidden="true" tabindex="-1"></a>                         <span class="at">sum_pcmax     =</span> p_val),</span>
+<span id="cb3-1105"><a href="#cb3-1105" aria-hidden="true" tabindex="-1"></a>                   key)</span>
+<span id="cb3-1106"><a href="#cb3-1106" aria-hidden="true" tabindex="-1"></a>      daily_patch_list[[d]] <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">dayofsim =</span> d, <span class="at">key =</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs)), rs)</span>
+<span id="cb3-1107"><a href="#cb3-1107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1108"><a href="#cb3-1108" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (iii) Age-0 survival components by day since hatch (= age_days) for survivors</span></span>
+<span id="cb3-1109"><a href="#cb3-1109" aria-hidden="true" tabindex="-1"></a>      sel <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>age_days <span class="sc">&lt;</span> <span class="dv">365</span>L</span>
+<span id="cb3-1110"><a href="#cb3-1110" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">any</span>(sel)) {</span>
+<span id="cb3-1111"><a href="#cb3-1111" aria-hidden="true" tabindex="-1"></a>        rs2 <span class="ot">&lt;-</span> <span class="fu">rowsum</span>(<span class="fu">cbind</span>(<span class="dv">1</span>, p_sg[sel], p_temp[sel], p_starv[sel], p_age[sel]),</span>
+<span id="cb3-1112"><a href="#cb3-1112" aria-hidden="true" tabindex="-1"></a>                      fish_pop<span class="sc">$</span>age_days[sel] <span class="sc">+</span> <span class="dv">1</span>L)</span>
+<span id="cb3-1113"><a href="#cb3-1113" aria-hidden="true" tabindex="-1"></a>        ri  <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(<span class="fu">rownames</span>(rs2))</span>
+<span id="cb3-1114"><a href="#cb3-1114" aria-hidden="true" tabindex="-1"></a>        surv_acc[ri, ] <span class="ot">&lt;-</span> surv_acc[ri, ] <span class="sc">+</span> rs2</span>
+<span id="cb3-1115"><a href="#cb3-1115" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-1116"><a href="#cb3-1116" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-1117"><a href="#cb3-1117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1118"><a href="#cb3-1118" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (iv) Exploitable-stock budget (all days). Flows for the transition d-1 -&gt; d are</span></span>
+<span id="cb3-1119"><a href="#cb3-1119" aria-hidden="true" tabindex="-1"></a>    <span class="co">#      keyed to the start day d-1, from yesterday's stock members:</span></span>
+<span id="cb3-1120"><a href="#cb3-1120" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        stay    - present today and survived: growth = weight change</span></span>
+<span id="cb3-1121"><a href="#cb3-1121" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        die     - present today but died: weight at death leaves the stock (M)</span></span>
+<span id="cb3-1122"><a href="#cb3-1122" aria-hidden="true" tabindex="-1"></a>    <span class="co">#        harvest - absent today and in today's harvest: harvest weight leaves (C)</span></span>
+<span id="cb3-1123"><a href="#cb3-1123" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L <span class="sc">&amp;&amp;</span> <span class="fu">length</span>(stock_prev_pid) <span class="sc">&gt;</span> <span class="dv">0</span>L) {</span>
+<span id="cb3-1124"><a href="#cb3-1124" aria-hidden="true" tabindex="-1"></a>      m_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, fish_pop<span class="sc">$</span>pid)</span>
+<span id="cb3-1125"><a href="#cb3-1125" aria-hidden="true" tabindex="-1"></a>      present     <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(m_row)</span>
+<span id="cb3-1126"><a href="#cb3-1126" aria-hidden="true" tabindex="-1"></a>      h_row       <span class="ot">&lt;-</span> <span class="fu">match</span>(stock_prev_pid, harvested_today_pid)</span>
+<span id="cb3-1127"><a href="#cb3-1127" aria-hidden="true" tabindex="-1"></a>      harvested_f <span class="ot">&lt;-</span> <span class="sc">!</span>present <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(h_row)</span>
+<span id="cb3-1128"><a href="#cb3-1128" aria-hidden="true" tabindex="-1"></a>      valid       <span class="ot">&lt;-</span> present <span class="sc">|</span> harvested_f</span>
+<span id="cb3-1129"><a href="#cb3-1129" aria-hidden="true" tabindex="-1"></a>      w_out       <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(present, fish_pop<span class="sc">$</span>weight[m_row], harvested_today_wt[h_row])</span>
+<span id="cb3-1130"><a href="#cb3-1130" aria-hidden="true" tabindex="-1"></a>      died        <span class="ot">&lt;-</span> present <span class="sc">&amp;</span> growth_df<span class="sc">$</span>survive[m_row] <span class="sc">==</span> <span class="dv">0</span></span>
+<span id="cb3-1131"><a href="#cb3-1131" aria-hidden="true" tabindex="-1"></a>      stock_G_net[d <span class="sc">-</span> <span class="dv">1</span>L]   <span class="ot">&lt;-</span> <span class="fu">sum</span>((w_out <span class="sc">-</span> stock_prev_wt)[valid])</span>
+<span id="cb3-1132"><a href="#cb3-1132" aria-hidden="true" tabindex="-1"></a>      stock_G_gross[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> <span class="fu">sum</span>((stock_prev_wt <span class="sc">*</span> stock_prev_ggd)[valid], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb3-1133"><a href="#cb3-1133" aria-hidden="true" tabindex="-1"></a>      stock_M[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[died])</span>
+<span id="cb3-1134"><a href="#cb3-1134" aria-hidden="true" tabindex="-1"></a>      stock_C[d <span class="sc">-</span> <span class="dv">1</span>L]       <span class="ot">&lt;-</span> <span class="fu">sum</span>(w_out[harvested_f])</span>
+<span id="cb3-1135"><a href="#cb3-1135" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-1136"><a href="#cb3-1136" aria-hidden="true" tabindex="-1"></a>    stock_ok   <span class="ot">&lt;-</span> alive <span class="sc">&amp;</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size</span>
+<span id="cb3-1137"><a href="#cb3-1137" aria-hidden="true" tabindex="-1"></a>    stock_B[d] <span class="ot">&lt;-</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[stock_ok])</span>
+<span id="cb3-1138"><a href="#cb3-1138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1139"><a href="#cb3-1139" aria-hidden="true" tabindex="-1"></a>    <span class="co"># First day each fish reaches stock size (cross_day); recruits are those still alive that day</span></span>
+<span id="cb3-1140"><a href="#cb3-1140" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">length</span>(cross_day) <span class="sc">&lt;</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L) <span class="fu">length</span>(cross_day) <span class="ot">&lt;-</span> next_pid <span class="sc">-</span> <span class="dv">1</span>L</span>
+<span id="cb3-1141"><a href="#cb3-1141" aria-hidden="true" tabindex="-1"></a>    newly <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>peak_weight <span class="sc">&gt;=</span> stock_size <span class="sc">&amp;</span> <span class="fu">is.na</span>(cross_day[fish_pop<span class="sc">$</span>pid])</span>
+<span id="cb3-1142"><a href="#cb3-1142" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">any</span>(newly)) {</span>
+<span id="cb3-1143"><a href="#cb3-1143" aria-hidden="true" tabindex="-1"></a>      cross_day[fish_pop<span class="sc">$</span>pid[newly]] <span class="ot">&lt;-</span> d</span>
+<span id="cb3-1144"><a href="#cb3-1144" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (d <span class="sc">&gt;</span> <span class="dv">1</span>L) stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="ot">&lt;-</span> stock_R[d <span class="sc">-</span> <span class="dv">1</span>L] <span class="sc">+</span> <span class="fu">sum</span>(fish_pop<span class="sc">$</span>weight[newly <span class="sc">&amp;</span> alive])</span>
+<span id="cb3-1145"><a href="#cb3-1145" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-1146"><a href="#cb3-1146" aria-hidden="true" tabindex="-1"></a>    stock_prev_pid <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>pid[stock_ok]</span>
+<span id="cb3-1147"><a href="#cb3-1147" aria-hidden="true" tabindex="-1"></a>    stock_prev_wt  <span class="ot">&lt;-</span> fish_pop<span class="sc">$</span>weight[stock_ok]</span>
+<span id="cb3-1148"><a href="#cb3-1148" aria-hidden="true" tabindex="-1"></a>    stock_prev_ggd <span class="ot">&lt;-</span> growth_df<span class="sc">$</span>growth[stock_ok]</span>
+<span id="cb3-1149"><a href="#cb3-1149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1150"><a href="#cb3-1150" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Remove non-survivors — only living fish carry forward to next iteration</span></span>
+<span id="cb3-1151"><a href="#cb3-1151" aria-hidden="true" tabindex="-1"></a>    fish_pop <span class="ot">&lt;-</span> fish_pop[growth_df<span class="sc">$</span>survive <span class="sc">==</span> <span class="dv">1</span>, ]</span>
+<span id="cb3-1152"><a href="#cb3-1152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1153"><a href="#cb3-1153" aria-hidden="true" tabindex="-1"></a>    <span class="co"># exit loop if all fish have died</span></span>
+<span id="cb3-1154"><a href="#cb3-1154" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span>) <span class="cf">break</span></span>
+<span id="cb3-1155"><a href="#cb3-1155" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-1156"><a href="#cb3-1156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1157"><a href="#cb3-1157" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate accumulated lists into final data frames ─────────────────────────</span></span>
+<span id="cb3-1158"><a href="#cb3-1158" aria-hidden="true" tabindex="-1"></a>  fish_registry    <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(fish_registry_list)</span>
+<span id="cb3-1159"><a href="#cb3-1159" aria-hidden="true" tabindex="-1"></a>  spawn_log        <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(spawn_log_list)        <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(spawn_log_list)        <span class="cf">else</span> spawn_log_empty</span>
+<span id="cb3-1160"><a href="#cb3-1160" aria-hidden="true" tabindex="-1"></a>  harvest_log      <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_log_list)      <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_log_list)      <span class="cf">else</span> harvest_log_empty</span>
+<span id="cb3-1161"><a href="#cb3-1161" aria-hidden="true" tabindex="-1"></a>  harvest_summary  <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(harvest_summary_list)  <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">bind_rows</span>(harvest_summary_list)  <span class="cf">else</span> harvest_summary_empty</span>
 <span id="cb3-1162"><a href="#cb3-1162" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1163"><a href="#cb3-1163" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate in-loop accumulators ──────────────────────────────────────────────</span></span>
-<span id="cb3-1164"><a href="#cb3-1164" aria-hidden="true" tabindex="-1"></a>  fish_registry<span class="sc">$</span>cross_day <span class="ot">&lt;-</span> cross_day[fish_registry<span class="sc">$</span>pid]</span>
-<span id="cb3-1165"><a href="#cb3-1165" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1166"><a href="#cb3-1166" aria-hidden="true" tabindex="-1"></a>  census <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(census_list)</span>
+<span id="cb3-1163"><a href="#cb3-1163" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate ibm_long (experimental period only if save_burnin = FALSE) ────────</span></span>
+<span id="cb3-1164"><a href="#cb3-1164" aria-hidden="true" tabindex="-1"></a>  <span class="co"># No left_join needed: date, cohort, parent_pid, birth_dayofsim were stored</span></span>
+<span id="cb3-1165"><a href="#cb3-1165" aria-hidden="true" tabindex="-1"></a>  <span class="co"># directly in each ibm_records[[d]] during step 7.</span></span>
+<span id="cb3-1166"><a href="#cb3-1166" aria-hidden="true" tabindex="-1"></a>  ibm_long <span class="ot">&lt;-</span> <span class="cf">if</span> (save_ibm_long) <span class="fu">bind_rows</span>(ibm_records) <span class="cf">else</span> <span class="cn">NULL</span></span>
 <span id="cb3-1167"><a href="#cb3-1167" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1168"><a href="#cb3-1168" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, daily_patch_list)</span>
-<span id="cb3-1169"><a href="#cb3-1169" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(daily_patch)) {</span>
-<span id="cb3-1170"><a href="#cb3-1170" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">dayofsim =</span> <span class="fu">integer</span>(), <span class="at">date =</span> <span class="fu">as.Date</span>(<span class="fu">character</span>()), <span class="at">patch =</span> <span class="fu">character</span>(),</span>
-<span id="cb3-1171"><a href="#cb3-1171" aria-hidden="true" tabindex="-1"></a>           <span class="at">cohort_grp =</span> <span class="fu">integer</span>(), <span class="at">age_group =</span> <span class="fu">integer</span>(), <span class="at">n_fish =</span> <span class="fu">numeric</span>(), <span class="at">n_alive =</span> <span class="fu">numeric</span>(),</span>
-<span id="cb3-1172"><a href="#cb3-1172" aria-hidden="true" tabindex="-1"></a>           <span class="at">temp =</span> <span class="fu">numeric</span>(), <span class="at">n_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_growth_g =</span> <span class="fu">numeric</span>(),</span>
-<span id="cb3-1173"><a href="#cb3-1173" aria-hidden="true" tabindex="-1"></a>           <span class="at">n_ggd_alive =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_alive =</span> <span class="fu">numeric</span>())</span>
-<span id="cb3-1174"><a href="#cb3-1174" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
-<span id="cb3-1175"><a href="#cb3-1175" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as_tibble</span>(daily_patch) <span class="sc">|&gt;</span></span>
-<span id="cb3-1176"><a href="#cb3-1176" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(</span>
-<span id="cb3-1177"><a href="#cb3-1177" aria-hidden="true" tabindex="-1"></a>        <span class="at">date       =</span> habitat_df<span class="sc">$</span>date[dayofsim],</span>
-<span id="cb3-1178"><a href="#cb3-1178" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch      =</span> <span class="fu">if_else</span>(key <span class="sc">%%</span> <span class="dv">2</span>L <span class="sc">==</span> <span class="dv">1</span>L, <span class="st">"warm"</span>, <span class="st">"cold"</span>),</span>
-<span id="cb3-1179"><a href="#cb3-1179" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_group  =</span> <span class="fu">as.integer</span>((key <span class="sc">%/%</span> <span class="dv">2</span>L) <span class="sc">%%</span> <span class="dv">2</span>L),</span>
-<span id="cb3-1180"><a href="#cb3-1180" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort_grp =</span> <span class="fu">if_else</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">==</span> <span class="dv">0</span>L, <span class="cn">NA_integer_</span>, <span class="fu">as.integer</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">+</span> cohort_base <span class="sc">-</span> <span class="dv">1</span>L)),</span>
-<span id="cb3-1181"><a href="#cb3-1181" aria-hidden="true" tabindex="-1"></a>        <span class="at">temp       =</span> temp_sum <span class="sc">/</span> n_fish</span>
-<span id="cb3-1182"><a href="#cb3-1182" aria-hidden="true" tabindex="-1"></a>      ) <span class="sc">|&gt;</span></span>
-<span id="cb3-1183"><a href="#cb3-1183" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(dayofsim, date, patch, cohort_grp, age_group, n_fish, n_alive, temp,</span>
-<span id="cb3-1184"><a href="#cb3-1184" aria-hidden="true" tabindex="-1"></a>             n_ggd_all, sum_ggd_all, sum_growth_g, n_ggd_alive, sum_ggd_alive)</span>
-<span id="cb3-1185"><a href="#cb3-1185" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb3-1186"><a href="#cb3-1186" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1187"><a href="#cb3-1187" aria-hidden="true" tabindex="-1"></a>  surv_by_dsh <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(surv_acc) <span class="sc">|&gt;</span></span>
-<span id="cb3-1188"><a href="#cb3-1188" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">dsh =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">364</span>, <span class="at">.before =</span> <span class="dv">1</span>)</span>
-<span id="cb3-1189"><a href="#cb3-1189" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1190"><a href="#cb3-1190" aria-hidden="true" tabindex="-1"></a>  stock_days  <span class="ot">&lt;-</span> <span class="fu">seq_len</span>(last_day_recorded)</span>
-<span id="cb3-1191"><a href="#cb3-1191" aria-hidden="true" tabindex="-1"></a>  stock_daily <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb3-1192"><a href="#cb3-1192" aria-hidden="true" tabindex="-1"></a>    <span class="at">dayofsim =</span> stock_days,</span>
-<span id="cb3-1193"><a href="#cb3-1193" aria-hidden="true" tabindex="-1"></a>    <span class="at">date     =</span> habitat_df<span class="sc">$</span>date[stock_days],</span>
-<span id="cb3-1194"><a href="#cb3-1194" aria-hidden="true" tabindex="-1"></a>    <span class="at">doy      =</span> <span class="fu">yday</span>(habitat_df<span class="sc">$</span>date[stock_days]),</span>
-<span id="cb3-1195"><a href="#cb3-1195" aria-hidden="true" tabindex="-1"></a>    <span class="at">B        =</span> stock_B[stock_days],</span>
-<span id="cb3-1196"><a href="#cb3-1196" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_net    =</span> stock_G_net[stock_days],</span>
-<span id="cb3-1197"><a href="#cb3-1197" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_gross  =</span> stock_G_gross[stock_days],</span>
-<span id="cb3-1198"><a href="#cb3-1198" aria-hidden="true" tabindex="-1"></a>    <span class="at">M        =</span> stock_M[stock_days],</span>
-<span id="cb3-1199"><a href="#cb3-1199" aria-hidden="true" tabindex="-1"></a>    <span class="at">C        =</span> stock_C[stock_days],</span>
-<span id="cb3-1200"><a href="#cb3-1200" aria-hidden="true" tabindex="-1"></a>    <span class="at">R        =</span> stock_R[stock_days]</span>
-<span id="cb3-1201"><a href="#cb3-1201" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb3-1202"><a href="#cb3-1202" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1203"><a href="#cb3-1203" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extinct = nothing recorded on or after the start of the experimental period</span></span>
-<span id="cb3-1204"><a href="#cb3-1204" aria-hidden="true" tabindex="-1"></a>  extinct <span class="ot">&lt;-</span> last_day_recorded <span class="sc">==</span> <span class="dv">0</span>L <span class="sc">||</span> habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="sc">&lt;</span> exp_start_date</span>
-<span id="cb3-1205"><a href="#cb3-1205" aria-hidden="true" tabindex="-1"></a>  extinction_date <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> last_day_recorded <span class="sc">&gt;</span> <span class="dv">0</span>L) habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="cf">else</span> <span class="fu">as.Date</span>(<span class="cn">NA</span>)</span>
-<span id="cb3-1206"><a href="#cb3-1206" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1207"><a href="#cb3-1207" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Monthly summary (1st of each month, pre-computed in the loop) ─────────────</span></span>
-<span id="cb3-1208"><a href="#cb3-1208" aria-hidden="true" tabindex="-1"></a>  ibm_summary <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(ibm_summary_list)</span>
+<span id="cb3-1168"><a href="#cb3-1168" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Collate in-loop accumulators ──────────────────────────────────────────────</span></span>
+<span id="cb3-1169"><a href="#cb3-1169" aria-hidden="true" tabindex="-1"></a>  fish_registry<span class="sc">$</span>cross_day <span class="ot">&lt;-</span> cross_day[fish_registry<span class="sc">$</span>pid]</span>
+<span id="cb3-1170"><a href="#cb3-1170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1171"><a href="#cb3-1171" aria-hidden="true" tabindex="-1"></a>  census <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(census_list)</span>
+<span id="cb3-1172"><a href="#cb3-1172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1173"><a href="#cb3-1173" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, daily_patch_list)</span>
+<span id="cb3-1174"><a href="#cb3-1174" aria-hidden="true" tabindex="-1"></a>  daily_patch <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(daily_patch)) {</span>
+<span id="cb3-1175"><a href="#cb3-1175" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(<span class="at">dayofsim =</span> <span class="fu">integer</span>(), <span class="at">date =</span> <span class="fu">as.Date</span>(<span class="fu">character</span>()), <span class="at">patch =</span> <span class="fu">character</span>(),</span>
+<span id="cb3-1176"><a href="#cb3-1176" aria-hidden="true" tabindex="-1"></a>           <span class="at">cohort_grp =</span> <span class="fu">integer</span>(), <span class="at">age_group =</span> <span class="fu">integer</span>(), <span class="at">n_fish =</span> <span class="fu">numeric</span>(), <span class="at">n_alive =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb3-1177"><a href="#cb3-1177" aria-hidden="true" tabindex="-1"></a>           <span class="at">temp =</span> <span class="fu">numeric</span>(), <span class="at">n_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_all =</span> <span class="fu">numeric</span>(), <span class="at">sum_growth_g =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb3-1178"><a href="#cb3-1178" aria-hidden="true" tabindex="-1"></a>           <span class="at">n_ggd_alive =</span> <span class="fu">numeric</span>(), <span class="at">sum_ggd_alive =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb3-1179"><a href="#cb3-1179" aria-hidden="true" tabindex="-1"></a>           <span class="at">n_pcmax =</span> <span class="fu">numeric</span>(), <span class="at">sum_pcmax =</span> <span class="fu">numeric</span>())</span>
+<span id="cb3-1180"><a href="#cb3-1180" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb3-1181"><a href="#cb3-1181" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as_tibble</span>(daily_patch) <span class="sc">|&gt;</span></span>
+<span id="cb3-1182"><a href="#cb3-1182" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(</span>
+<span id="cb3-1183"><a href="#cb3-1183" aria-hidden="true" tabindex="-1"></a>        <span class="at">date       =</span> habitat_df<span class="sc">$</span>date[dayofsim],</span>
+<span id="cb3-1184"><a href="#cb3-1184" aria-hidden="true" tabindex="-1"></a>        <span class="at">patch      =</span> <span class="fu">if_else</span>(key <span class="sc">%%</span> <span class="dv">2</span>L <span class="sc">==</span> <span class="dv">1</span>L, <span class="st">"warm"</span>, <span class="st">"cold"</span>),</span>
+<span id="cb3-1185"><a href="#cb3-1185" aria-hidden="true" tabindex="-1"></a>        <span class="at">age_group  =</span> <span class="fu">as.integer</span>((key <span class="sc">%/%</span> <span class="dv">2</span>L) <span class="sc">%%</span> <span class="dv">2</span>L),</span>
+<span id="cb3-1186"><a href="#cb3-1186" aria-hidden="true" tabindex="-1"></a>        <span class="at">cohort_grp =</span> <span class="fu">if_else</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">==</span> <span class="dv">0</span>L, <span class="cn">NA_integer_</span>, <span class="fu">as.integer</span>(key <span class="sc">%/%</span> <span class="dv">4</span>L <span class="sc">+</span> cohort_base <span class="sc">-</span> <span class="dv">1</span>L)),</span>
+<span id="cb3-1187"><a href="#cb3-1187" aria-hidden="true" tabindex="-1"></a>        <span class="at">temp       =</span> temp_sum <span class="sc">/</span> n_fish</span>
+<span id="cb3-1188"><a href="#cb3-1188" aria-hidden="true" tabindex="-1"></a>      ) <span class="sc">|&gt;</span></span>
+<span id="cb3-1189"><a href="#cb3-1189" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(dayofsim, date, patch, cohort_grp, age_group, n_fish, n_alive, temp,</span>
+<span id="cb3-1190"><a href="#cb3-1190" aria-hidden="true" tabindex="-1"></a>             n_ggd_all, sum_ggd_all, sum_growth_g, n_ggd_alive, sum_ggd_alive,</span>
+<span id="cb3-1191"><a href="#cb3-1191" aria-hidden="true" tabindex="-1"></a>             n_pcmax, sum_pcmax)</span>
+<span id="cb3-1192"><a href="#cb3-1192" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-1193"><a href="#cb3-1193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1194"><a href="#cb3-1194" aria-hidden="true" tabindex="-1"></a>  surv_by_dsh <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(surv_acc) <span class="sc">|&gt;</span></span>
+<span id="cb3-1195"><a href="#cb3-1195" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">dsh =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">364</span>, <span class="at">.before =</span> <span class="dv">1</span>)</span>
+<span id="cb3-1196"><a href="#cb3-1196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1197"><a href="#cb3-1197" aria-hidden="true" tabindex="-1"></a>  stock_days  <span class="ot">&lt;-</span> <span class="fu">seq_len</span>(last_day_recorded)</span>
+<span id="cb3-1198"><a href="#cb3-1198" aria-hidden="true" tabindex="-1"></a>  stock_daily <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb3-1199"><a href="#cb3-1199" aria-hidden="true" tabindex="-1"></a>    <span class="at">dayofsim =</span> stock_days,</span>
+<span id="cb3-1200"><a href="#cb3-1200" aria-hidden="true" tabindex="-1"></a>    <span class="at">date     =</span> habitat_df<span class="sc">$</span>date[stock_days],</span>
+<span id="cb3-1201"><a href="#cb3-1201" aria-hidden="true" tabindex="-1"></a>    <span class="at">doy      =</span> <span class="fu">yday</span>(habitat_df<span class="sc">$</span>date[stock_days]),</span>
+<span id="cb3-1202"><a href="#cb3-1202" aria-hidden="true" tabindex="-1"></a>    <span class="at">B        =</span> stock_B[stock_days],</span>
+<span id="cb3-1203"><a href="#cb3-1203" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_net    =</span> stock_G_net[stock_days],</span>
+<span id="cb3-1204"><a href="#cb3-1204" aria-hidden="true" tabindex="-1"></a>    <span class="at">G_gross  =</span> stock_G_gross[stock_days],</span>
+<span id="cb3-1205"><a href="#cb3-1205" aria-hidden="true" tabindex="-1"></a>    <span class="at">M        =</span> stock_M[stock_days],</span>
+<span id="cb3-1206"><a href="#cb3-1206" aria-hidden="true" tabindex="-1"></a>    <span class="at">C        =</span> stock_C[stock_days],</span>
+<span id="cb3-1207"><a href="#cb3-1207" aria-hidden="true" tabindex="-1"></a>    <span class="at">R        =</span> stock_R[stock_days]</span>
+<span id="cb3-1208"><a href="#cb3-1208" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb3-1209"><a href="#cb3-1209" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1210"><a href="#cb3-1210" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
-<span id="cb3-1211"><a href="#cb3-1211" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_long         =</span> ibm_long,</span>
-<span id="cb3-1212"><a href="#cb3-1212" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_summary      =</span> ibm_summary,</span>
-<span id="cb3-1213"><a href="#cb3-1213" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinct          =</span> extinct,</span>
-<span id="cb3-1214"><a href="#cb3-1214" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinction_date  =</span> extinction_date,</span>
-<span id="cb3-1215"><a href="#cb3-1215" aria-hidden="true" tabindex="-1"></a>    <span class="at">census           =</span> census,</span>
-<span id="cb3-1216"><a href="#cb3-1216" aria-hidden="true" tabindex="-1"></a>    <span class="at">daily_patch      =</span> daily_patch,</span>
-<span id="cb3-1217"><a href="#cb3-1217" aria-hidden="true" tabindex="-1"></a>    <span class="at">surv_by_dsh      =</span> surv_by_dsh,</span>
-<span id="cb3-1218"><a href="#cb3-1218" aria-hidden="true" tabindex="-1"></a>    <span class="at">stock_daily      =</span> stock_daily,</span>
-<span id="cb3-1219"><a href="#cb3-1219" aria-hidden="true" tabindex="-1"></a>    <span class="at">fish_registry    =</span> fish_registry,</span>
-<span id="cb3-1220"><a href="#cb3-1220" aria-hidden="true" tabindex="-1"></a>    <span class="at">spawn_log        =</span> spawn_log,</span>
-<span id="cb3-1221"><a href="#cb3-1221" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_log      =</span> harvest_log,</span>
-<span id="cb3-1222"><a href="#cb3-1222" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_summary  =</span> harvest_summary,</span>
-<span id="cb3-1223"><a href="#cb3-1223" aria-hidden="true" tabindex="-1"></a>    <span class="at">switches         =</span> switches,</span>
-<span id="cb3-1224"><a href="#cb3-1224" aria-hidden="true" tabindex="-1"></a>    <span class="at">params           =</span> params,</span>
-<span id="cb3-1225"><a href="#cb3-1225" aria-hidden="true" tabindex="-1"></a>    <span class="at">habitat_df       =</span> habitat_df</span>
-<span id="cb3-1226"><a href="#cb3-1226" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb3-1227"><a href="#cb3-1227" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-1228"><a href="#cb3-1228" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-1229"><a href="#cb3-1229" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1230"><a href="#cb3-1230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1231"><a href="#cb3-1231" aria-hidden="true" tabindex="-1"></a><span class="fu">## Write R file</span></span>
-<span id="cb3-1232"><a href="#cb3-1232" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-1233"><a href="#cb3-1233" aria-hidden="true" tabindex="-1"></a>For sourcing by other scripts.</span>
-<span id="cb3-1236"><a href="#cb3-1236" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb3-1237"><a href="#cb3-1237" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb3-1238"><a href="#cb3-1238" aria-hidden="true" tabindex="-1"></a><span class="co">#| purl: false</span></span>
-<span id="cb3-1239"><a href="#cb3-1239" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"SimulationLoop.R"</span>)</span>
-<span id="cb3-1240"><a href="#cb3-1240" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"SimulationLoop.qmd"</span>)</span>
-<span id="cb3-1241"><a href="#cb3-1241" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-1210"><a href="#cb3-1210" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extinct = nothing recorded on or after the start of the experimental period</span></span>
+<span id="cb3-1211"><a href="#cb3-1211" aria-hidden="true" tabindex="-1"></a>  extinct <span class="ot">&lt;-</span> last_day_recorded <span class="sc">==</span> <span class="dv">0</span>L <span class="sc">||</span> habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="sc">&lt;</span> exp_start_date</span>
+<span id="cb3-1212"><a href="#cb3-1212" aria-hidden="true" tabindex="-1"></a>  extinction_date <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">nrow</span>(fish_pop) <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> last_day_recorded <span class="sc">&gt;</span> <span class="dv">0</span>L) habitat_df<span class="sc">$</span>date[last_day_recorded] <span class="cf">else</span> <span class="fu">as.Date</span>(<span class="cn">NA</span>)</span>
+<span id="cb3-1213"><a href="#cb3-1213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1214"><a href="#cb3-1214" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ── Monthly summary (1st of each month, pre-computed in the loop) ─────────────</span></span>
+<span id="cb3-1215"><a href="#cb3-1215" aria-hidden="true" tabindex="-1"></a>  ibm_summary <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(ibm_summary_list)</span>
+<span id="cb3-1216"><a href="#cb3-1216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1217"><a href="#cb3-1217" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb3-1218"><a href="#cb3-1218" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_long         =</span> ibm_long,</span>
+<span id="cb3-1219"><a href="#cb3-1219" aria-hidden="true" tabindex="-1"></a>    <span class="at">ibm_summary      =</span> ibm_summary,</span>
+<span id="cb3-1220"><a href="#cb3-1220" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinct          =</span> extinct,</span>
+<span id="cb3-1221"><a href="#cb3-1221" aria-hidden="true" tabindex="-1"></a>    <span class="at">extinction_date  =</span> extinction_date,</span>
+<span id="cb3-1222"><a href="#cb3-1222" aria-hidden="true" tabindex="-1"></a>    <span class="at">census           =</span> census,</span>
+<span id="cb3-1223"><a href="#cb3-1223" aria-hidden="true" tabindex="-1"></a>    <span class="at">daily_patch      =</span> daily_patch,</span>
+<span id="cb3-1224"><a href="#cb3-1224" aria-hidden="true" tabindex="-1"></a>    <span class="at">surv_by_dsh      =</span> surv_by_dsh,</span>
+<span id="cb3-1225"><a href="#cb3-1225" aria-hidden="true" tabindex="-1"></a>    <span class="at">stock_daily      =</span> stock_daily,</span>
+<span id="cb3-1226"><a href="#cb3-1226" aria-hidden="true" tabindex="-1"></a>    <span class="at">fish_registry    =</span> fish_registry,</span>
+<span id="cb3-1227"><a href="#cb3-1227" aria-hidden="true" tabindex="-1"></a>    <span class="at">spawn_log        =</span> spawn_log,</span>
+<span id="cb3-1228"><a href="#cb3-1228" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_log      =</span> harvest_log,</span>
+<span id="cb3-1229"><a href="#cb3-1229" aria-hidden="true" tabindex="-1"></a>    <span class="at">harvest_summary  =</span> harvest_summary,</span>
+<span id="cb3-1230"><a href="#cb3-1230" aria-hidden="true" tabindex="-1"></a>    <span class="at">switches         =</span> switches,</span>
+<span id="cb3-1231"><a href="#cb3-1231" aria-hidden="true" tabindex="-1"></a>    <span class="at">params           =</span> params,</span>
+<span id="cb3-1232"><a href="#cb3-1232" aria-hidden="true" tabindex="-1"></a>    <span class="at">habitat_df       =</span> habitat_df</span>
+<span id="cb3-1233"><a href="#cb3-1233" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb3-1234"><a href="#cb3-1234" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-1235"><a href="#cb3-1235" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-1236"><a href="#cb3-1236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1237"><a href="#cb3-1237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1238"><a href="#cb3-1238" aria-hidden="true" tabindex="-1"></a><span class="fu">## Write R file</span></span>
+<span id="cb3-1239"><a href="#cb3-1239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-1240"><a href="#cb3-1240" aria-hidden="true" tabindex="-1"></a>For sourcing by other scripts.</span>
+<span id="cb3-1243"><a href="#cb3-1243" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb3-1244"><a href="#cb3-1244" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb3-1245"><a href="#cb3-1245" aria-hidden="true" tabindex="-1"></a><span class="co">#| purl: false</span></span>
+<span id="cb3-1246"><a href="#cb3-1246" aria-hidden="true" tabindex="-1"></a><span class="fu">file.remove</span>(<span class="st">"source_files/SimulationLoop.R"</span>)</span>
+<span id="cb3-1247"><a href="#cb3-1247" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">qmd_to_r_script</span>(<span class="st">"SimulationLoop.qmd"</span>, <span class="at">script =</span> <span class="st">"source_files/SimulationLoop.R"</span>)</span>
+<span id="cb3-1248"><a href="#cb3-1248" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

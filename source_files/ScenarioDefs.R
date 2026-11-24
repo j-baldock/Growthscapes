@@ -1,0 +1,654 @@
+#' ---
+#' title: Define Scenarios & Experiments
+#' ---
+#' 
+
+
+library(tidyverse)
+library(lubridate)
+library(ggpubr)
+library(egg)
+library(patchwork)
+library(DT)
+
+#| cache: false
+source("source_files/Habitat.R")
+
+
+base_params <- list(
+
+  # ── General ───────────────────────────────────────────
+  p_calc            = "fixed_p",
+  n_fish_per_strat  = 1000,
+  save_burnin       = FALSE,   # FALSE drops burn-in rows from ibm_long to reduce file size
+  save_ibm_long     = FALSE,   # FALSE drops ibm_long entirely to reduce file size
+  census_mmdd       = "10-01",
+  
+  # ── Timeline ──────────────────────────────────────────
+  nyears_burnin     = 50,
+  nyears_experiment = 50,
+  ramp_years        = 0,
+  mindate           = as.Date("2001-05-01"),
+
+  # ── Temperature — warm patch ───────────────────────────
+  base_temp_warm  = 14.25, # 23C summer max. Originally 15, which gave ~24-25C summer max
+  amplitude_warm  = 8.75,  # 23C summer max. Originally 9.5, which gave ~24-25C summer max
+  peak_doy_warm   = 196,
+  temp_min_warm   = 0.5,
+  temp_noise_warm = 0,
+
+  # ── Temperature — cold patch ───────────────────────────
+  base_temp_cold  = 6.6,
+  amplitude_cold  = 8.4,
+  peak_doy_cold   = 196,
+  temp_min_cold   = 0.3,
+  temp_noise_cold = 0,
+
+  # ── Patch burn-in values ───────────────────────────────
+  pcmax_warm = 0.5,  pcmax_cold = 0.5,
+  A_warm     = 1.0,  A_cold     = 1.0,
+  K_warm     = 400,  K_cold     = 400, 
+  S_max_warm = 0.9992, S_max_cold = 0.9992,
+
+  # ── Experiment targets (NA = no change) ───────────────
+  pcmax_warm_target = NA,  pcmax_cold_target = NA,
+  A_warm_target     = NA,  A_cold_target     = NA,
+  K_warm_target     = NA,  K_cold_target     = NA,
+  S_max_warm_target = NA,  S_max_cold_target = NA,
+
+  # ── Behavioural / movement ─────────────────────────────
+  move_stochastic   = "prob",
+  food_densdepen    = "hyperbolic",
+  sense_environment = "density_all",
+
+  # ── Population ─────────────────────────────────────────
+  start_wt          = 0.5,
+  wt_sd             = 0.05,
+
+  # ── Movement cost ──────────────────────────────────────
+  movecost_c   = 0.0, # previously 0.1. 0.0 is effectively no cost
+  movecost_b   = 0.3,
+  sigma_bold   = 0.002,
+  tau          = 1e-4,
+
+  # ── Survival ──────────────────────────────────────────
+  s_min             = 0.96,
+  s_w0              = 4,
+  s_k               = 0.8,
+  T1_mort           = 30,
+  T9_mort           = 25.8,
+  K1_starv          = 0.6,
+  K9_starv          = 0.7,
+  s_floor_starv     = 0.9,
+  MaxDensity4Growth = 50,
+
+  # Critical-period consumption-based survival (Elliott 1989)
+  # Applies fncSurviveConsumption() to age-0 fry for their first crit_period_days.
+  # Parameterised so that sustained pcmax_dd ≤ crit_pcmax_lo ≈ 1% 60-day survival;
+  # sustained pcmax_dd ≥ crit_pcmax_hi ≈ 99% 60-day survival (negligible cost).
+  # crit_pcmax_lo    = 0.30,
+  # crit_pcmax_hi    = 0.40,
+  # crit_period_days = 60L,
+  
+  # ── Competition ───────────────────────────────────────
+  dominance_beta             = 0.5,
+  age_structured_competition = TRUE,
+  anticipate_smaller         = TRUE,  # density_all: anticipate competition from smaller fish when choosing patch
+  age_class_cutoff           = "04-15",
+  
+  # ── Reproduction ──────────────────────────────────────
+  egg_wt          = 0.07,
+  repro_cost      = 0.2,
+  sigma_fecund    = 0.085,
+  egg_surv        = 0.05, 
+  female_fraction = 0.5,
+  
+  # ── Harvest ───────────────────────────────────────────
+  harvest_rate     = 0,
+  harvest_window   = c(152L, 273L),
+  harvestable_size = 50,
+  hatch_floor      = FALSE,   # FALSE disables the hatch-weight survival backstop (see SimulationLoop)
+
+  # ── Seeds ─────────────────────────────────────────────
+  hab_seed = 123,
+  sim_seed = 7843
+)
+
+
+n_reps  <- 5
+A_total <- 2.0
+
+set.seed(6291)
+seed_table <- tibble(rep = seq_len(n_reps), sim_seed = sample.int(1e4, n_reps))
+
+pilot_cold <- c(0.05, 0.25, 0.50, 0.75, 0.95)
+
+scenario_table <- bind_rows(
+  tibble(type = "ColdWarm", prop_cold = pilot_cold),
+  tibble(type = "ColdOnly", prop_cold = c(pilot_cold, 1.00))
+) |>
+  mutate(
+    A_cold = prop_cold * A_total,
+    A_warm = if_else(type == "ColdWarm", A_total - A_cold, 0),
+    scenario = sprintf("Pilot_%s_%03dpercold", type, round(prop_cold * 100))
+  )
+
+run_table <- scenario_table |>
+  cross_join(seed_table) |>
+  mutate(run_id = sprintf("%s__rep%02d", scenario, rep))
+
+seed_table$sim_seed
+datatable(run_table)
+
+
+scenarios <- list(
+
+  # SENSITIVITY ANALYSES: short runs, no replication
+  ### Test sensitivities to legacy, corrected, and fixed-P configurations (for understanding how to reprenent food availability)
+  Sensitivity_ColdOnly_Plegacy_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "legacy",    nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdOnly_Pcorrected_05p   = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "corrected", nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdOnly_Pfixedp_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "fixed_p",   nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Plegacy_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "legacy",    nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pcorrected_05p   = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "corrected", nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pfixedp_05p      = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "fixed_p",   nyears_burnin = 15, nyears_experiment = 30)),
+  ### Test sensitivities to pcmax, looking specifically at importance of warm habitat 
+  Sensitivity_ColdOnly_Pfixedp_06p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "fixed_p", pcmax_cold = 0.6, nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdOnly_Pfixedp_07p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 0.0, p_calc = "fixed_p", pcmax_cold = 0.7, nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pfixedp_06p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "fixed_p", pcmax_cold = 0.6, pcmax_warm = 0.6, nyears_burnin = 15, nyears_experiment = 30)),
+  Sensitivity_ColdWarm_Pfixedp_07p  = modifyList(base_params, list(A_cold = 1.0, A_warm = 1.0, p_calc = "fixed_p", pcmax_cold = 0.7, pcmax_warm = 0.7, nyears_burnin = 15, nyears_experiment = 30)),
+  
+  
+  # PILOT RUNS
+  ### Null (cold only)
+  Baseline_ColdOnly_100percold_rep01        = modifyList(base_params, list(A_cold = 2.0,  A_warm = 0)),
+  Baseline_ColdOnly_095percold_rep01        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0)),
+  Baseline_ColdOnly_075percold_rep01        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0)),
+  Baseline_ColdOnly_050percold_rep01        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0)),
+  Baseline_ColdOnly_025percold_rep01        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0)),
+  Baseline_ColdOnly_010percold_rep01        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 0)),
+  Baseline_ColdOnly_005percold_rep01        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0)),
+  
+  ### Cold + Warm, same Pcmax
+  Baseline_ColdWarm_095percold_rep01        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1)),
+  Baseline_ColdWarm_075percold_rep01        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5)),
+  Baseline_ColdWarm_050percold_rep01        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0)),
+  Baseline_ColdWarm_025percold_rep01        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5)),
+  Baseline_ColdWarm_010percold_rep01        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8)),
+  Baseline_ColdWarm_005percold_rep01        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9)),
+  
+  ### Cold + Warm, high Pcmax in warm
+  Baseline_ColdWarmHighP_095percold_rep01   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_075percold_rep01   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_050percold_rep01   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_025percold_rep01   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_010percold_rep01   = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8,  pcmax_warm = 0.6)),
+  Baseline_ColdWarmHighP_005percold_rep01   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6)),
+  
+  
+  # PILOT RUNS --- ~22C max warm temps
+  ### Cold + Warm, same Pcmax
+  Baseline_ColdWarm_095percold_rep01_22max        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_075percold_rep01_22max        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_050percold_rep01_22max        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_025percold_rep01_22max        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_010percold_rep01_22max        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarm_005percold_rep01_22max        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  ### Cold + Warm, high Pcmax in warm
+  Baseline_ColdWarmHighP_095percold_rep01_22max   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_075percold_rep01_22max   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_050percold_rep01_22max   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_025percold_rep01_22max   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_010percold_rep01_22max   = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  Baseline_ColdWarmHighP_005percold_rep01_22max   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6, base_temp_warm = 13.75, amplitude_warm = 8.25)),
+  
+  
+  # PILOT RUNS --- ~23C max warm temps
+  ### Cold + Warm, same Pcmax
+  Baseline_ColdWarm_095percold_rep01_23max        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_075percold_rep01_23max        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_050percold_rep01_23max        = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_025percold_rep01_23max        = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_010percold_rep01_23max        = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarm_005percold_rep01_23max        = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  ### Cold + Warm, high Pcmax in warm
+  Baseline_ColdWarmHighP_095percold_rep01_23max   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_075percold_rep01_23max   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_050percold_rep01_23max   = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_025percold_rep01_23max   = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_010percold_rep01_23max   = modifyList(base_params, list(A_cold = 0.2,  A_warm = 1.8,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  Baseline_ColdWarmHighP_005percold_rep01_23max   = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  pcmax_warm = 0.6, base_temp_warm = 14.25, amplitude_warm = 8.75)),
+  
+  
+  # PATCH-CHOICE RULE TEST: anticipate competition from smaller fish + low softmax tau
+  # (same seed/habitat as the matching Baseline_* runs; compare directly with those)
+  AnticTau_ColdWarm_095percold_rep01        = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,                    tau = 1e-4, anticipate_smaller = TRUE)),
+  AnticTau_ColdWarm_075percold_rep01        = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,                    tau = 1e-4, anticipate_smaller = TRUE)),
+  AnticTau_ColdWarmHighP_095percold_rep01   = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  pcmax_warm = 0.6,  tau = 1e-4, anticipate_smaller = TRUE)),
+  AnticTau_ColdWarmHighP_075percold_rep01   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  pcmax_warm = 0.6,  tau = 1e-4, anticipate_smaller = TRUE)),
+  
+  
+  # REPLICATION OVER SEEDS
+  Baseline_ColdOnly_025percold_rep02             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 7956)),
+  Baseline_ColdOnly_025percold_rep03             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 7462)),
+  Baseline_ColdOnly_025percold_rep04             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 4423)),
+  Baseline_ColdOnly_025percold_rep05             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    sim_seed = 4958)),
+  Baseline_ColdWarm_025percold_rep02             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 7956)),
+  Baseline_ColdWarm_025percold_rep03             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 7462)),
+  Baseline_ColdWarm_025percold_rep04             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 4423)),
+  Baseline_ColdWarm_025percold_rep05             = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  sim_seed = 4958)),
+  
+  
+  # Harvested
+  
+  ## 95% cold (5% warm)
+  #### Cold only
+  Harvest_10_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdOnly_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0,    harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm
+  Harvest_10_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdWarm_95percold      = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm (high P in warm)
+  Harvest_10_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.10 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_20_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.20 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_30_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.30 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_40_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.40 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_50_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.50 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_55_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.55 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_60_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.60 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_65_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.65 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_70_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.70 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_75_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.75 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_80_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.80 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_90_ColdWarmHigh_95percold  = modifyList(base_params, list(A_cold = 1.9,  A_warm = 0.1,  harvest_rate = 0.90 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  
+  
+  ## 75% cold (25% warm)
+  #### Cold only
+  Harvest_10_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdOnly_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm
+  Harvest_10_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdWarm_75percold      = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm (high P in warm)
+  Harvest_10_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.10 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_20_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.20 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_30_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.30 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_40_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.40 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_50_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.50 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_55_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.55 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_60_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.60 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_65_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.65 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_70_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.70 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_75_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.75 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_80_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.80 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_90_ColdWarmHigh_75percold  = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.90 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  
+  
+  ## 50% cold (50% warm)
+  #### Cold only
+  Harvest_10_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdOnly_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 0,    harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm
+  Harvest_10_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdWarm_50percold      = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm (high P in warm)
+  Harvest_10_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.10 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_20_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.20 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_30_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.30 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_40_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.40 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_50_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.50 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_55_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.55 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_60_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.60 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_65_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.65 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_70_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.70 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_75_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.75 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_80_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.80 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_90_ColdWarmHigh_50percold  = modifyList(base_params, list(A_cold = 1.0,  A_warm = 1.0,  harvest_rate = 0.90 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  
+  
+  ## 25% cold (75% warm)
+  #### Cold only
+  Harvest_10_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdOnly_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 0,    harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm
+  Harvest_10_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdWarm_25percold      = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm (high P in warm)
+  Harvest_10_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.10 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_20_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.20 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_30_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.30 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_40_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.40 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_50_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.50 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_55_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.55 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_60_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.60 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_65_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.65 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_70_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.70 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_75_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.75 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_80_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.80 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_90_ColdWarmHigh_25percold  = modifyList(base_params, list(A_cold = 0.5,  A_warm = 1.5,  harvest_rate = 0.90 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  
+  
+  ## 5% cold (95% warm)
+  #### Cold only
+  Harvest_10_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdOnly_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 0,    harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm
+  Harvest_10_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.10,  nyears_burnin = 20 )),
+  Harvest_20_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.20,  nyears_burnin = 20 )),
+  Harvest_30_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.30,  nyears_burnin = 20 )),
+  Harvest_40_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.40,  nyears_burnin = 20 )),
+  Harvest_50_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.50,  nyears_burnin = 20 )),
+  Harvest_55_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.55,  nyears_burnin = 20 )),
+  Harvest_60_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.60,  nyears_burnin = 20 )),
+  Harvest_65_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.65,  nyears_burnin = 20 )),
+  Harvest_70_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.70,  nyears_burnin = 20 )),
+  Harvest_75_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.75,  nyears_burnin = 20 )),
+  Harvest_80_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.80,  nyears_burnin = 20 )),
+  Harvest_90_ColdWarm_05percold      = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.90,  nyears_burnin = 20 )),
+  #### Cold + Warm (high P in warm)
+  Harvest_10_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.10 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_20_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.20 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_30_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.30 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_40_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.40 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_50_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.50 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_55_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.55 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_60_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.60 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_65_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.65 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_70_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.70 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_75_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.75 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_80_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.80 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  Harvest_90_ColdWarmHigh_05percold  = modifyList(base_params, list(A_cold = 0.1,  A_warm = 1.9,  harvest_rate = 0.90 ,  pcmax_warm = 0.6,  nyears_burnin = 20)),
+  
+  
+  ### HARVEST TEST
+  # Lower harvest size eligibility (harvestable_size = 50 g, vs. 200 g in the runs above) to test
+  # whether the growth-into-maturity "refuge" buffers the population against collapse.
+  # Short burn-in (20 y); 75% cold; cold-only and cold + warm.
+  
+  #### Cold only
+  Harvest50g_50_ColdOnly_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.50 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_60_ColdOnly_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.60 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_70_ColdOnly_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.70 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_80_ColdOnly_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.80 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_90_ColdOnly_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0,    harvest_rate = 0.90 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  
+  #### Cold + warm
+  Harvest50g_50_ColdWarm_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.50 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_60_ColdWarm_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.60 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_70_ColdWarm_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.70 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_80_ColdWarm_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.80 ,  harvestable_size = 50,  nyears_burnin = 20)),
+  Harvest50g_90_ColdWarm_75percold   = modifyList(base_params, list(A_cold = 1.5,  A_warm = 0.5,  harvest_rate = 0.90 ,  harvestable_size = 50,  nyears_burnin = 20))
+)
+
+
+# ── Design inputs ────────────────────────────────────────
+exp_n_reps  <- 1
+exp_A_total <- 2.0
+exp_prop_cold    <- c(0.05, 0.25, 0.50, 0.75, 0.95, 1.00) #seq(from = 0.1, to = 1.0, by = 0.1)
+exp_harvest_rate <- 0 #seq(from = 0, to = 0.95, by = 0.05)
+
+# Habitat scenarios and their pcmax values
+habitat_defs <- tribble(
+  ~habitat,         ~pcmax_cold, ~pcmax_warm,
+  "ColdOnly",       0.5,         0.5,
+  "ColdWarm",       0.5,         0.5,
+  "ColdWarmHighP",  0.5,         0.6
+)
+
+set.seed(6291)
+exp_seed_table <- tibble(rep = seq_len(exp_n_reps), sim_seed = sample.int(1e4, exp_n_reps))
+
+# ── Design table: one row per run ────────────────────────
+exp_design <- habitat_defs |>
+  cross_join(tibble(prop_cold = exp_prop_cold)) |>
+  cross_join(tibble(harvest_rate = exp_harvest_rate)) |>
+  cross_join(exp_seed_table) |>
+  # 100% cold with a warm patch is identical to ColdOnly
+  filter(!(habitat != "ColdOnly" & prop_cold == 1)) |>
+  mutate(
+    A_cold = round(prop_cold * exp_A_total, 6),
+    A_warm = if_else(habitat == "ColdOnly", 0, round(exp_A_total - A_cold, 6)),
+    scenario = sprintf("Exp_%s_H%02d_%03dpercold_rep%02d",
+                       habitat, round(harvest_rate * 100), round(prop_cold * 100), rep)
+  )
+
+# ── Build parameter lists ────────────────────────────────
+exp_scenarios <- exp_design |>
+  pmap(\(scenario, A_cold, A_warm, pcmax_cold, pcmax_warm, harvest_rate, sim_seed, ...) {
+    modifyList(base_params, list(
+      A_cold = A_cold, A_warm = A_warm,
+      pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm,
+      harvest_rate = harvest_rate, sim_seed = sim_seed
+    ))
+  }) |>
+  setNames(exp_design$scenario)
+
+length(exp_scenarios)
+datatable(exp_design)
+
+# Save small definition files so scripts (e.g. ProcessScenarios.R) can load the
+# design without sourcing this document's plotting code
+# if (!dir.exists("data")) dir.create("data")
+saveRDS(exp_design,    "source_files/exp_design.rds")
+saveRDS(exp_scenarios, "source_files/exp_scenarios.rds")
+
+
+# ── Timeline ────────────────────────────────────────────────────────────────
+nyears_burnin     <- base_params$nyears_burnin
+nyears_experiment <- base_params$nyears_experiment
+mindate           <- base_params$mindate
+maxdate           <- mindate + years(nyears_burnin) + years(nyears_experiment)
+dates             <- seq(mindate, maxdate, by = "day")
+n                 <- length(dates)
+doy               <- as.numeric(format(dates, "%j"))
+
+
+sim_temp <- function(doy, base_temp, amplitude, peak_doy, temp_min, noise_sd, n) {
+    phase <- peak_doy - 365 / 4   # shift so sin() peaks on peak_doy
+    temps <- base_temp + amplitude * sin(2 * pi * (doy - phase) / 365)
+    noise <- rnorm(n, 0, noise_sd)
+    pmax(temp_min, pmin(25, temps + noise))
+  }
+
+simulated_temp      <- sim_temp(doy, base_params$base_temp_warm, base_params$amplitude_warm,
+                                base_params$peak_doy_warm, base_params$temp_min_warm, base_params$temp_noise_warm, n)
+simulated_temp_cold <- sim_temp(doy, base_params$base_temp_cold, base_params$amplitude_cold,
+                                base_params$peak_doy_cold, base_params$temp_min_cold, base_params$temp_noise_cold, n)
+
+habitat_df <- tibble(
+  date     = dates,
+  doy      = doy,
+  dayofsim = seq_along(dates),
+  temp_warm = round(simulated_temp,      digits = 1),
+  temp_cold = round(simulated_temp_cold, digits = 1)
+)
+ref_year <- year(min(habitat_df$date)) + 1
+
+#| cache: false
+#| label: fig-habitat-conceptual
+#| fig-cap: Habitat area composition as a function of the proportion of cold habitat.
+#|   Total habitat area is fixed at 2 units.
+#| fig-width: 9
+#| fig-height: 3.5
+
+season_shading <- data.frame(
+  xmin   = as.Date(c(paste0(ref_year, "-01-01"),
+                     paste0(ref_year, "-03-01"),
+                     paste0(ref_year, "-06-01"),
+                     paste0(ref_year, "-09-01"),
+                     paste0(ref_year, "-12-01"))),
+  xmax   = c(as.Date(paste0(ref_year,     "-03-01")) - 1,  # last day of Feb (leap-year safe)
+             as.Date(paste0(ref_year,     "-06-01")) - 1,
+             as.Date(paste0(ref_year,     "-09-01")) - 1,
+             as.Date(paste0(ref_year,     "-12-01")) - 1,
+             as.Date(paste0(ref_year + 1, "-01-01")) - 1),
+  season = factor(c("Winter", "Spring", "Summer", "Autumn", "Winter"),
+                  levels = c("Winter", "Spring", "Summer", "Autumn"))
+)
+
+p_temp_year <- habitat_df |>
+  filter(year(date) == ref_year) |>
+  ggplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_rect(data = season_shading,
+            aes(xmin = xmin, xmax = xmax, fill = season),
+            ymin = -Inf, ymax = Inf, alpha = 0.5, inherit.aes = FALSE) +
+  scale_fill_manual(
+    values = c(Winter = "#AED6F1", Spring = "#A9DFBF",
+               Summer = "#F9E79F", Autumn = "#F0B27A"),
+    name   = "Season"
+  ) +
+  geom_line(aes(x = date, y = temp_warm), color = "red", linewidth = 1) +
+  geom_line(aes(x = date, y = temp_cold), color = "blue", linewidth = 1) +
+  scale_x_date(
+    breaks = seq(as.Date(paste0(ref_year, "-01-01")),
+                 as.Date(paste0(ref_year + 1, "-01-01")),
+                 by = "month"),
+    labels = \(x) substr(format(x, "%b"), 1, 1),
+    limits = c(as.Date(paste0(ref_year, "-01-01")),
+               as.Date(paste0(ref_year + 1, "-01-01"))),
+    expand = expansion(0)
+  ) +
+  guides(fill = guide_legend(order = 1)) +
+  theme_bw() +
+  theme(legend.position = "right", panel.grid = element_blank(), text = element_text(color = "black")) +
+  xlab("Date") +
+  ylab("Daily stream temperature (°C)") +
+  ylim(0,25)
+
+
+p_area_percent <- tibble(
+  prop_cold = seq(0, 1, by = 0.1)
+) |>
+  mutate(
+    cold_area = prop_cold * 2,
+    warm_area = (1 - prop_cold) * 2
+  ) |>
+  pivot_longer(cols = c(cold_area, warm_area), names_to = "habitat", values_to = "area") |>
+  mutate(
+    habitat = factor(habitat, levels = c("warm_area", "cold_area"),
+                     labels = c("Seasonally warm", "Perennially cold")),
+    prop_cold_label = factor(prop_cold, labels = paste0(seq(0, 100, 10)))
+  ) |>
+  ggplot(aes(x = prop_cold_label, y = area, fill = habitat)) +
+  geom_col(alpha = 0.8) +
+  geom_col(
+    data = ~ filter(.x, habitat == "Perennially cold"),
+    aes(color = "Cold-only"),
+    fill = NA, linewidth = 0.6
+  ) +
+  scale_x_discrete(limits = rev) +
+  scale_fill_manual(values = c("Perennially cold" = "blue", "Seasonally warm" = "red")) +
+  scale_color_manual(values = c("Cold-only" = "black"), name = "Habitat access") +
+  labs(
+    x = "Proportion cold habitat, % (decreasing)",
+    y = "Habitat area (unitless)",
+    fill = "Habitat type"
+  ) +
+  guides(fill = guide_legend(order = 2), color = guide_legend(order = 3)) +
+  theme_bw() + theme(panel.grid = element_blank(), text = element_text(color = "black"))
+
+p_temp_year + p_area_percent +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+
+
+plot_habitat(build_habitat(scenarios[["Baseline_ColdOnly_075percold_rep01"]]), exp_start_date = scenarios[["Baseline_ColdOnly_075percold_rep01"]]$mindate + years(scenarios[["Baseline_ColdOnly_075percold_rep01"]]$nyears_burnin))
+
+
+plot_habitat(build_habitat(scenarios[["Baseline_ColdWarm_075percold_rep01"]]), exp_start_date = scenarios[["Baseline_ColdWarm_075percold_rep01"]]$mindate + years(scenarios[["Baseline_ColdWarm_075percold_rep01"]]$nyears_burnin))
+
+
+plot_habitat(build_habitat(scenarios[["Baseline_ColdWarmHighP_075percold_rep01"]]), exp_start_date = scenarios[["Baseline_ColdWarmHighP_075percold_rep01"]]$mindate + years(scenarios[["Baseline_ColdWarmHighP_075percold_rep01"]]$nyears_burnin))
+
+

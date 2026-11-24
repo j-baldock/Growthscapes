@@ -12,8 +12,8 @@ library(ggridges)
 library(patchwork)
 library(scales)
 
-source("Functions.R")
-source("PlotResults.R")
+source("source_files/Functions.R")
+source("source_files/PlotResults.R")
 ```
 
 **Purpose:** View raw simulation results of fixed habitat/equilibrium simulation runs. 

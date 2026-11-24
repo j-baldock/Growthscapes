@@ -26,10 +26,10 @@ library(tidyverse)
 library(lubridate)
 library(patchwork)
 
-source("Habitat.R")
-source("Functions.R")
-source("SimulationLoop.R")
-source("ScenarioDefs.R")
+source("source_files/Habitat.R")
+source("source_files/Functions.R")
+source("source_files/SimulationLoop.R")
+source("source_files/ScenarioDefs.R")
 ```
 
 

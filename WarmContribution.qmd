@@ -14,9 +14,9 @@ library(patchwork)
 library(scales)
 library(ggrepel)
 
-source("Functions.R")
-source("PlotResults.R")
-source("ScenarioDefs.R")
+source("source_files/Functions.R")
+source("source_files/PlotResults.R")
+source("source_files/ScenarioDefs.R")
 ```
 
 **Purpose:** Compare the relative importance of warm habitat across simulation runs.
@@ -30,7 +30,7 @@ source("ScenarioDefs.R")
 
 ## Setup
 
-Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as `ibm_long` is extracted, avoiding duplicate references that would force R to copy the data frames.
+Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as `daily_patch` (the loop's daily patch-level summary; see SimulationLoop.qmd) is extracted, avoiding duplicate references that would force R to copy the data frames. `ibm_long` is not needed.
 ```{r}
 #| cache: false
 
@@ -40,53 +40,77 @@ Load each result .rds object and bind directly into a list. Using a helper funct
 exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
 # rm(res)
 
-# Helper: read one scenario, extract ibm_long, and free res before returning
-load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
-  res <- readRDS(path)
-  list(df = res$ibm_long, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
-}
-
+# Helper: read one scenario, extract daily_patch, and free res before returning.
+# daily_patch has one row per date x patch x cohort_grp x age_group (0 = age 0, 1 = age 1+),
+# experimental period only.
+# load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
+#   res <- readRDS(path)
+#   stopifnot("daily_patch missing; re-run simulation with the updated SimulationLoop" =
+#               !is.null(res$daily_patch))
+#   list(dp = res$daily_patch, pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+# }
+# 
+# 
 # ibm_list_mech <- list(
-#   load_scen("results/TempOffset_ColdOnly_95percold.rds",             0.95, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_95percold.rds",             0.95, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_95percold_highPwarm.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_75percold.rds",             0.75, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_75percold.rds",             0.75, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_75percold_highPwarm.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_50percold.rds",             0.50, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_50percold.rds",             0.50, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_50percold_highPwarm.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_25percold.rds",             0.25, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_25percold.rds",             0.25, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_25percold_highPwarm.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_05percold.rds",             0.05, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_05percold.rds",             0.05, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_05percold_highPwarm.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+#   load_scen("results/Baseline_ColdOnly_100percold_rep01.rds",        1.00, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",        0.95, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",        0.75, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",        0.50, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Baseline_ColdOnly_025percold_rep01.rds",        0.25, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Baseline_ColdOnly_010percold_rep01.rds",        0.10, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Baseline_ColdOnly_005percold_rep01.rds",        0.05, "Cold only",            0.5, NA_real_),
+# 
+#   load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",        0.95, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",        0.75, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",        0.50, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Baseline_ColdWarm_025percold_rep01.rds",        0.25, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Baseline_ColdWarm_010percold_rep01.rds",        0.10, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Baseline_ColdWarm_005percold_rep01.rds",        0.05, "Cold + Warm",          0.5, 0.5),
+#   
+#   load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Baseline_ColdWarmHighP_010percold_rep01.rds",   0.10, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
 # )
 
-ibm_list_mech <- list(
-  load_scen("results/Baseline_ColdOnly_100percold_rep01.rds",        1.00, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",        0.95, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",        0.75, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",        0.50, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds",        0.25, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_010percold_rep01.rds",        0.10, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_005percold_rep01.rds",        0.05, "Cold only",            0.5, NA_real_),
+# ── Load combined CSVs (written by ProcessScenarios.R) ────────────────────────
+# Rebuild `ibm_list_mech` (one element per scenario; only `dp` is needed here)
+# from the combined CSVs. Design metadata columns are dropped from `dp`.
+comb_dir  <- "results/combined"
+meta_drop <- c("scenario", "habitat", "prop_cold", "harvest_rate",
+               "pcmax_cold", "pcmax_warm", "A_cold", "A_warm", "harvestable_size",
+               "rep", "sim_seed")
 
-  load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",        0.95, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",        0.75, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",        0.50, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds",        0.25, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_010percold_rep01.rds",        0.10, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_005percold_rep01.rds",        0.05, "Cold + Warm",          0.5, 0.5),
-  
-  load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_010percold_rep01.rds",   0.10, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
-)
+read_comb <- function(name) {
+  readRDS(file.path(comb_dir, paste0(name, ".rds")))
+}
+
+hab_labels <- c(ColdOnly = "Cold only", ColdWarm = "Cold + Warm", ColdWarmHighP = "Cold + Warm (high P)")
+
+# One row per scenario (filter here to subset); ordered by habitat, then prop_cold descending
+ext_df <- read_comb("extinct") |>
+  filter(harvest_rate == 0) |>
+  arrange(factor(habitat, levels = names(hab_labels)), desc(prop_cold))
+
+dp_comb <- read_comb("daily_patch") |>
+  filter(scenario %in% ext_df$scenario)
+dp_list <- split(select(dp_comb, -any_of(meta_drop)), dp_comb$scenario)
+rm(dp_comb)
+
+# Extinct runs have no daily_patch rows (not written by ProcessScenarios.R);
+# return a zero-row table with the same columns.
+ibm_list_mech <- ext_df |>
+  purrr::pmap(\(scenario, habitat, prop_cold, pcmax_cold, pcmax_warm, ...) {
+    list(dp         = dp_list[[scenario]] %||% dplyr::slice(dp_list[[1]], 0),
+         pc         = prop_cold,
+         ht         = unname(hab_labels[habitat]),
+         pcmax_cold = pcmax_cold,
+         # Cold-only runs have no warm patch (matches the original load_scen() calls)
+         pcmax_warm = if (habitat == "ColdOnly") NA_real_ else pcmax_warm)
+  })
+rm(dp_list)
 
 ```
 
@@ -128,20 +152,20 @@ pc_to_key <- function(pc) sprintf("%02d", round(pc * 100))
 # }
 
 # Helper: TRUE if the population went extinct before the experimental period
-# (ibm_long is NULL, has no rows, or lacks a date column)
-ibm_is_empty <- function(ibm_long) {
-  is.null(ibm_long) || nrow(ibm_long) == 0 || !"date" %in% names(ibm_long)
+# (daily_patch is NULL or has no rows; daily_patch only covers the experimental period)
+ibm_is_empty <- function(dp) {
+  is.null(dp) || nrow(dp) == 0
 }
 
 # Helper: compute per-year biomass accrual by patch (experimental period only).
+# sum_growth_g is already sum(weight * ggd) over fish with non-missing growth.
 # Summarises to n_years × 2 rows per scenario before combining.
-compute_patch_growth <- function(ibm_long, scen_key) {
-  if (ibm_is_empty(ibm_long)) return(tibble())
-  ibm_long |>
-    filter(date >= exp_start_date, !is.na(ggd)) |>
-    mutate(daily_growth_g = weight * ggd, year = year(date)) |>
+compute_patch_growth <- function(dp, scen_key) {
+  if (ibm_is_empty(dp)) return(tibble())
+  dp |>
+    mutate(year = year(date)) |>
     group_by(year, patch) |>
-    summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+    summarise(total_g = sum(sum_growth_g), .groups = "drop") |>
     mutate(scen_key = scen_key)
 }
 
@@ -158,7 +182,7 @@ compute_patch_growth <- function(ibm_long, scen_key) {
 
 # ── Annual biomass accrual by patch, all hab types, all scenarios ─────────────
 patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
-  compute_patch_growth(scen$df, pc_to_key(scen$pc)) |>
+  compute_patch_growth(scen$dp, pc_to_key(scen$pc)) |>
     mutate(hab_type = scen$ht)
 }) |>
   left_join(scen_meta, by = "scen_key") |>
@@ -168,12 +192,10 @@ patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
   )
 
 # ── Seasonal biomass accrual by patch (Cold + Warm and high P scenarios) ──────
-compute_patch_growth_seasonal <- function(ibm_long, scen_key) {
-  if (ibm_is_empty(ibm_long)) return(tibble())
-  ibm_long |>
-    filter(date >= exp_start_date, !is.na(ggd)) |>
+compute_patch_growth_seasonal <- function(dp, scen_key) {
+  if (ibm_is_empty(dp)) return(tibble())
+  dp |>
     mutate(
-      daily_growth_g = weight * ggd,
       year   = year(date),
       month  = month(date),
       season = case_when(
@@ -185,14 +207,14 @@ compute_patch_growth_seasonal <- function(ibm_long, scen_key) {
       season = factor(season, levels = c("Winter", "Spring", "Summer", "Fall"))
     ) |>
     group_by(year, season, patch) |>
-    summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+    summarise(total_g = sum(sum_growth_g), .groups = "drop") |>
     mutate(scen_key = scen_key)
 }
 
 patch_growth_seasonal <- purrr::map_dfr(
   ibm_list_mech,
   function(scen) {
-    compute_patch_growth_seasonal(scen$df, pc_to_key(scen$pc)) |>
+    compute_patch_growth_seasonal(scen$dp, pc_to_key(scen$pc)) |>
       mutate(hab_type = scen$ht)
   }
 ) |>
@@ -225,17 +247,17 @@ week_abs <- purrr::map_dfr(
   ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht %in% c("Cold only", cw_habs))],
   function(s) {
     # Skip runs that went extinct before the experimental period
-    if (ibm_is_empty(s$df)) return(tibble())
-    s$df |>
-      filter(date >= exp_start_date, !is.na(ggd), floor(age) >= 1) |>
+    if (ibm_is_empty(s$dp)) return(tibble())
+    s$dp |>
+      # Age 1+ fish with non-missing growth (n_ggd_all / sum_ggd_all already exclude NA ggd)
+      filter(age_group == 1) |>
       mutate(
-        daily_growth_g = weight * ggd,
         year     = year(date),
         cal_week = week(date)
       ) |>
       group_by(year, cal_week, patch) |>
-      summarise(mean_ggd = mean(ggd, na.rm = TRUE),
-                total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+      summarise(mean_ggd = sum(sum_ggd_all) / sum(n_ggd_all),
+                total_g = sum(sum_growth_g), .groups = "drop") |>
       mutate(label    = scen_meta$label[scen_meta$prop_cold == s$pc],
              hab_type = s$ht)
   }
@@ -292,11 +314,12 @@ week_abs <- bind_rows(
 occ_week <- purrr::map_dfr(
   ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht %in% cw_habs)],
   function(s) {
-    s$df |>
-      filter(date >= exp_start_date, survived == 1, floor(age) >= 1) |>
+    s$dp |>
+      # Surviving age 1+ fish; proportion of fish-days in the warm patch
+      filter(age_group == 1) |>
       mutate(year = year(date), cal_week = week(date)) |>
       group_by(year, cal_week) |>
-      summarise(prop_warm = mean(patch == "warm"), .groups = "drop") |>
+      summarise(prop_warm = sum(n_alive[patch == "warm"]) / sum(n_alive), .groups = "drop") |>
       group_by(cal_week) |>
       summarise(mean_prop_warm = mean(prop_warm), .groups = "drop") |>
       mutate(label    = scen_meta$label[scen_meta$prop_cold == s$pc],
@@ -589,7 +612,7 @@ In the Winter, Spring, and Fall, the relative importance of warm habitat increas
 patch_growth_seasonal_co <- purrr::map_dfr(
   ibm_list_mech[sapply(ibm_list_mech, \(s) s$ht == "Cold only")],
   function(s) {
-    compute_patch_growth_seasonal(s$df, pc_to_key(s$pc)) |>
+    compute_patch_growth_seasonal(s$dp, pc_to_key(s$pc)) |>
       mutate(hab_type = s$ht)
   }
 ) |>

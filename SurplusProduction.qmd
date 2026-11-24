@@ -15,9 +15,9 @@ library(ggrepel)
 library(ggtext)
 
 
-source("Functions.R")
-source("PlotResults.R")
-source("ScenarioDefs.R")
+source("source_files/Functions.R")
+source("source_files/PlotResults.R")
+source("source_files/ScenarioDefs.R")
 ```
 
 **Purpose:** Compare surplus production and the impacts of "harvest" across habitat scenarios and cold-habitat proportions. Surplus production is estimated directly from the simulated population using a biomass budget (census biomass plus catch; see [Surplus production: biomass budget]). The fitted stock-recruitment (Ricker) analyses are retained below as a supplement.
@@ -26,92 +26,64 @@ source("ScenarioDefs.R")
 
 ## Setup
 
-Load relevant .rds objects and bind directly into a list. Most outputs come from the summary objects (`ibm_summary`, `spawn_log`, `harvest_log`). `ibm_long` is used only inside `compute_budget()`, which reduces it to an annual biomass budget for the exploitable stock, so the full individual-level data frame is never stored. A helper function frees each `res` object as soon as it is processed.
+Load relevant .rds objects and bind directly into a list. Most outputs come from the summary objects (`ibm_summary`, `spawn_log`, `harvest_log`). The annual biomass budget of the exploitable stock comes from the loop's `stock_daily` table (`budget_from_stock_daily()`), and the new-entrant spawner fraction from `fish_registry$cross_day`, so the individual-level `ibm_long` is not needed. A helper function frees each `res` object as soon as it is processed.
 ```{r}
 #| cache: false
 
 # get experiment start date from base parameters
-exp_start_date <- scenarios$Harvest50g_50_ColdOnly_75percold$mindate + years(scenarios$Harvest50g_50_ColdOnly_75percold$nyears_burnin)
+# exp_start_date <- scenarios$Harvest50g_50_ColdOnly_75percold$mindate + years(scenarios$Harvest50g_50_ColdOnly_75percold$nyears_burnin)
+exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
 
 # Helper: read one scenario, pull what is needed from the summary objects, and free res.
-# ibm_long is never touched, so it is never copied. Extracted objects:
+# ibm_long is not used. Extracted objects:
 #   oct1_waa   – Oct 1 weight-at-age summary (n, mean, sd) by year x age class,
 #                pooled over strategy and patch (ibm_summary is one row per
 #                strategy x patch x age_class x month-start)
 #   oct1_adult – Oct 1 adults (peak_weight > 200 g): count and biomass (kg) by year
 #   age0_nov1  – annual age-0 counts and biomass on Nov 1
 #   fry_annual – annual fry birth counts (sum of spawn_log offspring)
-#   budget     – annual biomass budget of the exploitable stock (see compute_budget)
+#   budget     – annual biomass budget of the exploitable stock (see budget_from_stock_daily)
 #   spawners   – annual spawner counts, size, age, new-entrant fraction and fry (see compute_spawners)
-# Requires results generated with the n_adult / biomass_adult_g columns in ibm_summary.
+# Requires results generated with the n_adult / biomass_adult_g columns in ibm_summary,
+# plus stock_daily and fish_registry$cross_day (SimulationLoop.qmd with in-loop accumulators).
 
-# Annual biomass budget of the exploitable stock (peak_weight >= stock_size, which should be
-# the run's harvestable_size so the stock matches harvest eligibility), from ibm_long and
-# harvest_log.
+# Annual biomass budget of the exploitable stock (peak_weight >= the run's stock_size, which
+# defaults to harvestable_size so the stock matches harvest eligibility). The simulation loop
+# records daily stock biomass and flows in `stock_daily` (see SimulationLoop.qmd); this helper
+# only aggregates them by budget year.
 #
 # Budget year t runs from the census on day-of-year 151 of year t (the last day before
 # the harvest window opens on DOY 152, so the census is pre-harvest) to the same census
 # in year t + 1. Each fish-day transition d -> d + 1 of a stock member is classified as
 #   stay    – survives; weight change is growth
 #   die     – natural death on d + 1; weight at death leaves the stock
-#   harvest – no ibm_long row on d + 1 and a harvest_log record; harvest weight leaves
+#   harvest – harvested on d + 1; harvest weight leaves
 # so that, exactly,  B[t+1] - B[t] = G_net + R - M - C  and  SP = B[t+1] - B[t] + C = G_net + R - M.
 #   G_gross  – sum of weight x ggd over stock members (growth before spawning losses)
 #   L_spawn  – G_gross - G_net: weight lost by stock members other than through death or
 #              harvest (spawning); not in the simple SP = G + R - M decomposition
 #   R        – biomass of fish at the weight they first reach peak_weight >= stock_size
-# peak_weight is reconstructed as the running max of weight within ibm_long, so fish
-# already present on the first day lack pre-history; the first years are dropped downstream.
-# All biomass in kg.
-compute_budget <- function(ibm_long, harvest_log, habitat_df, stock_size = 200, census_doy = 151L) {
+# peak_weight is tracked in the loop from day 1, so there is no pre-history problem.
+# All biomass in kg. stock_daily flows are keyed to the start day of each transition.
+budget_from_stock_daily <- function(stock_daily, census_doy = 151L) {
   empty <- tibble(yr = integer(), B = numeric(), C = numeric(), G_net = numeric(),
                   G_gross = numeric(), L_spawn = numeric(), R = numeric(),
                   M = numeric(), B_next = numeric(), SP = numeric())
-  if (is.null(ibm_long) || nrow(ibm_long) == 0) return(empty)
+  if (is.null(stock_daily) || nrow(stock_daily) == 0) return(empty)
 
-  il <- data.table::as.data.table(ibm_long)[, .(pid, dayofsim, weight, ggd, survived)]
-  data.table::setorder(il, pid, dayofsim)
-  cens <- habitat_df |>
-    filter(doy == census_doy, dayofsim >= min(il$dayofsim), dayofsim <= max(il$dayofsim)) |>
-    transmute(dayofsim, yr = year(date))
-  first_day <- min(il$dayofsim)
+  cens <- stock_daily |>
+    filter(doy == census_doy) |>
+    transmute(dayofsim, yr = year(date), t_idx = row_number())
 
-  il[, peak := cummax(weight), by = pid]
-  il[, `:=`(w_nx   = data.table::shift(weight,   -1L),
-            d_nx   = data.table::shift(dayofsim, -1L),
-            s_nx   = data.table::shift(survived, -1L),
-            pid_nx = data.table::shift(pid,      -1L))]
-  il[, nx_ok := !is.na(pid_nx) & pid_nx == pid & d_nx == dayofsim + 1L]
-  il[, stock := survived == 1L & peak >= stock_size]
-
-  # Harvested fish have no row on the harvest day; key their harvest weight to the day before
-  hl <- data.table::as.data.table(harvest_log)[, .(pid, dayofsim = dayofsim - 1L, h_w = weight)]
-  st <- merge(il[stock == TRUE], hl, by = c("pid", "dayofsim"), all.x = TRUE, sort = FALSE)
-  st[, event := data.table::fifelse(nx_ok & s_nx == 1L, "stay",
-                data.table::fifelse(nx_ok & s_nx == 0L, "die",
-                data.table::fifelse(!is.na(h_w), "harvest", "end")))]
-  st <- st[event != "end"]
-  st[, w_out := data.table::fifelse(event == "harvest", h_w, w_nx)]
-  # Budget year of the flow, indexed by the census that opens it
-  st[, t_idx := findInterval(dayofsim, cens$dayofsim)]
-  flows <- st[t_idx >= 1L, .(G_net   = sum(w_out - weight),
-                             G_gross = sum(weight * ggd),
-                             M       = sum(data.table::fifelse(event == "die",     w_out, 0)),
-                             C       = sum(data.table::fifelse(event == "harvest", w_out, 0))),
-              by = t_idx]
-
-  # Recruits: first alive day at peak >= stock_size (fish present on day 1 are initial stock)
-  rec <- unique(il[survived == 1L & peak >= stock_size & dayofsim > first_day], by = "pid")
-  rec[, t_idx := findInterval(dayofsim - 1L, cens$dayofsim)]
-  rec <- rec[t_idx >= 1L, .(R = sum(weight)), by = t_idx]
-
-  bio <- il[dayofsim %in% cens$dayofsim & stock == TRUE, .(B = sum(weight)), by = dayofsim]
+  flows <- stock_daily |>
+    mutate(t_idx = findInterval(dayofsim, cens$dayofsim)) |>
+    filter(t_idx >= 1L) |>
+    group_by(t_idx) |>
+    summarise(across(c(G_net, G_gross, M, C, R), sum), .groups = "drop")
 
   cens |>
-    mutate(t_idx = row_number()) |>
-    left_join(as_tibble(bio),   by = "dayofsim") |>
-    left_join(as_tibble(flows), by = "t_idx") |>
-    left_join(as_tibble(rec),   by = "t_idx") |>
+    left_join(select(stock_daily, dayofsim, B), by = "dayofsim") |>
+    left_join(flows, by = "t_idx") |>
     arrange(t_idx) |>
     mutate(across(c(B, G_net, G_gross, M, C, R), \(x) replace_na(x, 0) / 1000),
            B_next  = lead(B),
@@ -123,35 +95,30 @@ compute_budget <- function(ibm_long, harvest_log, habitat_df, stock_size = 200, 
 
 # Annual spawner summary from spawn_log, one row per spawning year in the experimental period.
 # A spawner is a "new entrant" if it first reached peak_weight >= eligible_size (the run's
-# harvestable_size; peak weight reconstructed as the running max of weight in ibm_long) after
-# the most recent harvest-window opening (DOY 152), i.e. it was never eligible for harvest
-# before this spawning season. Fish already >= eligible_size on the first day of ibm_long
-# have unknown crossing dates and count as not new.
+# harvestable_size) after the most recent harvest-window opening (DOY 152), i.e. it was never
+# eligible for harvest before this spawning season. The first day each fish reached
+# eligible_size is `cross_day` in fish_registry (recorded in the loop from peak_weight);
+# fish already above it on day 1 (cross_day == 1) have unknown crossing dates and count as not new.
 #   n_spawners, spawn_biom_kg – distinct parents and their summed weight at spawning
 #   mean_wt, mean_age         – per spawning event; age from fish_registry birth dates
 #   frac_new                  – fraction of distinct spawners that were new entrants
 #   fry                       – sum of n_offspring
-compute_spawners <- function(ibm_long, spawn_log, fish_registry, habitat_df, first_date,
-                             eligible_size = 200, window_open_doy = 152L) {
+compute_spawners <- function(spawn_log, fish_registry, habitat_df, first_date,
+                             window_open_doy = 152L) {
   empty <- tibble(yr = integer(), n_spawners = integer(), n_events = integer(),
                   mean_wt = numeric(), mean_age = numeric(), frac_new = numeric(),
                   spawn_biom_kg = numeric(), fry = numeric())
-  if (is.null(ibm_long) || nrow(ibm_long) == 0 || nrow(spawn_log) == 0) return(empty)
+  if (is.null(spawn_log) || nrow(spawn_log) == 0) return(empty)
 
-  il <- data.table::as.data.table(ibm_long)[, .(pid, dayofsim, weight)]
-  data.table::setorder(il, pid, dayofsim)
-  il[, peak := cummax(weight), by = pid]
-  first_day <- min(il$dayofsim)
-  cross <- il[peak >= eligible_size, .(cross_day = min(dayofsim)), by = pid]
-  cross[cross_day == first_day, cross_day := NA_integer_]
-  rm(il)
+  cross <- fish_registry |>
+    transmute(pid, cross_day = if_else(cross_day == 1L, NA_integer_, cross_day))
 
   win_open <- habitat_df$dayofsim[habitat_df$doy == window_open_doy]
   spawn_log |>
     mutate(date = habitat_df$date[dayofsim], yr = year(date)) |>
     filter(date >= first_date) |>
     left_join(select(fish_registry, pid, birth_dayofsim), by = c("parent_pid" = "pid")) |>
-    left_join(as_tibble(cross), by = c("parent_pid" = "pid")) |>
+    left_join(cross, by = c("parent_pid" = "pid")) |>
     mutate(prev_open   = win_open[findInterval(dayofsim, win_open)],
            age         = (dayofsim - birth_dayofsim) / 365.25,
            new_entrant = !is.na(cross_day) & cross_day >= prev_open) |>
@@ -166,11 +133,21 @@ compute_spawners <- function(ibm_long, spawn_log, fish_registry, habitat_df, fir
               .groups = "drop")
 }
 
-load_scen <- function(path, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
-  res <- readRDS(path)
-  stopifnot("ibm_summary lacks patch/age_class/n_adult; re-run simulation" =
-              all(c("patch", "age_class", "n_adult") %in% names(res$ibm_summary)))
+# Original rds-based loader, now split in two: `summarise_scen()` (below, active) does the
+# summarising from a `res`-like list; this wrapper read the rds first. Uncomment to re-run
+# on an a priori defined set of rds files.
+# load_scen <- function(path, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
+#   res <- readRDS(path)
+#   stopifnot("ibm_summary lacks patch/age_class/n_adult; re-run simulation" =
+#               all(c("patch", "age_class", "n_adult") %in% names(res$ibm_summary)))
+#   stopifnot("stock_daily / fish_registry$cross_day missing; re-run simulation" =
+#               !is.null(res$stock_daily) && "cross_day" %in% names(res$fish_registry))
+#   summarise_scen(res, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm)
+# }
 
+# `res` needs: ibm_summary, spawn_log, habitat_df (date, doy, dayofsim), stock_daily,
+# fish_registry (pid, birth_dayofsim, cross_day), harvest_log, params$harvestable_size
+summarise_scen <- function(res, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
   sm <- res$ibm_summary |>
     filter(date >= exp_start_date)
 
@@ -217,9 +194,9 @@ load_scen <- function(path, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
 
   list(oct1_waa = oct1_waa, oct1_adult = oct1_adult,
        age0_nov1 = age0_nov1, fry_annual = fry_annual,
-       budget = compute_budget(res$ibm_long, res$harvest_log, res$habitat_df, stock_size = hsize),
-       spawners = compute_spawners(res$ibm_long, res$spawn_log, res$fish_registry,
-                                   res$habitat_df, exp_start_date, eligible_size = hsize),
+       budget = budget_from_stock_daily(res$stock_daily),
+       spawners = compute_spawners(res$spawn_log, res$fish_registry,
+                                   res$habitat_df, exp_start_date),
        harvestable_size = hsize,
        harvest = res$harvest_log, spawn_log = res$spawn_log,
        ht = ht, pc = pc, ac = ac, aw = aw, hr = hr,
@@ -227,182 +204,246 @@ load_scen <- function(path, ht, pc, ac, aw, hr, pcmax_cold, pcmax_warm) {
 }
 
 
-ibm_list_mech <- list(
- 
-  # PrCold = 95%
-  load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",  "Cold only",  0.95,  1.9,  0.0,  0.00,  0.5,  NA_real_),
-  load_scen("results/Harvest_10_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.10,  0.5,  NA_real_),
-  load_scen("results/Harvest_20_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.20,  0.5,  NA_real_),
-  load_scen("results/Harvest_30_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.30,  0.5,  NA_real_),
-  load_scen("results/Harvest_40_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.40,  0.5,  NA_real_),
-  load_scen("results/Harvest_50_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.50,  0.5,  NA_real_),
-  load_scen("results/Harvest_60_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.60,  0.5,  NA_real_),
-  load_scen("results/Harvest_70_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.70,  0.5,  NA_real_),
-  load_scen("results/Harvest_80_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.80,  0.5,  NA_real_),
-  load_scen("results/Harvest_90_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.90,  0.5,  NA_real_),
+# ibm_list_mech <- list(
+#
+#   # PrCold = 95%
+#   load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",  "Cold only",  0.95,  1.9,  0.0,  0.00,  0.5,  NA_real_),
+#   load_scen("results/Harvest_10_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.10,  0.5,  NA_real_),
+#   load_scen("results/Harvest_20_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.20,  0.5,  NA_real_),
+#   load_scen("results/Harvest_30_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.30,  0.5,  NA_real_),
+#   load_scen("results/Harvest_40_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.40,  0.5,  NA_real_),
+#   load_scen("results/Harvest_50_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.50,  0.5,  NA_real_),
+#   load_scen("results/Harvest_60_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.60,  0.5,  NA_real_),
+#   load_scen("results/Harvest_70_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.70,  0.5,  NA_real_),
+#   load_scen("results/Harvest_80_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.80,  0.5,  NA_real_),
+#   load_scen("results/Harvest_90_ColdOnly_95percold.rds",  "Cold only",  0.95,  1.9,  0.0,  0.90,  0.5,  NA_real_),
+#
+#   load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.00,  0.5,  0.5),
+#   load_scen("results/Harvest_10_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.10,  0.5,  0.5),
+#   load_scen("results/Harvest_20_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.20,  0.5,  0.5),
+#   load_scen("results/Harvest_30_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.30,  0.5,  0.5),
+#   load_scen("results/Harvest_40_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.40,  0.5,  0.5),
+#   load_scen("results/Harvest_50_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.50,  0.5,  0.5),
+#   load_scen("results/Harvest_60_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.60,  0.5,  0.5),
+#   load_scen("results/Harvest_70_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.70,  0.5,  0.5),
+#   load_scen("results/Harvest_80_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.80,  0.5,  0.5),
+#   load_scen("results/Harvest_90_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.90,  0.5,  0.5),
+#
+#   load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.00,  0.5,  0.6),
+#   load_scen("results/Harvest_10_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.10,  0.5,  0.6),
+#   load_scen("results/Harvest_20_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.20,  0.5,  0.6),
+#   load_scen("results/Harvest_30_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.30,  0.5,  0.6),
+#   load_scen("results/Harvest_40_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.40,  0.5,  0.6),
+#   load_scen("results/Harvest_50_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.50,  0.5,  0.6),
+#   load_scen("results/Harvest_60_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.60,  0.5,  0.6),
+#   load_scen("results/Harvest_70_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.70,  0.5,  0.6),
+#   load_scen("results/Harvest_80_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.80,  0.5,  0.6),
+#   load_scen("results/Harvest_90_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.90,  0.5,  0.6),
+#
+#
+#   # PrCold = 75%
+#   load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",  "Cold only",  0.75,  1.5,  0.0,  0.00,  0.5,  NA_real_),
+#   load_scen("results/Harvest_10_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.10,  0.5,  NA_real_),
+#   load_scen("results/Harvest_20_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.20,  0.5,  NA_real_),
+#   load_scen("results/Harvest_30_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.30,  0.5,  NA_real_),
+#   load_scen("results/Harvest_40_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.40,  0.5,  NA_real_),
+#   load_scen("results/Harvest_50_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.50,  0.5,  NA_real_),
+#   load_scen("results/Harvest_60_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.60,  0.5,  NA_real_),
+#   load_scen("results/Harvest_70_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.70,  0.5,  NA_real_),
+#   load_scen("results/Harvest_80_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.80,  0.5,  NA_real_),
+#   load_scen("results/Harvest_90_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.90,  0.5,  NA_real_),
+#
+#   load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.00,  0.5,  0.5),
+#   load_scen("results/Harvest_10_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.10,  0.5,  0.5),
+#   load_scen("results/Harvest_20_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.20,  0.5,  0.5),
+#   load_scen("results/Harvest_30_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.30,  0.5,  0.5),
+#   load_scen("results/Harvest_40_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.40,  0.5,  0.5),
+#   load_scen("results/Harvest_50_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.50,  0.5,  0.5),
+#   load_scen("results/Harvest_60_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.60,  0.5,  0.5),
+#   load_scen("results/Harvest_70_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.70,  0.5,  0.5),
+#   load_scen("results/Harvest_80_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.80,  0.5,  0.5),
+#   load_scen("results/Harvest_90_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.90,  0.5,  0.5),
+#
+#   load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.00,  0.5,  0.6),
+#   load_scen("results/Harvest_10_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.10,  0.5,  0.6),
+#   load_scen("results/Harvest_20_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.20,  0.5,  0.6),
+#   load_scen("results/Harvest_30_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.30,  0.5,  0.6),
+#   load_scen("results/Harvest_40_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.40,  0.5,  0.6),
+#   load_scen("results/Harvest_50_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.50,  0.5,  0.6),
+#   load_scen("results/Harvest_60_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.60,  0.5,  0.6),
+#   load_scen("results/Harvest_70_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.70,  0.5,  0.6),
+#   load_scen("results/Harvest_80_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.80,  0.5,  0.6),
+#   load_scen("results/Harvest_90_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.90,  0.5,  0.6),
+#
+#
+#   # PrCold = 50%
+#   load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",  "Cold only",  0.50,  1.0,  0.0,  0.00,  0.5,  NA_real_),
+#   load_scen("results/Harvest_10_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.10,  0.5,  NA_real_),
+#   load_scen("results/Harvest_20_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.20,  0.5,  NA_real_),
+#   load_scen("results/Harvest_30_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.30,  0.5,  NA_real_),
+#   load_scen("results/Harvest_40_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.40,  0.5,  NA_real_),
+#   load_scen("results/Harvest_50_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.50,  0.5,  NA_real_),
+#   load_scen("results/Harvest_60_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.60,  0.5,  NA_real_),
+#   load_scen("results/Harvest_70_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.70,  0.5,  NA_real_),
+#   load_scen("results/Harvest_80_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.80,  0.5,  NA_real_),
+#   load_scen("results/Harvest_90_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.90,  0.5,  NA_real_),
+#
+#   load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.00,  0.5,  0.5),
+#   load_scen("results/Harvest_10_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.10,  0.5,  0.5),
+#   load_scen("results/Harvest_20_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.20,  0.5,  0.5),
+#   load_scen("results/Harvest_30_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.30,  0.5,  0.5),
+#   load_scen("results/Harvest_40_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.40,  0.5,  0.5),
+#   load_scen("results/Harvest_50_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.50,  0.5,  0.5),
+#   load_scen("results/Harvest_60_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.60,  0.5,  0.5),
+#   load_scen("results/Harvest_70_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.70,  0.5,  0.5),
+#   load_scen("results/Harvest_80_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.80,  0.5,  0.5),
+#   load_scen("results/Harvest_90_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.90,  0.5,  0.5),
+#
+#   load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.00,  0.5,  0.6),
+#   load_scen("results/Harvest_10_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.10,  0.5,  0.6),
+#   load_scen("results/Harvest_20_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.20,  0.5,  0.6),
+#   load_scen("results/Harvest_30_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.30,  0.5,  0.6),
+#   load_scen("results/Harvest_40_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.40,  0.5,  0.6),
+#   load_scen("results/Harvest_50_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.50,  0.5,  0.6),
+#   load_scen("results/Harvest_60_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.60,  0.5,  0.6),
+#   load_scen("results/Harvest_70_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.70,  0.5,  0.6),
+#   load_scen("results/Harvest_80_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.80,  0.5,  0.6),
+#   load_scen("results/Harvest_90_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.90,  0.5,  0.6),
+#
+#
+#   # PrCold = 25%
+#   load_scen("results/Baseline_ColdOnly_025percold_rep01.rds", "Cold only",  0.25,  0.5,  0.0,  0.00,  0.5,  NA_real_),
+#   load_scen("results/Harvest_10_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.10,  0.5,  NA_real_),
+#   load_scen("results/Harvest_20_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.20,  0.5,  NA_real_),
+#   load_scen("results/Harvest_30_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.30,  0.5,  NA_real_),
+#   load_scen("results/Harvest_40_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.40,  0.5,  NA_real_),
+#   load_scen("results/Harvest_50_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.50,  0.5,  NA_real_),
+#   load_scen("results/Harvest_60_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.60,  0.5,  NA_real_),
+#   load_scen("results/Harvest_70_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.70,  0.5,  NA_real_),
+#   load_scen("results/Harvest_80_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.80,  0.5,  NA_real_),
+#   load_scen("results/Harvest_90_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.90,  0.5,  NA_real_),
+#
+#   load_scen("results/Baseline_ColdWarm_025percold_rep01.rds", "Cold + Warm",  0.25,  0.5,  1.5,  0.00,  0.5,  0.5),
+#   load_scen("results/Harvest_10_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.10,  0.5,  0.5),
+#   load_scen("results/Harvest_20_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.20,  0.5,  0.5),
+#   load_scen("results/Harvest_30_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.30,  0.5,  0.5),
+#   load_scen("results/Harvest_40_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.40,  0.5,  0.5),
+#   load_scen("results/Harvest_50_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.50,  0.5,  0.5),
+#   load_scen("results/Harvest_60_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.60,  0.5,  0.5),
+#   load_scen("results/Harvest_70_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.70,  0.5,  0.5),
+#   load_scen("results/Harvest_80_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.80,  0.5,  0.5),
+#   load_scen("results/Harvest_90_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.90,  0.5,  0.5),
+#
+#   load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds", "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.00,  0.5,  0.6),
+#   load_scen("results/Harvest_10_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.10,  0.5,  0.6),
+#   load_scen("results/Harvest_20_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.20,  0.5,  0.6),
+#   load_scen("results/Harvest_30_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.30,  0.5,  0.6),
+#   load_scen("results/Harvest_40_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.40,  0.5,  0.6),
+#   load_scen("results/Harvest_50_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.50,  0.5,  0.6),
+#   load_scen("results/Harvest_60_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.60,  0.5,  0.6),
+#   load_scen("results/Harvest_70_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.70,  0.5,  0.6),
+#   load_scen("results/Harvest_80_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.80,  0.5,  0.6),
+#   load_scen("results/Harvest_90_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.90,  0.5,  0.6),
+#
+#
+#   # PrCold = 5%
+#   load_scen("results/Baseline_ColdOnly_005percold_rep01.rds", "Cold only",  0.05,  0.1,  0.0,  0.00,  0.5,  NA_real_),
+#   load_scen("results/Harvest_10_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.10,  0.5,  NA_real_),
+#   load_scen("results/Harvest_20_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.20,  0.5,  NA_real_),
+#   load_scen("results/Harvest_30_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.30,  0.5,  NA_real_),
+#   load_scen("results/Harvest_40_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.40,  0.5,  NA_real_),
+#   load_scen("results/Harvest_50_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.50,  0.5,  NA_real_),
+#   load_scen("results/Harvest_60_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.60,  0.5,  NA_real_),
+#   load_scen("results/Harvest_70_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.70,  0.5,  NA_real_),
+#   load_scen("results/Harvest_80_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.80,  0.5,  NA_real_),
+#   load_scen("results/Harvest_90_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.90,  0.5,  NA_real_),
+#
+#   load_scen("results/Baseline_ColdWarm_005percold_rep01.rds", "Cold + Warm",  0.05,  0.1,  1.9,  0.00,  0.5,  0.5),
+#   load_scen("results/Harvest_10_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.10,  0.5,  0.5),
+#   load_scen("results/Harvest_20_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.20,  0.5,  0.5),
+#   load_scen("results/Harvest_30_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.30,  0.5,  0.5),
+#   load_scen("results/Harvest_40_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.40,  0.5,  0.5),
+#   load_scen("results/Harvest_50_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.50,  0.5,  0.5),
+#   load_scen("results/Harvest_60_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.60,  0.5,  0.5),
+#   load_scen("results/Harvest_70_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.70,  0.5,  0.5),
+#   load_scen("results/Harvest_80_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.80,  0.5,  0.5),
+#   load_scen("results/Harvest_90_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.90,  0.5,  0.5),
+#
+#   load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds", "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.00,  0.5,  0.6),
+#   load_scen("results/Harvest_10_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.10,  0.5,  0.6),
+#   load_scen("results/Harvest_20_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.20,  0.5,  0.6),
+#   load_scen("results/Harvest_30_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.30,  0.5,  0.6),
+#   load_scen("results/Harvest_40_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.40,  0.5,  0.6),
+#   load_scen("results/Harvest_50_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.50,  0.5,  0.6),
+#   load_scen("results/Harvest_60_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.60,  0.5,  0.6),
+#   load_scen("results/Harvest_70_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.70,  0.5,  0.6),
+#   load_scen("results/Harvest_80_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.80,  0.5,  0.6),
+#   load_scen("results/Harvest_90_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.90,  0.5,  0.6)
+# )
 
-  load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.00,  0.5,  0.5),
-  load_scen("results/Harvest_10_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.10,  0.5,  0.5),
-  load_scen("results/Harvest_20_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.20,  0.5,  0.5),
-  load_scen("results/Harvest_30_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.30,  0.5,  0.5),
-  load_scen("results/Harvest_40_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.40,  0.5,  0.5),
-  load_scen("results/Harvest_50_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.50,  0.5,  0.5),
-  load_scen("results/Harvest_60_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.60,  0.5,  0.5),
-  load_scen("results/Harvest_70_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.70,  0.5,  0.5),
-  load_scen("results/Harvest_80_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.80,  0.5,  0.5),
-  load_scen("results/Harvest_90_ColdWarm_95percold.rds",  "Cold + Warm",  0.95,  1.9,  0.1,  0.90,  0.5,  0.5),
 
-  load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.00,  0.5,  0.6),
-  load_scen("results/Harvest_10_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.10,  0.5,  0.6),
-  load_scen("results/Harvest_20_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.20,  0.5,  0.6),
-  load_scen("results/Harvest_30_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.30,  0.5,  0.6),
-  load_scen("results/Harvest_40_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.40,  0.5,  0.6),
-  load_scen("results/Harvest_50_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.50,  0.5,  0.6),
-  load_scen("results/Harvest_60_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.60,  0.5,  0.6),
-  load_scen("results/Harvest_70_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.70,  0.5,  0.6),
-  load_scen("results/Harvest_80_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.80,  0.5,  0.6),
-  load_scen("results/Harvest_90_ColdWarmHigh_95percold.rds",  "Cold + Warm (high P)",  0.95,  1.9,  0.1,  0.90,  0.5,  0.6),
-  
-  
-  # PrCold = 75%
-  load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",  "Cold only",  0.75,  1.5,  0.0,  0.00,  0.5,  NA_real_),
-  load_scen("results/Harvest_10_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.10,  0.5,  NA_real_),
-  load_scen("results/Harvest_20_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.20,  0.5,  NA_real_),
-  load_scen("results/Harvest_30_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.30,  0.5,  NA_real_),
-  load_scen("results/Harvest_40_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.40,  0.5,  NA_real_),
-  load_scen("results/Harvest_50_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.50,  0.5,  NA_real_),
-  load_scen("results/Harvest_60_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.60,  0.5,  NA_real_),
-  load_scen("results/Harvest_70_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.70,  0.5,  NA_real_),
-  load_scen("results/Harvest_80_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.80,  0.5,  NA_real_),
-  load_scen("results/Harvest_90_ColdOnly_75percold.rds",  "Cold only",  0.75,  1.5,  0.0,  0.90,  0.5,  NA_real_),
+# ── Load combined CSVs (written by ProcessScenarios.R) ────────────────────────
+# Build `ibm_list_mech` (same structure as the load_scen() version above) from the
+# combined CSVs, summarising each scenario with summarise_scen(). Design metadata
+# columns are dropped from each table.
+comb_dir  <- "results/combined"
+meta_drop <- c("scenario", "habitat", "prop_cold", "harvest_rate", "pcmax_cold", "pcmax_warm",
+               "A_cold", "A_warm", "harvestable_size", "rep", "sim_seed")
 
-  load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.00,  0.5,  0.5),
-  load_scen("results/Harvest_10_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.10,  0.5,  0.5),
-  load_scen("results/Harvest_20_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.20,  0.5,  0.5),
-  load_scen("results/Harvest_30_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.30,  0.5,  0.5),
-  load_scen("results/Harvest_40_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.40,  0.5,  0.5),
-  load_scen("results/Harvest_50_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.50,  0.5,  0.5),
-  load_scen("results/Harvest_60_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.60,  0.5,  0.5),
-  load_scen("results/Harvest_70_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.70,  0.5,  0.5),
-  load_scen("results/Harvest_80_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.80,  0.5,  0.5),
-  load_scen("results/Harvest_90_ColdWarm_75percold.rds",  "Cold + Warm",  0.75,  1.5,  0.5,  0.90,  0.5,  0.5),
+read_comb <- function(name, cols = NULL) {
+  path <- file.path(comb_dir, paste0(name, ".rds"))
+  if (!file.exists(path)) return(NULL)
+  d <- readRDS(path)
+  if (is.null(cols)) d else select(d, all_of(c("scenario", cols)))
+}
 
-  load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.00,  0.5,  0.6),
-  load_scen("results/Harvest_10_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.10,  0.5,  0.6),
-  load_scen("results/Harvest_20_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.20,  0.5,  0.6),
-  load_scen("results/Harvest_30_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.30,  0.5,  0.6),
-  load_scen("results/Harvest_40_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.40,  0.5,  0.6),
-  load_scen("results/Harvest_50_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.50,  0.5,  0.6),
-  load_scen("results/Harvest_60_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.60,  0.5,  0.6),
-  load_scen("results/Harvest_70_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.70,  0.5,  0.6),
-  load_scen("results/Harvest_80_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.80,  0.5,  0.6),
-  load_scen("results/Harvest_90_ColdWarmHigh_75percold.rds",  "Cold + Warm (high P)",  0.75,  1.5,  0.5,  0.90,  0.5,  0.6),
-  
-  
-  # PrCold = 50%
-  load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",  "Cold only",  0.50,  1.0,  0.0,  0.00,  0.5,  NA_real_),
-  load_scen("results/Harvest_10_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.10,  0.5,  NA_real_),
-  load_scen("results/Harvest_20_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.20,  0.5,  NA_real_),
-  load_scen("results/Harvest_30_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.30,  0.5,  NA_real_),
-  load_scen("results/Harvest_40_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.40,  0.5,  NA_real_),
-  load_scen("results/Harvest_50_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.50,  0.5,  NA_real_),
-  load_scen("results/Harvest_60_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.60,  0.5,  NA_real_),
-  load_scen("results/Harvest_70_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.70,  0.5,  NA_real_),
-  load_scen("results/Harvest_80_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.80,  0.5,  NA_real_),
-  load_scen("results/Harvest_90_ColdOnly_50percold.rds",  "Cold only",  0.50,  1.0,  0.0,  0.90,  0.5,  NA_real_),
+hab_labels <- c(ColdOnly = "Cold only", ColdWarm = "Cold + Warm", ColdWarmHighP = "Cold + Warm (high P)")
 
-  load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.00,  0.5,  0.5),
-  load_scen("results/Harvest_10_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.10,  0.5,  0.5),
-  load_scen("results/Harvest_20_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.20,  0.5,  0.5),
-  load_scen("results/Harvest_30_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.30,  0.5,  0.5),
-  load_scen("results/Harvest_40_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.40,  0.5,  0.5),
-  load_scen("results/Harvest_50_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.50,  0.5,  0.5),
-  load_scen("results/Harvest_60_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.60,  0.5,  0.5),
-  load_scen("results/Harvest_70_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.70,  0.5,  0.5),
-  load_scen("results/Harvest_80_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.80,  0.5,  0.5),
-  load_scen("results/Harvest_90_ColdWarm_50percold.rds",  "Cold + Warm",  0.50,  1.0,  1.0,  0.90,  0.5,  0.5),
+# One row per scenario (filter here to subset); ordered by habitat, prop_cold (desc), harvest rate
+ext_df <- read_comb("extinct") |>
+  arrange(factor(habitat, levels = names(hab_labels)), desc(prop_cold), harvest_rate)
 
-  load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.00,  0.5,  0.6),
-  load_scen("results/Harvest_10_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.10,  0.5,  0.6),
-  load_scen("results/Harvest_20_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.20,  0.5,  0.6),
-  load_scen("results/Harvest_30_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.30,  0.5,  0.6),
-  load_scen("results/Harvest_40_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.40,  0.5,  0.6),
-  load_scen("results/Harvest_50_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.50,  0.5,  0.6),
-  load_scen("results/Harvest_60_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.60,  0.5,  0.6),
-  load_scen("results/Harvest_70_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.70,  0.5,  0.6),
-  load_scen("results/Harvest_80_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.80,  0.5,  0.6),
-  load_scen("results/Harvest_90_ColdWarmHigh_50percold.rds",  "Cold + Warm (high P)",  0.50,  1.0,  1.0,  0.90,  0.5,  0.6),
-  
-  
-  # PrCold = 25%
-  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds", "Cold only",  0.25,  0.5,  0.0,  0.00,  0.5,  NA_real_),
-  load_scen("results/Harvest_10_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.10,  0.5,  NA_real_),
-  load_scen("results/Harvest_20_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.20,  0.5,  NA_real_),
-  load_scen("results/Harvest_30_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.30,  0.5,  NA_real_),
-  load_scen("results/Harvest_40_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.40,  0.5,  NA_real_),
-  load_scen("results/Harvest_50_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.50,  0.5,  NA_real_),
-  load_scen("results/Harvest_60_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.60,  0.5,  NA_real_),
-  load_scen("results/Harvest_70_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.70,  0.5,  NA_real_),
-  load_scen("results/Harvest_80_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.80,  0.5,  NA_real_),
-  load_scen("results/Harvest_90_ColdOnly_25percold.rds",      "Cold only",  0.25,  0.5,  0.0,  0.90,  0.5,  NA_real_),
-  
-  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds", "Cold + Warm",  0.25,  0.5,  1.5,  0.00,  0.5,  0.5),
-  load_scen("results/Harvest_10_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.10,  0.5,  0.5),
-  load_scen("results/Harvest_20_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.20,  0.5,  0.5),
-  load_scen("results/Harvest_30_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.30,  0.5,  0.5),
-  load_scen("results/Harvest_40_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.40,  0.5,  0.5),
-  load_scen("results/Harvest_50_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.50,  0.5,  0.5),
-  load_scen("results/Harvest_60_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.60,  0.5,  0.5),
-  load_scen("results/Harvest_70_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.70,  0.5,  0.5),
-  load_scen("results/Harvest_80_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.80,  0.5,  0.5),
-  load_scen("results/Harvest_90_ColdWarm_25percold.rds",      "Cold + Warm",  0.25,  0.5,  1.5,  0.90,  0.5,  0.5),
-  
-  load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds", "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.00,  0.5,  0.6),
-  load_scen("results/Harvest_10_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.10,  0.5,  0.6),
-  load_scen("results/Harvest_20_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.20,  0.5,  0.6),
-  load_scen("results/Harvest_30_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.30,  0.5,  0.6),
-  load_scen("results/Harvest_40_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.40,  0.5,  0.6),
-  load_scen("results/Harvest_50_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.50,  0.5,  0.6),
-  load_scen("results/Harvest_60_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.60,  0.5,  0.6),
-  load_scen("results/Harvest_70_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.70,  0.5,  0.6),
-  load_scen("results/Harvest_80_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.80,  0.5,  0.6),
-  load_scen("results/Harvest_90_ColdWarmHigh_25percold.rds",       "Cold + Warm (high P)",  0.25,  0.5,  1.5,  0.90,  0.5,  0.6),
-  
-  
-  # PrCold = 5%
-  load_scen("results/Baseline_ColdOnly_005percold_rep01.rds", "Cold only",  0.05,  0.1,  0.0,  0.00,  0.5,  NA_real_),
-  load_scen("results/Harvest_10_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.10,  0.5,  NA_real_),
-  load_scen("results/Harvest_20_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.20,  0.5,  NA_real_),
-  load_scen("results/Harvest_30_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.30,  0.5,  NA_real_),
-  load_scen("results/Harvest_40_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.40,  0.5,  NA_real_),
-  load_scen("results/Harvest_50_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.50,  0.5,  NA_real_),
-  load_scen("results/Harvest_60_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.60,  0.5,  NA_real_),
-  load_scen("results/Harvest_70_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.70,  0.5,  NA_real_),
-  load_scen("results/Harvest_80_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.80,  0.5,  NA_real_),
-  load_scen("results/Harvest_90_ColdOnly_05percold.rds",      "Cold only",  0.05,  0.1,  0.0,  0.90,  0.5,  NA_real_),
-  
-  load_scen("results/Baseline_ColdWarm_005percold_rep01.rds", "Cold + Warm",  0.05,  0.1,  1.9,  0.00,  0.5,  0.5),
-  load_scen("results/Harvest_10_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.10,  0.5,  0.5),
-  load_scen("results/Harvest_20_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.20,  0.5,  0.5),
-  load_scen("results/Harvest_30_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.30,  0.5,  0.5),
-  load_scen("results/Harvest_40_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.40,  0.5,  0.5),
-  load_scen("results/Harvest_50_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.50,  0.5,  0.5),
-  load_scen("results/Harvest_60_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.60,  0.5,  0.5),
-  load_scen("results/Harvest_70_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.70,  0.5,  0.5),
-  load_scen("results/Harvest_80_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.80,  0.5,  0.5),
-  load_scen("results/Harvest_90_ColdWarm_05percold.rds",      "Cold + Warm",  0.05,  0.1,  1.9,  0.90,  0.5,  0.5),
-  
-  load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds", "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.00,  0.5,  0.6),
-  load_scen("results/Harvest_10_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.10,  0.5,  0.6),
-  load_scen("results/Harvest_20_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.20,  0.5,  0.6),
-  load_scen("results/Harvest_30_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.30,  0.5,  0.6),
-  load_scen("results/Harvest_40_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.40,  0.5,  0.6),
-  load_scen("results/Harvest_50_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.50,  0.5,  0.6),
-  load_scen("results/Harvest_60_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.60,  0.5,  0.6),
-  load_scen("results/Harvest_70_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.70,  0.5,  0.6),
-  load_scen("results/Harvest_80_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.80,  0.5,  0.6),
-  load_scen("results/Harvest_90_ColdWarmHigh_05percold.rds",       "Cold + Warm (high P)",  0.05,  0.1,  1.9,  0.90,  0.5,  0.6)
+# Split a combined table into a per-scenario list (NULL if the file was not written)
+split_comb <- function(name, cols = NULL) {
+  d <- read_comb(name, cols)
+  if (is.null(d)) return(list())
+  d <- filter(d, scenario %in% ext_df$scenario)
+  split(select(d, -any_of(meta_drop)), d$scenario)
+}
+
+comb <- list(
+  ibm_summary   = split_comb("ibm_summary"),
+  spawn_log     = split_comb("spawn_log"),
+  stock_daily   = split_comb("stock_daily"),
+  habitat_df    = split_comb("habitat_df", c("date", "doy", "dayofsim")),
+  fish_registry = split_comb("fish_registry", c("pid", "birth_dayofsim", "cross_day")),
+  harvest_log   = split_comb("harvest_log")
 )
+
+# Extinct runs (and runs with no harvest) have empty tables, which ProcessScenarios.R does not
+# write. Return a zero-row table with the same columns as another scenario's (NULL if none).
+get_scen <- function(tbl_list, scenario) {
+  tbl_list[[scenario]] %||% if (length(tbl_list)) dplyr::slice(tbl_list[[1]], 0)
+}
+
+ibm_list_mech <- ext_df |>
+  purrr::pmap(\(scenario, habitat, prop_cold, harvest_rate, pcmax_cold, pcmax_warm,
+                A_cold, A_warm, harvestable_size, ...) {
+    res <- list(ibm_summary   = get_scen(comb$ibm_summary,   scenario),
+                spawn_log     = get_scen(comb$spawn_log,     scenario),
+                stock_daily   = get_scen(comb$stock_daily,   scenario),
+                habitat_df    = get_scen(comb$habitat_df,    scenario),
+                fish_registry = get_scen(comb$fish_registry, scenario),
+                harvest_log   = get_scen(comb$harvest_log,   scenario),
+                params        = list(harvestable_size = harvestable_size))
+    summarise_scen(res,
+                   ht = unname(hab_labels[habitat]), pc = prop_cold,
+                   ac = A_cold, aw = A_warm, hr = harvest_rate,
+                   pcmax_cold = pcmax_cold,
+                   # Cold-only runs have no warm patch (matches the original load_scen() calls)
+                   pcmax_warm = if (habitat == "ColdOnly") NA_real_ else pcmax_warm)
+  })
+rm(comb)
 ```
 
 
@@ -455,7 +496,7 @@ hab_shape <- c("Cold only" = 16,         "Cold + Warm" = 16,          "Cold + Wa
 
 ## Spawners and fry production under harvest
 
-Surplus production stays high at harvest rates where the spawning stock has been cut substantially. This section summarizes the spawning stock and fry production by harvest rate. A spawner is a *new entrant* if it first reached 200 g peak weight after the most recent harvest window opened (June 1), so it was never eligible for harvest before spawning. Spawning years before `sp_first_year` are dropped. Fish already 200 g or larger on the first day of `ibm_long` are counted as not new.
+Surplus production stays high at harvest rates where the spawning stock has been cut substantially. This section summarizes the spawning stock and fry production by harvest rate. A spawner is a *new entrant* if it first reached 200 g peak weight after the most recent harvest window opened (June 1), so it was never eligible for harvest before spawning. Spawning years before `sp_first_year` are dropped. Fish already above the threshold on the first simulated day are counted as not new.
 
 ```{r}
 #| cache: false
@@ -1153,8 +1194,8 @@ where $$B_t$$ is the biomass of the exploitable stock at a fixed census date and
 
 Implementation (see `compute_budget()` in Setup):
 
-- **Stock**: fish with $$peak\_weight \geq$$ the run's `harvestable_size` (200 g in the original runs, 50 g in the `Harvest50g` runs), matching harvest eligibility. `ibm_long` has no `peak_weight` column, so it is reconstructed as the running maximum of each fish's weight within `ibm_long`.
-- **Census**: day of year 151, the last day before the harvest window opens (DOY 152), every year. `ibm_long` is recorded after that day's harvest, so a census on DOY 152 would already be missing the first day's catch; DOY 151 keeps the budget closed.
+- **Stock**: fish with $$peak\_weight \geq$$ the run's `harvestable_size` (200 g in the original runs, 50 g in the `Harvest50g` runs), matching harvest eligibility. `peak_weight` is tracked in the simulation loop and the stock budget is accumulated there daily (`stock_daily`).
+- **Census**: day of year 151, the last day before the harvest window opens (DOY 152), every year. The daily stock biomass is recorded after that day's harvest, so a census on DOY 152 would already be missing the first day's catch; DOY 151 keeps the budget closed.
 - **Catch**: sum of `harvest_log$weight` between consecutive censuses (the June 1 - Sept 30 window falls entirely within each budget year).
 - **Dropped years**: the first 15 experimental years after harvest starts, while age structure adjusts.
 - **Budget year**: May 31 of year $$t$$ to May 31 of year $$t+1$$, so the 50 experimental years give 49 budget years.

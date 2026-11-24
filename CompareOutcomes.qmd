@@ -15,9 +15,9 @@ library(patchwork)
 library(scales)
 library(ggrepel)
 
-source("Functions.R")
-source("PlotResults.R")
-source("ScenarioDefs.R")
+source("source_files/Functions.R")
+source("source_files/PlotResults.R")
+source("source_files/ScenarioDefs.R")
 ```
 
 **Purpose:** Compare emergent population outcomes across simulation runs.
@@ -31,7 +31,7 @@ source("ScenarioDefs.R")
 
 ## Setup
 
-Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as `ibm_long` is extracted, avoiding duplicate references that would force R to copy the data frames.
+Load each result .rds object and bind directly into a list. Using a helper function ensures each `res` object is freed from memory as soon as the needed loop outputs (`census`, `daily_patch`, `ibm_summary`, `spawn_log`, `surv_by_dsh`, `extinct`) are extracted, so `ibm_long` is not needed and duplicate references that would force R to copy the data frames.
 ```{r}
 #| cache: false
 
@@ -41,54 +41,95 @@ Load each result .rds object and bind directly into a list. Using a helper funct
 exp_start_date <- base_params$mindate + years(base_params$nyears_burnin)
 # rm(res)
 
-# Helper: read one scenario, extract ibm_long and spawn_log, and free res before returning
-load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
-  res <- readRDS(path)
-  list(df = res$ibm_long, ibm_summary = res$ibm_summary, spawn_log = res$spawn_log,
-       pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
-}
-
+# Helper: read one scenario, extract the in-loop result objects, and free res before returning.
+#   census      – per-fish survivors on Oct 1 (experimental period)
+#   dp          – daily_patch: date x patch x cohort_grp x age_group sums (experimental period)
+#   ibm_summary – monthly (1st of month) summary by strategy x patch x age_class x cohort
+#   surv_by_dsh – age-0 survival components by day since hatch
+#   extinct     – TRUE if the population died out before the experimental period
+# load_scen <- function(path, pc, ht, pcmax_cold, pcmax_warm) {
+#   res <- readRDS(path)
+#   stopifnot("census/daily_patch missing; re-run simulation with the updated SimulationLoop" =
+#               !is.null(res$census) && !is.null(res$daily_patch))
+#   list(census = res$census, dp = res$daily_patch, ibm_summary = res$ibm_summary,
+#        spawn_log = res$spawn_log, surv_by_dsh = res$surv_by_dsh, extinct = res$extinct,
+#        pc = pc, ht = ht, pcmax_cold = pcmax_cold, pcmax_warm = pcmax_warm)
+# }
+# 
 # ibm_list_mech <- list(
-#   load_scen("results/TempOffset_ColdOnly_95percold.rds",             0.95, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_95percold.rds",             0.95, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_95percold_highPwarm.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_75percold.rds",             0.75, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_75percold.rds",             0.75, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_75percold_highPwarm.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_50percold.rds",             0.50, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_50percold.rds",             0.50, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_50percold_highPwarm.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_25percold.rds",             0.25, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_25percold.rds",             0.25, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_25percold_highPwarm.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
-#   load_scen("results/TempOffset_ColdOnly_05percold.rds",             0.05, "Cold only",           0.5, NA_real_),
-#   load_scen("results/TempOffset_ColdWarm_05percold.rds",             0.05, "Cold + Warm",          0.5, 0.5),
-#   load_scen("results/TempOffset_ColdWarm_05percold_highPwarm.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
+#   load_scen("results/Exp_ColdOnly_H00_100percold_rep01.rds",        1.00, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Exp_ColdOnly_H00_095percold_rep01.rds",        0.95, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Exp_ColdOnly_H00_075percold_rep01.rds",        0.75, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Exp_ColdOnly_H00_050percold_rep01.rds",        0.50, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Exp_ColdOnly_H00_025percold_rep01.rds",        0.25, "Cold only",            0.5, NA_real_),
+#   load_scen("results/Exp_ColdOnly_H00_005percold_rep01.rds",        0.05, "Cold only",            0.5, NA_real_),
+# 
+#   load_scen("results/Exp_ColdWarm_H00_095percold_rep01.rds",        0.95, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Exp_ColdWarm_H00_075percold_rep01.rds",        0.75, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Exp_ColdWarm_H00_050percold_rep01.rds",        0.50, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Exp_ColdWarm_H00_025percold_rep01.rds",        0.25, "Cold + Warm",          0.5, 0.5),
+#   load_scen("results/Exp_ColdWarm_H00_005percold_rep01.rds",        0.05, "Cold + Warm",          0.5, 0.5),
+#   
+#   load_scen("results/Exp_ColdWarmHighP_H00_095percold_rep01.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Exp_ColdWarmHighP_H00_075percold_rep01.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Exp_ColdWarmHighP_H00_050percold_rep01.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Exp_ColdWarmHighP_H00_025percold_rep01.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
+#   load_scen("results/Exp_ColdWarmHighP_H00_005percold_rep01.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
 # )
 
-ibm_list_mech <- list(
-  load_scen("results/Baseline_ColdOnly_100percold_rep01.rds",        1.00, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_095percold_rep01.rds",        0.95, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_075percold_rep01.rds",        0.75, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_050percold_rep01.rds",        0.50, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_025percold_rep01.rds",        0.25, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_010percold_rep01.rds",        0.10, "Cold only",            0.5, NA_real_),
-  load_scen("results/Baseline_ColdOnly_005percold_rep01.rds",        0.05, "Cold only",            0.5, NA_real_),
+# ── Load combined CSVs (written by ProcessScenarios.R) ────────────────────────
+# Rebuild `ibm_list_mech` (one element per scenario, same structure as the
+# load_scen() version above) from the combined CSVs. Design metadata columns are
+# dropped from each table so downstream code sees the original columns.
+comb_dir  <- "results/combined"
+meta_drop <- c("scenario", "habitat", "prop_cold", "harvest_rate",
+               "pcmax_cold", "pcmax_warm", "A_cold", "A_warm", "harvestable_size",
+               "rep", "sim_seed")
 
-  load_scen("results/Baseline_ColdWarm_095percold_rep01.rds",        0.95, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_075percold_rep01.rds",        0.75, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_050percold_rep01.rds",        0.50, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_025percold_rep01.rds",        0.25, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_010percold_rep01.rds",        0.10, "Cold + Warm",          0.5, 0.5),
-  load_scen("results/Baseline_ColdWarm_005percold_rep01.rds",        0.05, "Cold + Warm",          0.5, 0.5),
-  
-  load_scen("results/Baseline_ColdWarmHighP_095percold_rep01.rds",   0.95, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_075percold_rep01.rds",   0.75, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_050percold_rep01.rds",   0.50, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_025percold_rep01.rds",   0.25, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_010percold_rep01.rds",   0.10, "Cold + Warm (high P)", 0.5, 0.6),
-  load_scen("results/Baseline_ColdWarmHighP_005percold_rep01.rds",   0.05, "Cold + Warm (high P)", 0.5, 0.6)
-)
+read_comb <- function(name) {
+  readRDS(file.path(comb_dir, paste0(name, ".rds")))
+}
+
+hab_labels <- c(ColdOnly = "Cold only", ColdWarm = "Cold + Warm", ColdWarmHighP = "Cold + Warm (high P)")
+
+# One row per scenario (filter here to subset); ordered by habitat, then prop_cold descending
+ext_df <- read_comb("extinct") |>
+  filter(harvest_rate == 0) |>
+  arrange(factor(habitat, levels = names(hab_labels)), desc(prop_cold))
+
+split_comb <- function(name) {
+  d <- read_comb(name) |>
+    filter(scenario %in% ext_df$scenario)
+  split(select(d, -any_of(meta_drop)), d$scenario)
+}
+
+comb <- list(census      = split_comb("census"),
+             dp          = split_comb("daily_patch"),
+             ibm_summary = split_comb("ibm_summary"),
+             spawn_log   = split_comb("spawn_log"),
+             surv_by_dsh = split_comb("surv_by_dsh"))
+
+# Extinct runs have empty tables, which ProcessScenarios.R does not write. Return a
+# zero-row table with the same columns as the other scenarios (as the .rds did).
+get_scen <- function(tbl_list, scenario) {
+  tbl_list[[scenario]] %||% dplyr::slice(tbl_list[[1]], 0)
+}
+
+ibm_list_mech <- ext_df |>
+  purrr::pmap(\(scenario, habitat, prop_cold, pcmax_cold, pcmax_warm, extinct, ...) {
+    list(census      = get_scen(comb$census,      scenario),
+         dp          = get_scen(comb$dp,          scenario),
+         ibm_summary = get_scen(comb$ibm_summary, scenario),
+         spawn_log   = get_scen(comb$spawn_log,   scenario),
+         surv_by_dsh = get_scen(comb$surv_by_dsh, scenario),
+         extinct     = extinct,
+         pc          = prop_cold,
+         ht          = unname(hab_labels[habitat]),
+         pcmax_cold  = pcmax_cold,
+         # Cold-only runs have no warm patch (matches the original load_scen() calls)
+         pcmax_warm  = if (habitat == "ColdOnly") NA_real_ else pcmax_warm)
+  })
+rm(comb)
 
 ```
 
@@ -99,15 +140,15 @@ Summarize within each scenario before combining to avoid loading all fifteen ful
 
 # ── Scenario metadata ─────────────────────────────────────────────────────────
 scen_meta <- tibble(
-  scen_key  = c("100", "95", "75", "50", "25", "10", "05"),
-  label     = c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "10% cold", "5% cold"),
-  prop_cold = c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
+  scen_key  = c("100", "95", "75", "50", "25", "05"),
+  label     = c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "5% cold"),
+  prop_cold = c(1.00, 0.95, 0.75, 0.50, 0.25, 0.05)
 )
 
 # factor levels
-pc_levels <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
-pc_levels_mech <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.10, 0.05)
-pc_labels_mech <- c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "10% cold", "5% cold")
+pc_levels <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.05)
+pc_levels_mech <- c(1.00, 0.95, 0.75, 0.50, 0.25, 0.05)
+pc_labels_mech <- c("100% cold", "95% cold", "75% cold", "50% cold", "25% cold", "5% cold")
 
 scen_pal <- setNames(
   hcl.colors(7, "Zissou 1"),
@@ -123,50 +164,43 @@ hab_shape <- c("Cold only" = 16,         "Cold + Warm" = 16,          "Cold + Wa
 pc_to_key <- function(pc) sprintf("%02d", round(pc * 100))
 
 # Helper: TRUE if the population went extinct before the experimental period
-# (ibm_long is NULL, has no rows, or lacks a date column)
-ibm_is_empty <- function(ibm_long) {
-  is.null(ibm_long) || nrow(ibm_long) == 0 || !"date" %in% names(ibm_long)
-}
+# Helper: TRUE if a loop output table is NULL or has no rows
+ibm_is_empty <- function(x) is.null(x) || nrow(x) == 0
 
-# Per-scenario extinction flag
+# Per-scenario extinction flag (population died out before the experimental period)
 scen_extinct <- purrr::map_dfr(ibm_list_mech, function(scen) {
   tibble(scen_key = pc_to_key(scen$pc),
          hab_type = scen$ht,
-         extinct  = ibm_is_empty(scen$df))
+         extinct  = scen$extinct)
 })
 
-# Scenarios with data (extinct scenarios dropped) for chunks that need ibm_long rows
-ibm_list_live <- Filter(\(s) !ibm_is_empty(s$df), ibm_list_mech)
+# Scenarios with data (extinct scenarios dropped) for chunks that need daily_patch rows
+ibm_list_live <- Filter(\(s) !s$extinct, ibm_list_mech)
 
-# Helper: extract Oct 1 experimental-period rows from one ibm_long
-# Filtering before bind_rows() keeps only ~1/365th of each data frame.
-extract_oct1_exp <- function(ibm_long, scen_key) {
-  if (ibm_is_empty(ibm_long)) return(tibble())
-  ibm_long |>
-    filter(date >= exp_start_date,
-           month(date) == 10, day(date) == 1,
-           survived == 1) |>
-    mutate(scen_key  = scen_key,
-           year      = year(date),
-           age_class = floor(age),
-           peak_weight = weight / condition)
+# Helper: Oct 1 experimental-period survivors from one run's `census` table
+extract_oct1_exp <- function(census, scen_key) {
+  if (ibm_is_empty(census)) return(tibble())
+  census |>
+    filter(month(date) == 10, day(date) == 1) |>
+    mutate(scen_key = scen_key,
+           year     = year(date))
 }
 
-# Helper: compute per-year biomass accrual by patch (experimental period only).
+# Helper: compute per-year biomass accrual by patch (experimental period only) from
+# daily_patch; sum_growth_g is sum(weight * ggd) over fish with non-missing growth.
 # Summarises to n_years × 2 rows per scenario before combining.
-compute_patch_growth <- function(ibm_long, scen_key) {
-  if (ibm_is_empty(ibm_long)) return(tibble())
-  ibm_long |>
-    filter(date >= exp_start_date, !is.na(ggd)) |>
-    mutate(daily_growth_g = weight * ggd, year = year(date)) |>
+compute_patch_growth <- function(dp, scen_key) {
+  if (ibm_is_empty(dp)) return(tibble())
+  dp |>
+    mutate(year = year(date)) |>
     group_by(year, patch) |>
-    summarise(total_g = sum(daily_growth_g, na.rm = TRUE), .groups = "drop") |>
+    summarise(total_g = sum(sum_growth_g), .groups = "drop") |>
     mutate(scen_key = scen_key)
 }
 
 # ── Oct 1 census: experimental period, all hab types, all scenarios ───────────
 exp_oct1 <- purrr::map_dfr(ibm_list_mech, function(scen) {
-  extract_oct1_exp(scen$df, pc_to_key(scen$pc)) |>
+  extract_oct1_exp(scen$census, pc_to_key(scen$pc)) |>
     mutate(hab_type = scen$ht)
 }) |>
   left_join(scen_meta, by = "scen_key") |>
@@ -177,7 +211,7 @@ exp_oct1 <- purrr::map_dfr(ibm_list_mech, function(scen) {
 
 # ── Annual biomass accrual by patch, all hab types, all scenarios ─────────────
 patch_growth <- purrr::map_dfr(ibm_list_mech, function(scen) {
-  compute_patch_growth(scen$df, pc_to_key(scen$pc)) |>
+  compute_patch_growth(scen$dp, pc_to_key(scen$pc)) |>
     mutate(hab_type = scen$ht)
 }) |>
   left_join(scen_meta, by = "scen_key") |>
@@ -531,14 +565,14 @@ plot_scenario_diff <- function(data, metric, type = c("absolute", "relative"), y
 }
 
 # Absolute difference: Abundance
-p_ab_n       <- plot_scenario_diff(pop_sum,   "mean_n", type = "absolute", y_limits = c(0,150), title_str = "Total")
-p_ab_n_ad    <- plot_scenario_diff(adult_sum, "mean_n", type = "absolute", y_limits = c(0,150), title_str = "Adults (>200g)")
-p_ab_n_sp    <- plot_scenario_diff(spawn_sum, "mean_n", type = "absolute", y_limits = c(0,150), title_str = "Spawners")
+p_ab_n       <- plot_scenario_diff(pop_sum,   "mean_n", type = "absolute", y_limits = c(0,200), title_str = "Total")
+p_ab_n_ad    <- plot_scenario_diff(adult_sum, "mean_n", type = "absolute", y_limits = c(0,200), title_str = "Adults (>200g)")
+p_ab_n_sp    <- plot_scenario_diff(spawn_sum, "mean_n", type = "absolute", y_limits = c(0,200), title_str = "Spawners")
 
 # Absolute difference: Biomass
-p_ab_b       <- plot_scenario_diff(pop_sum,   "mean_b", type = "absolute", y_limits = c(0,150))
-p_ab_b_ad    <- plot_scenario_diff(adult_sum, "mean_b", type = "absolute", y_limits = c(0,150))
-p_ab_b_sp    <- plot_scenario_diff(spawn_sum, "mean_b", type = "absolute", y_limits = c(0,150))
+p_ab_b       <- plot_scenario_diff(pop_sum,   "mean_b", type = "absolute", y_limits = c(0,250))
+p_ab_b_ad    <- plot_scenario_diff(adult_sum, "mean_b", type = "absolute", y_limits = c(0,250))
+p_ab_b_sp    <- plot_scenario_diff(spawn_sum, "mean_b", type = "absolute", y_limits = c(0,250))
 
 # Relative difference: Abundance
 p_re_n       <- plot_scenario_diff(pop_sum,   "mean_n", "relative", y_limits = c(0,12), title_str = "Total")
@@ -1316,14 +1350,15 @@ Mean monthly abundance of each birth cohort tracked from hatching through the fi
 #| cache: true
 
 # ── Helper: monthly cohort abundance from birth through max_months ────────────
-f_cohort_ts <- function(df, exp_start, max_months = 96L, birth_mo = 4L) {
-  if (ibm_is_empty(df)) {
+# Uses the monthly ibm_summary (1st of month, by cohort); n_alive = survivors.
+f_cohort_ts <- function(smry, exp_start, max_months = 96L, birth_mo = 4L) {
+  if (ibm_is_empty(smry)) {
     return(tibble(msb = integer(), mean_n = double(), se_n = double(), n_coh = integer()))
   }
   exp_yr  <- year(exp_start)
   max_coh <- exp_yr + 45L
-  df |>
-    filter(survived == 1L, date >= exp_start, day(date) == 1L) |>
+  smry |>
+    filter(n_alive > 0, date >= exp_start) |>
     mutate(
       yr  = year(date),
       mo  = month(date),
@@ -1331,7 +1366,8 @@ f_cohort_ts <- function(df, exp_start, max_months = 96L, birth_mo = 4L) {
     ) |>
     filter(msb >= 1L, msb <= max_months,
            cohort >= exp_yr, cohort <= max_coh) |>
-    count(cohort, msb, name = "n") |>
+    group_by(cohort, msb) |>
+    summarise(n = sum(n_alive), .groups = "drop") |>
     group_by(msb) |>
     summarise(mean_n = mean(n),
               se_n   = sd(n) / sqrt(n()),
@@ -1341,7 +1377,7 @@ f_cohort_ts <- function(df, exp_start, max_months = 96L, birth_mo = 4L) {
 
 
 cohort_ts_df <- bind_rows(lapply(ibm_list_mech, \(s) {
-  f_cohort_ts(s$df, exp_start_date) |>
+  f_cohort_ts(s$ibm_summary, exp_start_date) |>
     mutate(prop_cold = s$pc,
            hab_type  = s$ht,
            label     = scen_meta$label[scen_meta$prop_cold == s$pc])
@@ -1551,21 +1587,20 @@ Distribution of spawning dates (day of year of fry birth) pooled across all expe
 ```{r eval=FALSE}
 #| cache: false
 
-# Birth events only — filtered and immediately aggregated to doy counts to
-# avoid carrying 18 M individual rows forward into geom_density()
-f_spawn_dates <- function(df) {
-  if (ibm_is_empty(df)) return(tibble(doy = integer(), n = integer()))
-  df |>
-    filter(!is.na(parent_pid),
-           dayofsim == birth_dayofsim,
-           date >= exp_start_date) |>
+# Birth events from spawn_log (offspring are born on the spawning day)
+f_spawn_dates <- function(sl) {
+  if (ibm_is_empty(sl)) return(tibble(doy = integer(), n = integer()))
+  sl |>
+    mutate(date = base_params$mindate + (dayofsim - 1L)) |>
+    filter(date >= exp_start_date, n_offspring > 0) |>
     mutate(doy = yday(date)) |>
-    count(doy, name = "n")
+    group_by(doy) |>
+    summarise(n = sum(n_offspring), .groups = "drop")
 }
 
 # Pre-aggregate: one row per (scenario, cold proportion, doy)
 spawn_date_df <- bind_rows(lapply(ibm_list_mech, \(s) {
-  f_spawn_dates(s$df) |>
+  f_spawn_dates(s$spawn_log) |>
     mutate(prop_cold = s$pc,
            hab_type  = s$ht,
            label     = scen_meta$label[scen_meta$prop_cold == s$pc])
@@ -1629,9 +1664,9 @@ The number of fry produced is a function of adult size and abundance (fecundity)
 # Single helper computing all reproductive and recruitment metrics in one pass.
 # Stored as full_df and reused by both the reproductive output and recruitment
 # success figures that follow.
-f_repro_recruit <- function(df) {
+f_repro_recruit <- function(s) {
   # Extinct scenarios: counts are 0; ratios and birth weight are undefined (NA)
-  if (ibm_is_empty(df)) {
+  if (s$extinct) {
     return(tibble(
       mean_n_fry          = 0,  sd_n_fry          = 0,
       mean_prop_spawn     = NA_real_, sd_prop_spawn     = NA_real_,
@@ -1644,34 +1679,45 @@ f_repro_recruit <- function(df) {
       mean_n_apr1         = 0,  sd_n_apr1         = 0
     ))
   }
-  exp_df <- df |> filter(date >= exp_start_date)
-
-  fry_birth <- exp_df |>
-    filter(!is.na(parent_pid), dayofsim == birth_dayofsim)
+  # Births: spawn_log events with offspring (offspring are born on the spawning day)
+  fry_birth <- s$spawn_log |>
+    mutate(date = base_params$mindate + (dayofsim - 1L), yr = year(date)) |>
+    filter(date >= exp_start_date, n_offspring > 0)
 
   annual <- fry_birth |>
-    mutate(yr = year(date)) |>
     group_by(yr) |>
-    summarise(n_fry      = n(),
+    summarise(n_fry      = sum(n_offspring),
               n_spawners = n_distinct(parent_pid),
               .groups    = "drop") |>
     mutate(fry_per_sp = n_fry / n_spawners)
 
-  nov1_n <- exp_df |>
-    filter(month(date) == 11, day(date) == 1, survived == 1) |>
-    count(yr = year(date), name = "n_total")
+  # Pooled mean and SD of birth weight from per-event mean/SD
+  n_b  <- sum(fry_birth$n_offspring)
+  m_b  <- sum(fry_birth$n_offspring * fry_birth$off_wt_mean) / n_b
+  sd_b <- sqrt(max(sum((fry_birth$n_offspring - 1) * replace_na(fry_birth$off_wt_sd, 0)^2) +
+                     sum(fry_birth$n_offspring * fry_birth$off_wt_mean^2) - n_b * m_b^2, 0) /
+                 (n_b - 1))
 
-  age0_yr <- exp_df |>
-    filter(month(date) == 11, day(date) == 1, survived == 1, floor(age) == 0) |>
-    count(yr = year(date), name = "n_age0")
+  # Survivor counts from the monthly ibm_summary (1st of month)
+  smry <- s$ibm_summary |> filter(date >= exp_start_date, n_alive > 0)
 
-  # Survivors to April 1 of the cohort's first spring. Uses the cohort column
+  nov1_n <- smry |>
+    filter(month(date) == 11) |>
+    group_by(yr = year(date)) |>
+    summarise(n_total = sum(n_alive), .groups = "drop")
+
+  age0_yr <- smry |>
+    filter(month(date) == 11, age_class == 0) |>
+    group_by(yr = year(date)) |>
+    summarise(n_age0 = sum(n_alive), .groups = "drop")
+
+  # Survivors to May 1 of the cohort's first spring. Uses the cohort column
   # to match each fish to their birth year, preventing overlap with the incoming
   # cohort (born Apr–Jun of the new year).
-  apr1_age0 <- exp_df |>
-    filter(month(date) == 5, day(date) == 1, survived == 1,
-           year(date) == cohort + 1L) |>
-    count(yr = cohort, name = "n_apr1")
+  apr1_age0 <- smry |>
+    filter(month(date) == 5, year(date) == cohort + 1L) |>
+    group_by(yr = cohort) |>
+    summarise(n_apr1 = sum(n_alive), .groups = "drop")
 
   full <- annual |>
     left_join(nov1_n,   by = "yr") |>
@@ -1693,8 +1739,8 @@ f_repro_recruit <- function(df) {
     sd_fry_per_sp       = sd(full$fry_per_sp,       na.rm = TRUE),
     mean_fry_per_ind    = mean(full$fry_per_ind,    na.rm = TRUE),
     sd_fry_per_ind      = sd(full$fry_per_ind,      na.rm = TRUE),
-    mean_birth_wt       = mean(fry_birth$weight,    na.rm = TRUE),
-    sd_birth_wt         = sd(fry_birth$weight,      na.rm = TRUE),
+    mean_birth_wt       = m_b,
+    sd_birth_wt         = sd_b,
     mean_n_age0         = mean(full$n_age0,         na.rm = TRUE),
     sd_n_age0           = sd(full$n_age0,           na.rm = TRUE),
     mean_rec_per_sp     = mean(full$rec_per_sp,     na.rm = TRUE),
@@ -1709,7 +1755,7 @@ f_repro_recruit <- function(df) {
 rows_rr <- vector("list", length(ibm_list_mech))
 for (i in seq_along(ibm_list_mech)) {
   s <- ibm_list_mech[[i]]
-  rows_rr[[i]] <- f_repro_recruit(s$df) |>
+  rows_rr[[i]] <- f_repro_recruit(s) |>
     mutate(prop_cold = s$pc, hab_type = s$ht)
 }
 
@@ -1802,7 +1848,7 @@ age0_monthly_df <- bind_rows(lapply(ibm_list_mech, f_age0_monthly)) |>
 mk_panel(age0_monthly_df,
   mean_n_age0, pmax(mean_n_age0 - sd_n_age0, 0), mean_n_age0 + sd_n_age0,
   "Mean age-0 abundance (1st of month)", NULL, show_x = TRUE) +
-  facet_wrap(~ month, ncol = 3) +
+  facet_wrap(~ month, ncol = 3, scales = "free_y") +
   theme(strip.background = element_rect(fill = "grey92"),
         legend.position  = "bottom")
 ```
@@ -1830,25 +1876,31 @@ Mean monthly body size (weight) of surviving individuals from hatching through t
 ```{r wt-ts-data}
 #| cache: true
 
-f_wt_ts <- function(df, exp_start, max_months = 96L, birth_mo = 4L) {
-  if (ibm_is_empty(df)) {
+# Pools the per-cohort survivor means/SDs in the monthly ibm_summary (n_alive, mean_weight,
+# sd_weight) into individual-level mean and SD at each month since birth.
+f_wt_ts <- function(smry, exp_start, max_months = 96L, birth_mo = 4L) {
+  if (ibm_is_empty(smry)) {
     return(tibble(msb = integer(), mean_wt = double(), sd_wt = double(), n_ind = integer()))
   }
   exp_yr <- year(exp_start)
-  df |>
-    filter(survived == 1L, date >= exp_start, day(date) == 1L) |>
+  smry |>
+    filter(n_alive > 0, date >= exp_start) |>
     mutate(msb = (year(date) - cohort) * 12L + (month(date) - birth_mo)) |>
     filter(msb >= 1L, msb <= max_months,
            cohort >= exp_yr, cohort <= exp_yr + 45L) |>
     group_by(msb) |>
-    summarise(mean_wt = mean(weight),
-              sd_wt   = sd(weight),
-              n_ind   = n(),
+    summarise(n_ind   = sum(n_alive),
+              mean_wt = sum(n_alive * mean_weight) / n_ind,
+              sd_wt   = if_else(n_ind > 1,
+                                sqrt(pmax(sum((n_alive - 1) * replace_na(sd_weight, 0)^2) +
+                                            sum(n_alive * mean_weight^2) - n_ind * mean_wt^2, 0) /
+                                       (n_ind - 1)),
+                                NA_real_),
               .groups = "drop")
 }
 
 wt_ts_df <- bind_rows(lapply(ibm_list_mech, \(s) {
-  f_wt_ts(s$df, exp_start_date) |>
+  f_wt_ts(s$ibm_summary, exp_start_date) |>
     mutate(prop_cold = s$pc,
            hab_type  = s$ht,
            label     = scen_meta$label[scen_meta$prop_cold == s$pc])
@@ -1947,26 +1999,31 @@ Mean monthly condition of surviving individuals from hatching through the first 
 ```{r cond-ts-data}
 #| cache: true
 
-f_cond_ts <- function(df, exp_start, max_months = 96L, birth_mo = 4L) {
-  if (ibm_is_empty(df)) {
+f_cond_ts <- function(smry, exp_start, max_months = 96L, birth_mo = 4L) {
+  if (ibm_is_empty(smry)) {
     return(tibble(msb = integer(), mean_cond = double(), sd_cond = double(), n_ind = integer()))
   }
   exp_yr <- year(exp_start)
-  df |>
-    filter(survived == 1L, date >= exp_start, day(date) == 1L) |>
+  smry |>
+    filter(n_alive > 0, date >= exp_start) |>
     mutate(msb = (year(date) - cohort) * 12L + (month(date) - birth_mo)) |>
     filter(msb >= 1L, msb <= max_months,
            cohort >= exp_yr, cohort <= exp_yr + 45L) |>
-    # Pool all individuals across cohorts at each month since birth
+    # Pool all individuals across cohorts at each month since birth, from the
+    # survivor-only condition mean/SD (mean_cond_alive, sd_cond_alive)
     group_by(msb) |>
-    summarise(mean_cond = mean(condition),
-              sd_cond   = sd(condition),
-              n_ind     = n(),
+    summarise(n_ind     = sum(n_alive),
+              mean_cond = sum(n_alive * mean_cond_alive) / n_ind,
+              sd_cond   = if_else(n_ind > 1,
+                                  sqrt(pmax(sum((n_alive - 1) * replace_na(sd_cond_alive, 0)^2) +
+                                              sum(n_alive * mean_cond_alive^2) - n_ind * mean_cond^2, 0) /
+                                         (n_ind - 1)),
+                                  NA_real_),
               .groups = "drop")
 }
 
 cond_ts_df <- bind_rows(lapply(ibm_list_mech, \(s) {
-  f_cond_ts(s$df, exp_start_date) |>
+  f_cond_ts(s$ibm_summary, exp_start_date) |>
     mutate(prop_cold = s$pc,
            hab_type  = s$ht,
            label     = scen_meta$label[scen_meta$prop_cold == s$pc])
@@ -2031,7 +2088,7 @@ knitr::opts_chunk$set(eval = FALSE)
 
 The number of fry produced is a function of adult size and abundance (fecundity), which are driven by warm and cold habitat availability. Importantly, when only cold habitat is available, the number of fry produced declines ~linearly with cold habitat availability. But when warm habitat is also available, considerably more fry are produced at a given proportion cold (except for 95% cold); i.e., 
 
-```{r}
+```{r eval = FALSE}
 #| cache: false
 #| fig-width: 7
 #| fig-height: 4
@@ -2039,9 +2096,9 @@ The number of fry produced is a function of adult size and abundance (fecundity)
 # Single helper computing all reproductive and recruitment metrics in one pass.
 # Stored as full_df and reused by both the reproductive output and recruitment
 # success figures that follow.
-f_repro_recruit <- function(df) {
+f_repro_recruit <- function(s) {
   # Extinct scenarios: counts are 0; ratios and birth weight are undefined (NA)
-  if (ibm_is_empty(df)) {
+  if (s$extinct) {
     return(tibble(
       mean_n_fry          = 0,  sd_n_fry          = 0,
       mean_prop_spawn     = NA_real_, sd_prop_spawn     = NA_real_,
@@ -2054,34 +2111,45 @@ f_repro_recruit <- function(df) {
       mean_n_apr1         = 0,  sd_n_apr1         = 0
     ))
   }
-  exp_df <- df |> filter(date >= exp_start_date)
-
-  fry_birth <- exp_df |>
-    filter(!is.na(parent_pid), dayofsim == birth_dayofsim)
+  # Births: spawn_log events with offspring (offspring are born on the spawning day)
+  fry_birth <- s$spawn_log |>
+    mutate(date = base_params$mindate + (dayofsim - 1L), yr = year(date)) |>
+    filter(date >= exp_start_date, n_offspring > 0)
 
   annual <- fry_birth |>
-    mutate(yr = year(date)) |>
     group_by(yr) |>
-    summarise(n_fry      = n(),
+    summarise(n_fry      = sum(n_offspring),
               n_spawners = n_distinct(parent_pid),
               .groups    = "drop") |>
     mutate(fry_per_sp = n_fry / n_spawners)
 
-  nov1_n <- exp_df |>
-    filter(month(date) == 11, day(date) == 1, survived == 1) |>
-    count(yr = year(date), name = "n_total")
+  # Pooled mean and SD of birth weight from per-event mean/SD
+  n_b  <- sum(fry_birth$n_offspring)
+  m_b  <- sum(fry_birth$n_offspring * fry_birth$off_wt_mean) / n_b
+  sd_b <- sqrt(max(sum((fry_birth$n_offspring - 1) * replace_na(fry_birth$off_wt_sd, 0)^2) +
+                     sum(fry_birth$n_offspring * fry_birth$off_wt_mean^2) - n_b * m_b^2, 0) /
+                 (n_b - 1))
 
-  age0_yr <- exp_df |>
-    filter(month(date) == 11, day(date) == 1, survived == 1, floor(age) == 0) |>
-    count(yr = year(date), name = "n_age0")
+  # Survivor counts from the monthly ibm_summary (1st of month)
+  smry <- s$ibm_summary |> filter(date >= exp_start_date, n_alive > 0)
 
-  # Survivors to April 1 of the cohort's first spring. Uses the cohort column
+  nov1_n <- smry |>
+    filter(month(date) == 11) |>
+    group_by(yr = year(date)) |>
+    summarise(n_total = sum(n_alive), .groups = "drop")
+
+  age0_yr <- smry |>
+    filter(month(date) == 11, age_class == 0) |>
+    group_by(yr = year(date)) |>
+    summarise(n_age0 = sum(n_alive), .groups = "drop")
+
+  # Survivors to May 1 of the cohort's first spring. Uses the cohort column
   # to match each fish to their birth year, preventing overlap with the incoming
   # cohort (born Apr–Jun of the new year).
-  apr1_age0 <- exp_df |>
-    filter(month(date) == 5, day(date) == 1, survived == 1,
-           year(date) == cohort + 1L) |>
-    count(yr = cohort, name = "n_apr1")
+  apr1_age0 <- smry |>
+    filter(month(date) == 5, year(date) == cohort + 1L) |>
+    group_by(yr = cohort) |>
+    summarise(n_apr1 = sum(n_alive), .groups = "drop")
 
   full <- annual |>
     left_join(nov1_n,   by = "yr") |>
@@ -2103,8 +2171,8 @@ f_repro_recruit <- function(df) {
     sd_fry_per_sp       = sd(full$fry_per_sp,       na.rm = TRUE),
     mean_fry_per_ind    = mean(full$fry_per_ind,    na.rm = TRUE),
     sd_fry_per_ind      = sd(full$fry_per_ind,      na.rm = TRUE),
-    mean_birth_wt       = mean(fry_birth$weight,    na.rm = TRUE),
-    sd_birth_wt         = sd(fry_birth$weight,      na.rm = TRUE),
+    mean_birth_wt       = m_b,
+    sd_birth_wt         = sd_b,
     mean_n_age0         = mean(full$n_age0,         na.rm = TRUE),
     sd_n_age0           = sd(full$n_age0,           na.rm = TRUE),
     mean_rec_per_sp     = mean(full$rec_per_sp,     na.rm = TRUE),
@@ -2119,7 +2187,7 @@ f_repro_recruit <- function(df) {
 rows_rr <- vector("list", length(ibm_list_mech))
 for (i in seq_along(ibm_list_mech)) {
   s <- ibm_list_mech[[i]]
-  rows_rr[[i]] <- f_repro_recruit(s$df) |>
+  rows_rr[[i]] <- f_repro_recruit(s) |>
     mutate(prop_cold = s$pc, hab_type = s$ht)
 }
 
@@ -2195,7 +2263,7 @@ mk_panel(full_df,
 
 Fish preferentially occupy the cold patch during summer (particularly July and August) to avoid sub-optimally warm temperatures and asssociated metabolic and survival costs in the warm patch.
 
-```{r hab-use-age0-data}
+```{r hab-use-age0-data, eval = FALSE}
 #| cache: true
 
 # Monthly mean age-0 density and patch-use proportion across the full first year
@@ -2255,7 +2323,7 @@ age0_msb_labs <- c(month.abb[5:12], month.abb[1:4])
 
 Looking at raw age-0 densities doesn't give us much information, as temporal declines in density are largely driven by declines in total age-0 abundance due to low daily survival probability.
 
-```{r hab-use-summer-density}
+```{r hab-use-summer-density, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 5
 
@@ -2280,7 +2348,7 @@ ggplot(hab_use_age0 |> filter(msb <= 6L),
 
 But if we look at the proportion of the age-0 population using either cold or warm patches, we can see that fish flood into the cold patch during summer (particularly July and August), avoiding the warm patch even when warm patch area is relatively high. As the proportion of habitat that is cold declines, greater proportions of fish use the warm habitat during the shoulder seasons (May-June and Sept-Oct) as density dependent constraints on growth are relieved and the scope for growth increases. This pattern is magnified when higher consumption is allowed in the warm habitat. 
 
-```{r hab-use-summer-prop}
+```{r hab-use-summer-prop, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 5
 
@@ -2306,7 +2374,7 @@ ggplot(hab_use_age0 |> filter(msb <= 6L),
 
 In summary, fish are preferrentially using the cold patch during summer, regardless of cold proportion. Summer densities are greater in the cold patch than in the warm patch, and this difference is magnified as the proportion of cold habitat declines. Furthermore, cold patch summer densities are *almost* always greater in cold+warm relative to cold-only scenarios.
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 8
 #| fig-height: 4
 
@@ -2333,7 +2401,7 @@ hab_use_age0 |> filter(msb %in% c(3:4)) |> group_by(prop_cold, hab_type, label, 
 
 As a result of a larger number of fish using a fixed amount of (cold) habitat, the strength of density dependence during the first summer (particularly July-August) is much stronger (lower DD scalar) for the cold+warm scenarios relative to the cold-only scenarios, and this effect is more pronounced as the cold patch shrinks. The strength of density dependence in the warm patch (for the cold-warm scenarios) is low (high DD scalar) and does not vary with cold/warm patch proportion, as very few/no fish are using the warm patch at this time.
 
-```{r dd-age0-data}
+```{r dd-age0-data, eval = FALSE}
 #| cache: true
 
 # Monthly mean DD scalar experienced by age-0 fish, by patch, full first year
@@ -2395,7 +2463,7 @@ dd_age0_df <- bind_rows(lapply(ibm_list_live, \(s) {
   )
 ```
 
-```{r dd-summer-plot}
+```{r dd-summer-plot, eval = FALSE}
 #| fig-width: 11
 #| fig-height: 6
 
@@ -2419,7 +2487,7 @@ ggplot(dd_age0_df |> filter(msb <= 6L),
         legend.key.width   = unit(1.2, "cm"))
 ```
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 8
 #| fig-height: 4
 #| 
@@ -2446,7 +2514,7 @@ dd_age0_df |> filter(msb %in% c(3:4)) |> group_by(prop_cold, hab_type, label, pa
 
 During summer, strong density dependence constrains consumption in the cold patch, whereas temperature plays a comparatively minor role. Density-dependent constraints on consumption in the cold-patch become more severe as cold habitat is increasingly replaced by warm habitat (for cold+warm scenarios...increasing fry production per unit area of cold).
 
-```{r pcmax-age0-data}
+```{r pcmax-age0-data, eval = FALSE}
 #| cache: true
 
 # Monthly mean realized p-value (proportion of maximum consumption) for age-0
@@ -2533,7 +2601,7 @@ pcmax_age0_df <- bind_rows(lapply(ibm_list_live, \(s) {
 ```
 
 
-```{r pcmax-decomp}
+```{r pcmax-decomp, eval = FALSE}
 #| fig-width: 11
 #| fig-height: 7
 
@@ -2589,7 +2657,7 @@ pcmax_age0_df |>
 ```
 
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 4
 #| 
@@ -2656,7 +2724,7 @@ pcmax_age0_df %>%
 
 Mean summer age-0 growth rates thus decline as the cold patch shrinks (for the cold+warm scenarios), but are unaffected by cold patch availability when only cold habitat is available. Similarly, the time it takes age-0 fish to clear the size-based survival threshold (5 g) increases as the cold patch shrinks (for cold-warm scenarios), owing to slower overall growth during summer.
 
-```{r gr-size-age0-data}
+```{r gr-size-age0-data, eval = FALSE}
 #| cache: true
 
 # ── Plot A: monthly mean ggd for living age-0 fish, full first year (May–Apr) ─
@@ -2711,7 +2779,7 @@ wt_age0_df <- bind_rows(lapply(ibm_list_live, \(s) {
   )
 ```
 
-```{r gr-size-summer-plot}
+```{r gr-size-summer-plot, eval = FALSE}
 #| fig-width: 11
 #| fig-height: 7
 
@@ -2774,7 +2842,7 @@ pB_swt <- ggplot(wt_age0_df #|> filter(msb <= 6L)
 ```
 
 
-```{r sw0-days-plot}
+```{r sw0-days-plot, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 4
 
@@ -2847,7 +2915,7 @@ Because growth is stunted due to density dependence, age-0 summer survival rates
 
 First show mean daily survival probability by source tracked through the first year of life (day since hatch 0–364) for age-0 fish, averaged across all surviving fish and experimental-period cohort-years. Four components are shown: size-based ($p_{sg}$), temperature-based ($p_{temp}$), condition-based ($p_{starv}$), and age/senescence ($p_{age}$). Two facet layouts are provided for different comparative emphases.
 
-```{r surv-daily-data}
+```{r surv-daily-data, eval = FALSE}
 #| cache: true
 
 # f_surv_daily: mean daily survival probability by source for age-0 fish.
@@ -2897,7 +2965,7 @@ surv_daily_df <- bind_rows(surv_daily_raw) |>
 
 Version 1: survival source in rows, cold proportion in columns, scenario as colour. *Note the longer period of low summer size-based survival in the cold+warm relative to cold-only scenarios, particularly as the cold patch shrinks*
 
-```{r surv-daily-plot1}
+```{r surv-daily-plot1, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 6
 
@@ -2954,7 +3022,7 @@ Version 2: scenario set in rows, cold proportion in columns, survival source as 
 y-axis clipped to $[0.955,\, 1.001]$ to reveal within-panel structure across all four
 components simultaneously.
 
-```{r surv-daily-plot2}
+```{r surv-daily-plot2, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 6
 
@@ -2989,7 +3057,7 @@ ggplot(surv_daily_df %>% filter(component != "Age (p_age)"),
 
 By calculating cumulative log-survival (product of daily mean $p$) over the entire "summer" (birth to Oct 31) by source, we can see that size-based survival (due to density dependent effects on growth) dominates, with increasing survival costs as the cold patch shrinks, but only for cold+warm scenarios with elevated fry production
 
-```{r surv-cum-plot}
+```{r surv-cum-plot, eval = FALSE}
 #| fig-width: 8
 #| fig-height: 4
 
@@ -3042,7 +3110,7 @@ ggplot(cum_surv_df %>% filter(season == "Summer (birth \u2192 Nov)"),
 ##### Fall "recruitment"
 
 Collectively, this creates a substantial early life bottleneck, such that the number of surviving to the end of the first summer is purely a function of cold habitat availability, despite substantial differences in initial fry production owing to the relative availability of warm habitat. 
-```{r}
+```{r, eval = FALSE}
 #| cache: false
 #| fig-width: 8
 #| fig-height: 4
@@ -3061,7 +3129,7 @@ After November 1, all scenario classes enter their first winter with effectively
 ##### Habitat use
 
 Fish move from cold to warm in the late fall (Oct-Nov). As cold proportion declines and warm increases, fish are more likely to remain in warm through the winter.
-```{r hab-use-winter-prop}
+```{r hab-use-winter-prop, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 5
 
@@ -3088,7 +3156,7 @@ ggplot(hab_use_age0 |> filter(msb > 6L),
 
 In summary, fish are preferrentially using the warm patch during winter, regardless of cold proportion. Winter densities are greater in the warm patch than in the cold patch, but this difference shrinks as the proportion of cold habitat declines (largely mediated by area).
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 8
 #| fig-height: 4
 
@@ -3114,7 +3182,7 @@ hab_use_age0 |> filter(msb %in% c(9:10)) |> group_by(prop_cold, hab_type, label,
 
 Fish are basically ~input matching: when warm habitat is rare, higher densities mean increased strength of density dependence (lower DD scalar) in warm. Cold patch DD is stronger for cold-only scenarios relative to cold-warm, because all fish are forced to use cold habitat during winter, while fish in cold+warm scenarios can disperse to warm habitat. 
 
-```{r dd-winter-plot}
+```{r dd-winter-plot, eval = FALSE}
 #| fig-width: 11
 #| fig-height: 6
 
@@ -3138,7 +3206,7 @@ ggplot(dd_age0_df |> filter(msb > 6L),
         legend.key.width   = unit(1.2, "cm"))
 ```
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 8
 #| fig-height: 4
 #| 
@@ -3164,7 +3232,7 @@ dd_age0_df |> filter(msb %in% c(9:10)) |> group_by(prop_cold, hab_type, label, p
 
 During winter, consumption is entirely constrained by cold patch temperature in the cold-only scenarios. In contrast, temperature and density dependence in the warm patch combine to constrain consumption in the cold+warm scenarios. When proportion cold is high (warm habitat is rare), density dependence in the warm habitat is primarily limiting consumption. But when proportion cold is low (warm habitat is abundant), density dependence in the warm habitat is less significant, and temperature becomes the primary constraint. As a result, cold+warm fish feed at higher rates than cold-only fish, and cold+warm consumption increases as cold habitat is increasingly replaced by warm habitat.
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 11
 #| fig-height: 7
 
@@ -3219,7 +3287,7 @@ pcmax_age0_df |>
 
 ```
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 4
 #| 
@@ -3284,7 +3352,7 @@ pcmax_age0_df %>%
 
 Cold-only fish thus experience consistently negative growth rates overwinter, leading to reduce condition across all cold proportions. In contrast, mean winter growth rates for cold-warm fish increase as warm habitat becomes more available (declining density dependent constraints on consumption), and fish are better able to avoid declines in condition. 
 
-```{r gr-size-winter-plot}
+```{r gr-size-winter-plot, eval = FALSE}
 #| fig-width: 11
 #| fig-height: 7
 
@@ -3344,7 +3412,7 @@ pB_swt <- ggplot(wt_age0_df |> filter(msb > 6L),
   plot_layout(guides = "collect", heights = c(1, 1))
 ```
 
-```{r }
+```{r, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 4
 
@@ -3397,7 +3465,7 @@ pB_mcond <- wt_age0_df %>%
 
 ##### Survival
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 8
 #| fig-height: 4
 #| 
@@ -3431,7 +3499,7 @@ ggplot(cum_surv_df %>% filter(season == "Winter (Nov \u2192 May)"),
 
 After the shared summer bottleneck sets a common Nov. 1 baseline, the cold-only and cold+warm scenarios diverge through winter. Cold-only fish face a second condition-driven mortality episode in late winter/early spring that warm-habitat fish largely avoid. By April 1 — the end of the first year of life — the scenarios separate clearly: cold+warm (and especially high-P) cohorts retain substantially more survivors than cold-only cohorts at equivalent cold proportions, and the divergence grows as warm habitat increases.
 
-```{r}
+```{r, eval = FALSE}
 #| cache: false
 #| fig-width: 8
 #| fig-height: 4
@@ -3456,7 +3524,7 @@ The preceding weight-at-age panels show that cold+warm fish are substantially he
 
 #### Data
 
-```{r winter-bm-data}
+```{r winter-bm-data, eval = FALSE}
 #| cache: true
 
 # Per-fish mean specific growth rate (ggd × 10⁻³ g/g/d) by season × patch.
@@ -3495,7 +3563,7 @@ seasonal_ggd_df <- bind_rows(lapply(ibm_list_live, compute_seasonal_ggd)) |>
   )
 ```
 
-```{r seasonal-p-data}
+```{r seasonal-p-data, eval = FALSE}
 #| cache: true
 
 # Seasonal mean consumption-rate summaries by patch for ALL fish (not just age-0).
@@ -3585,7 +3653,7 @@ wt_ggd_df <- seasonal_ggd_df |>
 
 #### Figures
 
-```{r}
+```{r, eval = FALSE}
 cold_x <- function(xlab = NULL) {
   list(
     scale_x_continuous(
@@ -3600,7 +3668,7 @@ cold_x <- function(xlab = NULL) {
 ```
 
 
-```{r wt-per-fish-plot}
+```{r wt-per-fish-plot, eval = FALSE}
 #| fig-width: 7
 #| fig-height: 4
 
@@ -3622,7 +3690,7 @@ pop_sum |>
   theme(panel.grid.minor = element_blank(), legend.position = "right")
 ```
 
-```{r seasonal-ggd-plot}
+```{r seasonal-ggd-plot, eval = FALSE}
 #| fig-width: 10
 #| fig-height: 5.5
 
@@ -3663,7 +3731,7 @@ seasonal_ggd_df |>
   )
 ```
 
-```{r seasonal-p-plot}
+```{r seasonal-p-plot, eval = FALSE}
 #| fig-width: 10
 #| fig-height: 5.5
 
@@ -3702,7 +3770,7 @@ seasonal_p_df |>
   )
 ```
 
-```{r seasonal-wt-scatter}
+```{r seasonal-wt-scatter, eval = FALSE}
 #| fig-width: 9
 #| fig-height: 5
 
@@ -3771,7 +3839,7 @@ wt_ggd_df |>
 
 At 95% cold habitat, Cold + Warm scenarios produce roughly half the spawner abundance and biomass of Cold Only — a counterintuitive result given that warm habitat should, in principle, increase growth and reproductive output. The four panels below trace the causal mechanism step by step. Warm habitat reliably increases first-winter survival (A), but the extra survivors crowd cold habitat during summer (B). At high cold proportions, this density cost outweighs the limited growth benefit from a tiny warm patch, leaving Cold + Warm fish *smaller* than Cold Only fish at Oct 1 (C). As the warm patch grows larger (lower cold proportions), it provides enough spring and summer growth to more than offset the crowding cost — Cold + Warm fish become progressively *larger* than Cold Only fish (C) — and spawning participation follows suit (D). The tipping point falls between 95% and 75% cold, i.e., when warm habitat constitutes at least ~20–25% of total area.
 
-```{r}
+```{r, eval = FALSE}
 #| fig-width: 7
 #| fig-height: 11
 #| fig-cap: "Causal chain underlying the density-mediated thinning paradox. Ribbons show ±1 SD across experimental years. Survival SD estimated via the delta method from annual mean counts; spawning participation SD computed from annual spawner counts divided by the mean April 15 adult count."

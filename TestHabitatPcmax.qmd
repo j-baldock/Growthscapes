@@ -12,8 +12,10 @@ library(ggridges)
 library(patchwork)
 library(scales)
 
-source("Functions.R")
-source("PlotResults.R")
+source("source_files/Functions.R")
+source("source_files/PlotResults.R")
+source("source_files/ScenarioDefs.R")
+source("source_files/SimulationLoop.R")
 ```
 
 
@@ -572,3 +574,256 @@ y_left + inner + y_right +
     )
   )
 ```
+
+
+## Test pcmax_cold / pcmax_warm
+
+### Cold only 
+
+```{r}
+baseline <- modifyList(base_params, list(A_cold = 0.5, A_warm = 0, pcmax_cold = 0.5, pcmax_warm = 0.5, nyears_burnin = 10, nyears_experiment = 20, save_burnin = TRUE, save_ibm_long = TRUE))
+
+exp_start_date <- as.Date(baseline$mindate) + lubridate::years(baseline$nyears_burnin)
+burn_start     <- year(as.Date(baseline$mindate))
+exp_start_yr   <- year(exp_start_date)
+exp_end_yr     <- exp_start_yr + baseline$nyears_experiment
+
+sens_cols <- c("#0072B2", "#009E73", "#D55E00")
+```
+
+```{r}
+#| label: sim-pcmc
+#| cache: false
+
+pcmc_vals   <- c(0.3, 0.4, 0.5)
+pcmc_labels <- paste0("pcmax_cold = ", pcmc_vals)
+pcmc_cols   <- sens_cols
+
+cache_file <- "cache/pcmc_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading pcmax_cold simulations from cache...\n")
+  pcmc_sims <- readRDS(cache_file)
+} else {
+  cat("Running pcmax_cold sensitivity simulations...\n")
+  pcmc_sims <- lapply(seq_along(pcmc_vals), function(i) {
+    cat(" pcmax_cold =", pcmc_vals[i], "... ")
+    p   <- modifyList(baseline, list(pcmax_cold = pcmc_vals[i]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(pcmc_sims) <- pcmc_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(pcmc_sims, cache_file)
+}
+```
+
+
+
+```{r}
+#| label: pcmc-waa
+
+# census holds survivors on Oct 1 (experimental period only), pooled here across years
+waa_pcmc <- purrr::imap_dfr(pcmc_sims, \(sim, label) mutate(sim$census, label = label)) |>
+  mutate(label = factor(label, levels = pcmc_labels)) |>
+  group_by(label, age_class) |>
+  summarise(mean_wt = mean(weight),
+            sd_wt   = sd(weight),
+            n       = n(),
+            .groups = "drop") |>
+  filter(n >= 5)
+
+ggplot(waa_pcmc, aes(age_class, mean_wt, color = label)) +
+  geom_line(linewidth = 0.8) +
+  geom_point() +
+  scale_color_manual(values = setNames(pcmc_cols, pcmc_labels)) +
+  labs(x = "Age (years)", y = "Mean weight on Oct 1 (g)", color = NULL,
+       title = "Weight at age by pcmax_warm")
+```
+
+Mean per-fish `pcmax_adjusted_dd` (fish-day average within each year, experimental period), from the per-fish `ibm_long` records and from the `daily_patch` sums. Newborn fish on their first day have `NA` and are excluded in both.
+
+```{r}
+#| label: pcmc-pcmax-dd
+
+# ibm_long: one row per fish-day
+pc_ibm <- purrr::imap_dfr(pcmc_sims, \(sim, label) {
+  sim$ibm_long |>
+    filter(date >= exp_start_date, !is.na(pcmax_adjusted_dd)) |>
+    mutate(label = label, year = year(date), age_class = as.integer(floor(age)))
+}) |>
+  mutate(label = factor(label, levels = pcmc_labels))
+
+# Annual mean by age class (ibm_long only; daily_patch has just age 0 vs 1+)
+pc_ibm_age <- pc_ibm |>
+  group_by(label, year, age_class) |>
+  summarise(pcmax_dd = mean(pcmax_adjusted_dd), n = n(), .groups = "drop")
+
+# Age 0 vs 1+ from both sources
+pc_ibm_grp <- pc_ibm |>
+  mutate(age_group = pmin(age_class, 1L)) |>
+  group_by(label, year, age_group) |>
+  summarise(pcmax_ibm = mean(pcmax_adjusted_dd), .groups = "drop")
+
+pc_dp_grp <- purrr::imap_dfr(pcmc_sims, \(sim, label) mutate(sim$daily_patch, label = label)) |>
+  mutate(label = factor(label, levels = pcmc_labels), year = year(date)) |>
+  group_by(label, year, age_group) |>
+  summarise(pcmax_dp = sum(sum_pcmax) / sum(n_pcmax), .groups = "drop")
+
+pc_cmp <- inner_join(pc_ibm_grp, pc_dp_grp, by = c("label", "year", "age_group"))
+
+# Should be ~0 if the two sources agree
+max(abs(pc_cmp$pcmax_ibm - pc_cmp$pcmax_dp))
+```
+
+
+```{r}
+#| label: pcmc-pcmax-dd-plots
+
+ggplot(pc_cmp, aes(pcmax_ibm, pcmax_dp, color = label)) +
+  geom_abline(linetype = 2) +
+  geom_point(alpha = 0.6) +
+  scale_color_manual(values = setNames(pcmc_cols, pcmc_labels)) +
+  facet_wrap(~ age_group, labeller = label_both) +
+  labs(x = "ibm_long", y = "daily_patch", color = NULL) +
+  theme_bw() + theme(panel.grid.minor = element_blank())
+
+# Each line is one year; age-year cells with <50 fish-days dropped
+ggplot(filter(pc_ibm_age, n >= 50),
+       aes(age_class, pcmax_dd, color = label, group = interaction(label, year))) +
+  geom_hline(yintercept = c(0.3,0.5), linetype = "dashed") + 
+  geom_line(alpha = 0.3) +
+  scale_color_manual(values = setNames(pcmc_cols, pcmc_labels)) +
+  facet_wrap(~ label) +
+  labs(x = "Age (years)", y = "Mean pcmax_adjusted_dd", color = NULL) +
+  theme_bw() + theme(panel.grid.minor = element_blank(), legend.position = "none")
+```
+
+
+
+
+### Cold + Warm
+
+```{r}
+baseline <- modifyList(base_params, list(A_cold = 0.5, A_warm = 1.5, pcmax_cold = 0.5, pcmax_warm = 0.5, nyears_burnin = 10, nyears_experiment = 20, save_burnin = TRUE, save_ibm_long = TRUE))
+
+exp_start_date <- as.Date(baseline$mindate) + lubridate::years(baseline$nyears_burnin)
+burn_start     <- year(as.Date(baseline$mindate))
+exp_start_yr   <- year(exp_start_date)
+exp_end_yr     <- exp_start_yr + baseline$nyears_experiment
+
+sens_cols <- c("#0072B2", "#009E73", "#D55E00", "#CC79A7")
+```
+
+
+
+```{r}
+#| label: sim-pcmw
+#| cache: false
+
+pcmw_vals   <- c(0.5, 0.6, 0.7, 0.8)
+pcmw_labels <- paste0("pcmax_warm = ", pcmw_vals)
+pcmw_cols   <- sens_cols
+
+cache_file <- "cache/pcmw_sims.rds"
+if (file.exists(cache_file)) {
+  cat("Loading pcmax_warm simulations from cache...\n")
+  pcmw_sims <- readRDS(cache_file)
+} else {
+  cat("Running pcmax_warm sensitivity simulations...\n")
+  pcmw_sims <- lapply(seq_along(pcmw_vals), function(i) {
+    cat(" pcmax_warm =", pcmw_vals[i], "... ")
+    p   <- modifyList(baseline, list(pcmax_warm = pcmw_vals[i]))
+    hdf <- build_habitat(p)
+    res <- run_simulation(hdf, p, wt_growth = wt.growth)
+    cat("ends", format(max(res$ibm_long$date, na.rm = TRUE)), "\n")
+    res
+  })
+  names(pcmw_sims) <- pcmw_labels
+  dir.create("cache", showWarnings = FALSE)
+  saveRDS(pcmw_sims, cache_file)
+}
+```
+
+
+```{r}
+#| label: pcmw-waa
+
+# census holds survivors on Oct 1 (experimental period only), pooled here across years
+waa_pcmw <- purrr::imap_dfr(pcmw_sims, \(sim, label) mutate(sim$census, label = label)) |>
+  mutate(label = factor(label, levels = pcmw_labels)) |>
+  group_by(label, age_class) |>
+  summarise(mean_wt = mean(weight),
+            sd_wt   = sd(weight),
+            n       = n(),
+            .groups = "drop") |>
+  filter(n >= 5)
+
+ggplot(waa_pcmw, aes(age_class, mean_wt, color = label)) +
+  geom_line(linewidth = 0.8) +
+  geom_point() +
+  scale_color_manual(values = setNames(pcmw_cols, pcmw_labels)) +
+  labs(x = "Age (years)", y = "Mean weight on Oct 1 (g)", color = NULL,
+       title = "Weight at age by pcmax_warm")
+```
+
+Mean per-fish `pcmax_adjusted_dd` (fish-day average within each year, experimental period), from the per-fish `ibm_long` records and from the `daily_patch` sums. Newborn fish on their first day have `NA` and are excluded in both.
+
+```{r}
+#| label: pcmw-pcmax-dd
+
+# ibm_long: one row per fish-day
+pc_ibm <- purrr::imap_dfr(pcmw_sims, \(sim, label) {
+  sim$ibm_long |>
+    filter(date >= exp_start_date, !is.na(pcmax_adjusted_dd)) |>
+    mutate(label = label, year = year(date), age_class = as.integer(floor(age)))
+}) |>
+  mutate(label = factor(label, levels = pcmw_labels))
+
+# Annual mean by age class (ibm_long only; daily_patch has just age 0 vs 1+)
+pc_ibm_age <- pc_ibm |>
+  group_by(label, year, age_class) |>
+  summarise(pcmax_dd = mean(pcmax_adjusted_dd), n = n(), .groups = "drop")
+
+# Age 0 vs 1+ from both sources
+pc_ibm_grp <- pc_ibm |>
+  mutate(age_group = pmin(age_class, 1L)) |>
+  group_by(label, year, age_group) |>
+  summarise(pcmax_ibm = mean(pcmax_adjusted_dd), .groups = "drop")
+
+pc_dp_grp <- purrr::imap_dfr(pcmw_sims, \(sim, label) mutate(sim$daily_patch, label = label)) |>
+  mutate(label = factor(label, levels = pcmw_labels), year = year(date)) |>
+  group_by(label, year, age_group) |>
+  summarise(pcmax_dp = sum(sum_pcmax) / sum(n_pcmax), .groups = "drop")
+
+pc_cmp <- inner_join(pc_ibm_grp, pc_dp_grp, by = c("label", "year", "age_group"))
+
+# Should be ~0 if the two sources agree
+max(abs(pc_cmp$pcmax_ibm - pc_cmp$pcmax_dp))
+```
+
+```{r}
+#| label: pcmw-pcmax-dd-plots
+
+ggplot(pc_cmp, aes(pcmax_ibm, pcmax_dp, color = label)) +
+  geom_abline(linetype = 2) +
+  geom_point(alpha = 0.6) +
+  scale_color_manual(values = setNames(pcmw_cols, pcmw_labels)) +
+  facet_wrap(~ age_group, labeller = label_both) +
+  labs(x = "ibm_long", y = "daily_patch", color = NULL) +
+  theme_bw() + theme(panel.grid.minor = element_blank())
+
+# Each line is one year; age-year cells with <50 fish-days dropped
+ggplot(filter(pc_ibm_age, n >= 50),
+       aes(age_class, pcmax_dd, color = label, group = interaction(label, year))) +
+  geom_hline(yintercept = c(0.3,0.5), linetype = "dashed") + 
+  geom_line(alpha = 0.3) +
+  scale_color_manual(values = setNames(pcmw_cols, pcmw_labels)) +
+  facet_wrap(~ label) +
+  labs(x = "Age (years)", y = "Mean pcmax_adjusted_dd", color = NULL) +
+  theme_bw() + theme(panel.grid.minor = element_blank(), legend.position = "none")
+```
+
+
+

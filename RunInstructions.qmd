@@ -12,7 +12,7 @@ The following R packages are required: `tidyverse`, `lubridate`. Use the `librar
 
 ## Download files and data
 
-**All source files and input data can be downloaded directly from the** `source_files/` **folder in the main directory.**
+**All source files and input data can be downloaded directly from the** `source_files/` **folder in the main directory. The exception is the growth look-up array (**`wt.growth.RData`**), which is too large to upload to GitHub and can be downloaded from Teams.**
 
 
 ### Source files
@@ -28,7 +28,7 @@ The following R scripts are required to run the individual-based model simulatio
 
 Various input data are required to run the simulations.
 
-- `wt.growth.RData`: this file contains the growth rate look-up array (growth rate in grams/gram/day by body mass, temperature, and p-value).
+- `wt.growth.RData`: this file contains the growth rate look-up array (growth rate in grams/gram/day by body mass, temperature, and p-value). **(access this file via Teams)**
 - `exp_design.rds`: experimental design table with key input parameters and scenarion names, written by `ScenarioDefs.qmd`. 
 - `exp_scenarios`: a list of lists. Each named list element contains the input parameters that define the experimental scenarios as specified in `exp_design.rds`. Written by `ScenarioDefs.qmd`
 

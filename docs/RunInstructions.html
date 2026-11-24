@@ -554,7 +554,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 </section>
 <section id="download-files-and-data" class="level2" data-number="9.2">
 <h2 data-number="9.2" class="anchored" data-anchor-id="download-files-and-data"><span class="header-section-number">9.2</span> Download files and data</h2>
-<p><strong>All source files and input data can be downloaded directly from the</strong> <code>source_files/</code> <strong>folder in the main directory.</strong></p>
+<p><strong>All source files and input data can be downloaded directly from the</strong> <code>source_files/</code> <strong>folder in the main directory. The exception is the growth look-up array (</strong><code>wt.growth.RData</code><strong>), which is too large to upload to GitHub and can be downloaded from Teams.</strong></p>
 <section id="source-files" class="level3" data-number="9.2.1">
 <h3 data-number="9.2.1" class="anchored" data-anchor-id="source-files"><span class="header-section-number">9.2.1</span> Source files</h3>
 <p>The following R scripts are required to run the individual-based model simulation. Ensure these files are up to date by running <code>qmd_to_r_script()</code> in the console after any changes to their .qmd counterparts.</p>
@@ -568,7 +568,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <h3 data-number="9.2.2" class="anchored" data-anchor-id="input-data"><span class="header-section-number">9.2.2</span> Input data</h3>
 <p>Various input data are required to run the simulations.</p>
 <ul>
-<li><code>wt.growth.RData</code>: this file contains the growth rate look-up array (growth rate in grams/gram/day by body mass, temperature, and p-value).</li>
+<li><code>wt.growth.RData</code>: this file contains the growth rate look-up array (growth rate in grams/gram/day by body mass, temperature, and p-value). <strong>(access this file via Teams)</strong></li>
 <li><code>exp_design.rds</code>: experimental design table with key input parameters and scenarion names, written by <code>ScenarioDefs.qmd</code>.</li>
 <li><code>exp_scenarios</code>: a list of lists. Each named list element contains the input parameters that define the experimental scenarios as specified in <code>exp_design.rds</code>. Written by <code>ScenarioDefs.qmd</code></li>
 </ul>
@@ -1095,7 +1095,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">## Download files and data</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>**All source files and input data can be downloaded directly from the** `source_files/` **folder in the main directory.**</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>**All source files and input data can be downloaded directly from the** `source_files/` **folder in the main directory. The exception is the growth look-up array (**`wt.growth.RData`**), which is too large to upload to GitHub and can be downloaded from Teams.**</span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="fu">### Source files</span></span>
@@ -1111,7 +1111,7 @@ octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>Various input data are required to run the simulations.</span>
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`wt.growth.RData`</span>: this file contains the growth rate look-up array (growth rate in grams/gram/day by body mass, temperature, and p-value).</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`wt.growth.RData`</span>: this file contains the growth rate look-up array (growth rate in grams/gram/day by body mass, temperature, and p-value). **(access this file via Teams)**</span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`exp_design.rds`</span>: experimental design table with key input parameters and scenarion names, written by <span class="in">`ScenarioDefs.qmd`</span>. </span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`exp_scenarios`</span>: a list of lists. Each named list element contains the input parameters that define the experimental scenarios as specified in <span class="in">`exp_design.rds`</span>. Written by <span class="in">`ScenarioDefs.qmd`</span></span>
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>

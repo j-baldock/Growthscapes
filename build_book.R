@@ -16,6 +16,7 @@ quarto::quarto_render("PreCalGrowth.qmd", output_format = "html", cache_refresh 
 quarto::quarto_render("GrowthRegime.qmd", output_format = "html", cache_refresh = TRUE)
 
 quarto::quarto_render("ScenarioDefs.qmd", output_format = "html", cache_refresh = TRUE)
+quarto::quarto_render("RunInstructions.qmd", output_format = "html", cache_refresh = TRUE)
 
 quarto::quarto_render("SensitivityAnalysis.qmd", output_format = "html", cache_refresh = TRUE)
 quarto::quarto_render("TestPValSpecs.qmd", output_format = "html", cache_refresh = TRUE)
